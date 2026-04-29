@@ -2,7 +2,4 @@ node_modules/
 dist/
 vite.stdout.log
 vite.stderr.log
-public/assets/scene/_debug_leaf.webp
-public/assets/scene/_debug_leaf_0.webp
-public/assets/scene/_debug_leaf_1.webp
-public/assets/scene/_debug_leaf_2.webp
+docs/
