@@ -1,6 +1,7 @@
 import "./style.css";
 
 import * as THREE from "three";
+import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
@@ -15,6 +16,10 @@ const VIEWER_CONFIG = {
   colorPipeline: {
     toneMapping: "standard",
     exposure: 0.95,
+  },
+  camera: {
+    fov: 75,
+    height: 1.2,
   },
   runtimeOptimization: {
     frustumCulling: true,
@@ -72,6 +77,14 @@ const VIEWER_CONFIG = {
       materialMode: "glass",
       required: false,
       candidates: ["/assets/scene/glass.glb", "/assets/scene/glass.gltf"],
+    },
+    {
+      id: "reflect",
+      label: "Reflect",
+      searchParam: "reflect",
+      materialMode: "reflect",
+      required: false,
+      candidates: ["/assets/scene/reflect.glb", "/assets/scene/reflect.gltf"],
     },
     {
       id: "fx",
@@ -145,6 +158,26 @@ const VIEWER_CONFIG = {
       color: 0,
       alpha: 1,
     },
+    reflectUvChannels: {
+      color: 0,
+      roughness: 1,
+      metalness: 1,
+      ao: 1,
+      normal: 0,
+    },
+    reflectMaterial: {
+      searchParam: "reflectEnv",
+      candidates: [
+        "/assets/scene/cubemap.png",
+        "/assets/scene/cubemap.jpg",
+        "/assets/scene/cubemap.jpeg",
+      ],
+      envMapIntensity: 1.0,
+      defaultRoughness: 1.0,
+      defaultMetalness: 0.0,
+      ior: 1.5,
+      specularIntensity: 1.0,
+    },
     background: {
       hueDegrees: 0,
       saturation: 0.77,
@@ -177,7 +210,7 @@ hud.innerHTML = `
       </div>
       <button type="button" class="menu-close" data-menu-close aria-label="Close menu">Close</button>
     </div>
-    <p class="status" data-status>Looking for <code>/assets/scene/scene.glb</code> and optional <code>background</code>, <code>alpha</code>, <code>glass</code>, <code>fx</code> layers...</p>
+    <p class="status" data-status>Looking for <code>/assets/scene/scene.glb</code> and optional <code>background</code>, <code>alpha</code>, <code>glass</code>, <code>reflect</code>, <code>fx</code> layers...</p>
     <p>${isTouchDevice ? touchControlText : desktopControlText}</p>
     <div class="menu-section">
       <h2>Viewport</h2>
@@ -193,6 +226,16 @@ hud.innerHTML = `
           <span>Exposure</span>
           <input type="range" min="0.25" max="2.5" step="0.01" value="${VIEWER_CONFIG.colorPipeline.exposure}" data-exposure />
           <output data-exposure-value>${VIEWER_CONFIG.colorPipeline.exposure.toFixed(2)}</output>
+        </label>
+        <label class="field field-range">
+          <span>FOV</span>
+          <input type="range" min="30" max="110" step="1" value="${VIEWER_CONFIG.camera.fov}" data-camera-fov />
+          <output data-camera-fov-value>${VIEWER_CONFIG.camera.fov.toFixed(0)}°</output>
+        </label>
+        <label class="field field-range">
+          <span>Camera Height</span>
+          <input type="range" min="0.5" max="2.5" step="0.01" value="${VIEWER_CONFIG.camera.height}" data-camera-height />
+          <output data-camera-height-value>${VIEWER_CONFIG.camera.height.toFixed(2)}</output>
         </label>
         <label class="layer-toggle">
           <input type="checkbox" data-show-crosshair ${VIEWER_CONFIG.interface.showCrosshair ? "checked" : ""} />
@@ -240,6 +283,31 @@ hud.innerHTML = `
           <span>Value</span>
           <input type="range" min="0" max="2" step="0.01" value="${VIEWER_CONFIG.materialPresets.fireVideo.value}" data-fire-value />
           <output data-fire-value-output>${VIEWER_CONFIG.materialPresets.fireVideo.value.toFixed(2)}</output>
+        </label>
+      </div>
+    </div>
+    <div class="menu-section">
+      <h2>Reflect</h2>
+      <div class="color-tools">
+        <label class="field field-range">
+          <span>Env Intensity</span>
+          <input type="range" min="0" max="4" step="0.01" value="${VIEWER_CONFIG.materialPresets.reflectMaterial.envMapIntensity}" data-reflect-env-intensity />
+          <output data-reflect-env-intensity-value>${VIEWER_CONFIG.materialPresets.reflectMaterial.envMapIntensity.toFixed(2)}</output>
+        </label>
+        <label class="field field-range">
+          <span>IOR</span>
+          <input type="range" min="1" max="2.5" step="0.01" value="${VIEWER_CONFIG.materialPresets.reflectMaterial.ior}" data-reflect-ior />
+          <output data-reflect-ior-value>${VIEWER_CONFIG.materialPresets.reflectMaterial.ior.toFixed(2)}</output>
+        </label>
+        <label class="field field-range">
+          <span>Specular</span>
+          <input type="range" min="0" max="1" step="0.01" value="${VIEWER_CONFIG.materialPresets.reflectMaterial.specularIntensity}" data-reflect-specular />
+          <output data-reflect-specular-value>${VIEWER_CONFIG.materialPresets.reflectMaterial.specularIntensity.toFixed(2)}</output>
+        </label>
+        <label class="field field-range">
+          <span>Metalness</span>
+          <input type="range" min="0" max="1" step="0.01" value="${VIEWER_CONFIG.materialPresets.reflectMaterial.defaultMetalness}" data-reflect-metalness />
+          <output data-reflect-metalness-value>${VIEWER_CONFIG.materialPresets.reflectMaterial.defaultMetalness.toFixed(2)}</output>
         </label>
       </div>
     </div>
@@ -307,7 +375,7 @@ loadingScreen.innerHTML = `
   <div class="loading-card">
     <p class="loading-kicker">University Place</p>
     <h1>Loading Scene</h1>
-    <p class="loading-copy" data-loading-status>Looking for <code>/assets/scene/scene.glb</code> and optional layers...</p>
+    <p class="loading-copy" data-loading-status>Looking for <code>/assets/scene/scene.glb</code> and optional <code>background</code>, <code>alpha</code>, <code>glass</code>, <code>reflect</code>, <code>fx</code> layers...</p>
     <div class="loading-bar" aria-hidden="true">
       <span class="loading-bar-fill"></span>
     </div>
@@ -345,6 +413,10 @@ const hudPanel = hud.querySelector("[data-hud-panel]");
 const toneMappingSelect = hud.querySelector("[data-tone-mapping]");
 const exposureSlider = hud.querySelector("[data-exposure]");
 const exposureValue = hud.querySelector("[data-exposure-value]");
+const cameraFovSlider = hud.querySelector("[data-camera-fov]");
+const cameraFovValue = hud.querySelector("[data-camera-fov-value]");
+const cameraHeightSlider = hud.querySelector("[data-camera-height]");
+const cameraHeightValue = hud.querySelector("[data-camera-height-value]");
 const showCrosshairToggle = hud.querySelector("[data-show-crosshair]");
 const backgroundHueSlider = hud.querySelector("[data-background-hue]");
 const backgroundHueValue = hud.querySelector("[data-background-hue-value]");
@@ -358,6 +430,14 @@ const fireSaturationSlider = hud.querySelector("[data-fire-saturation]");
 const fireSaturationValue = hud.querySelector("[data-fire-saturation-value]");
 const fireValueSlider = hud.querySelector("[data-fire-value]");
 const fireValueOutput = hud.querySelector("[data-fire-value-output]");
+const reflectEnvIntensitySlider = hud.querySelector("[data-reflect-env-intensity]");
+const reflectEnvIntensityValue = hud.querySelector("[data-reflect-env-intensity-value]");
+const reflectIorSlider = hud.querySelector("[data-reflect-ior]");
+const reflectIorValue = hud.querySelector("[data-reflect-ior-value]");
+const reflectSpecularSlider = hud.querySelector("[data-reflect-specular]");
+const reflectSpecularValue = hud.querySelector("[data-reflect-specular-value]");
+const reflectMetalnessSlider = hud.querySelector("[data-reflect-metalness]");
+const reflectMetalnessValue = hud.querySelector("[data-reflect-metalness-value]");
 const layerControls = hud.querySelector("[data-layer-controls]");
 const statFps = hud.querySelector("[data-stat-fps]");
 const statFrameMs = hud.querySelector("[data-stat-frame-ms]");
@@ -384,11 +464,13 @@ viewport.prepend(renderer.domElement);
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color("#050816");
+const reflectionPmremGenerator = new THREE.PMREMGenerator(renderer);
+reflectionPmremGenerator.compileCubemapShader();
 const sceneRoots = new THREE.Group();
 scene.add(sceneRoots);
 
 const camera = new THREE.PerspectiveCamera(
-  75,
+  VIEWER_CONFIG.camera.fov,
   window.innerWidth / window.innerHeight,
   0.05,
   5000,
@@ -508,6 +590,15 @@ const fireState = {
   value: VIEWER_CONFIG.materialPresets.fireVideo.value,
   materials: new Set(),
 };
+const reflectionState = {
+  envUrl: null,
+  envTexture: null,
+  envMapIntensity: VIEWER_CONFIG.materialPresets.reflectMaterial.envMapIntensity,
+  ior: VIEWER_CONFIG.materialPresets.reflectMaterial.ior,
+  specularIntensity: VIEWER_CONFIG.materialPresets.reflectMaterial.specularIntensity,
+  metalness: VIEWER_CONFIG.materialPresets.reflectMaterial.defaultMetalness,
+  materials: new Set(),
+};
 
 const tmpForward = new THREE.Vector3();
 const tmpRight = new THREE.Vector3();
@@ -520,6 +611,11 @@ const lookState = {
   sensitivity: 0.002,
   minPitch: -Math.PI / 2,
   maxPitch: Math.PI / 2,
+};
+const cameraState = {
+  fov: VIEWER_CONFIG.camera.fov,
+  height: VIEWER_CONFIG.camera.height,
+  lastAppliedHeight: VIEWER_CONFIG.camera.height,
 };
 const pointerLockState = {
   unlockCooldownMs: 400,
@@ -618,6 +714,39 @@ function applyViewportColorSettings() {
   }
 }
 
+function applyCameraSettings() {
+  VIEWER_CONFIG.camera.fov = cameraState.fov;
+  VIEWER_CONFIG.camera.height = cameraState.height;
+  VIEWER_CONFIG.locomotion.eyeHeight = cameraState.height;
+
+  camera.fov = cameraState.fov;
+  camera.updateProjectionMatrix();
+
+  if (cameraFovSlider) {
+    cameraFovSlider.value = cameraState.fov.toFixed(0);
+  }
+
+  if (cameraFovValue) {
+    cameraFovValue.value = `${cameraState.fov.toFixed(0)}°`;
+    cameraFovValue.textContent = `${cameraState.fov.toFixed(0)}°`;
+  }
+
+  if (cameraHeightSlider) {
+    cameraHeightSlider.value = cameraState.height.toFixed(2);
+  }
+
+  if (cameraHeightValue) {
+    cameraHeightValue.value = cameraState.height.toFixed(2);
+    cameraHeightValue.textContent = cameraState.height.toFixed(2);
+  }
+
+  sceneMetrics.walkY = sceneMetrics.groundY + VIEWER_CONFIG.locomotion.eyeHeight;
+  const delta = cameraState.height - cameraState.lastAppliedHeight;
+  camera.position.y += delta;
+
+  cameraState.lastAppliedHeight = cameraState.height;
+}
+
 function applyInterfaceSettings() {
   if (showCrosshairToggle) {
     showCrosshairToggle.checked = VIEWER_CONFIG.interface.showCrosshair;
@@ -709,6 +838,56 @@ function applyFireColorSettings() {
     uniforms.viewerFireHue.value = fireState.hueDegrees / 360;
     uniforms.viewerFireSaturation.value = fireState.saturation;
     uniforms.viewerFireValue.value = fireState.value;
+  });
+}
+
+function applyReflectMaterialSettings() {
+  if (reflectEnvIntensitySlider) {
+    reflectEnvIntensitySlider.value = reflectionState.envMapIntensity.toFixed(2);
+  }
+
+  if (reflectEnvIntensityValue) {
+    reflectEnvIntensityValue.value = reflectionState.envMapIntensity.toFixed(2);
+    reflectEnvIntensityValue.textContent = reflectionState.envMapIntensity.toFixed(2);
+  }
+
+  if (reflectIorSlider) {
+    reflectIorSlider.value = reflectionState.ior.toFixed(2);
+  }
+
+  if (reflectIorValue) {
+    reflectIorValue.value = reflectionState.ior.toFixed(2);
+    reflectIorValue.textContent = reflectionState.ior.toFixed(2);
+  }
+
+  if (reflectSpecularSlider) {
+    reflectSpecularSlider.value = reflectionState.specularIntensity.toFixed(2);
+  }
+
+  if (reflectSpecularValue) {
+    reflectSpecularValue.value = reflectionState.specularIntensity.toFixed(2);
+    reflectSpecularValue.textContent = reflectionState.specularIntensity.toFixed(2);
+  }
+
+  if (reflectMetalnessSlider) {
+    reflectMetalnessSlider.value = reflectionState.metalness.toFixed(2);
+  }
+
+  if (reflectMetalnessValue) {
+    reflectMetalnessValue.value = reflectionState.metalness.toFixed(2);
+    reflectMetalnessValue.textContent = reflectionState.metalness.toFixed(2);
+  }
+
+  reflectionState.materials.forEach((material) => {
+    material.envMapIntensity = reflectionState.envMapIntensity;
+    material.metalness = reflectionState.metalness;
+
+    if (material.isMeshPhysicalMaterial) {
+      material.ior = reflectionState.ior;
+      material.specularIntensity = reflectionState.specularIntensity;
+    }
+
+    material.needsUpdate = true;
   });
 }
 
@@ -1372,8 +1551,74 @@ function getMaterialTexture(source) {
   return normalizeTexture(source.map || source.emissiveMap || null);
 }
 
+function getMaterialColorTexture(source) {
+  return normalizeTexture(source.map || null);
+}
+
 function getMaterialAlphaTexture(source) {
   return normalizeDataTexture(source.alphaMap || source.roughnessMap || null);
+}
+
+function getMaterialRoughnessTexture(source) {
+  return normalizeDataTexture(source.roughnessMap || null);
+}
+
+function getMaterialMetalnessTexture(source) {
+  return normalizeDataTexture(source.metalnessMap || null);
+}
+
+function getMaterialNormalTexture(source) {
+  return normalizeDataTexture(source.normalMap || null);
+}
+
+function getMaterialAoTexture(source) {
+  return normalizeDataTexture(source.aoMap || null);
+}
+
+function buildFallbackReflectionEnvironment() {
+  const reflectionEnvironmentScene = new RoomEnvironment();
+  const reflectionEnvironmentTarget = reflectionPmremGenerator.fromScene(reflectionEnvironmentScene, 0.04);
+  const reflectionEnvironmentMap = reflectionEnvironmentTarget.texture;
+  reflectionEnvironmentScene.dispose();
+  return reflectionEnvironmentMap;
+}
+
+async function ensureReflectionEnvironment() {
+  if (reflectionState.envTexture) {
+    return reflectionState.envTexture;
+  }
+
+  if (!reflectionState.envUrl) {
+    reflectionState.envUrl = await resolveOptionalAssetUrl(
+      VIEWER_CONFIG.materialPresets.reflectMaterial.searchParam,
+      VIEWER_CONFIG.materialPresets.reflectMaterial.candidates,
+    );
+  }
+
+  if (!reflectionState.envUrl) {
+    reflectionState.envTexture = buildFallbackReflectionEnvironment();
+    scene.environment = reflectionState.envTexture;
+    return reflectionState.envTexture;
+  }
+
+  try {
+    const equirectTexture = await new THREE.TextureLoader().loadAsync(reflectionState.envUrl);
+    equirectTexture.colorSpace = THREE.SRGBColorSpace;
+    equirectTexture.mapping = THREE.EquirectangularReflectionMapping;
+    equirectTexture.needsUpdate = true;
+
+    const reflectionEnvironmentTarget = reflectionPmremGenerator.fromEquirectangular(equirectTexture);
+    equirectTexture.dispose();
+    reflectionState.envTexture = reflectionEnvironmentTarget.texture;
+    scene.environment = reflectionState.envTexture;
+    updateStatus(`Reflection environment loaded from ${reflectionState.envUrl}.`);
+    return reflectionState.envTexture;
+  } catch (error) {
+    console.warn(`Failed to load reflection environment from ${reflectionState.envUrl}.`, error);
+    reflectionState.envTexture = buildFallbackReflectionEnvironment();
+    scene.environment = reflectionState.envTexture;
+    return reflectionState.envTexture;
+  }
 }
 
 function getMaterialTint(source, hasTexture) {
@@ -1620,6 +1865,73 @@ function makeGlassMaterial(sourceMaterial, mesh) {
   return material;
 }
 
+function makeReflectMaterial(sourceMaterial, mesh) {
+  const source = sourceMaterial ?? {};
+  const map = getMaterialColorTexture(source);
+  const roughnessMap = getMaterialRoughnessTexture(source);
+  const metalnessMap = getMaterialMetalnessTexture(source);
+  const normalMap = getMaterialNormalTexture(source);
+  const aoMap = getMaterialAoTexture(source);
+  const hasTexture = Boolean(map);
+  const tweak = findMaterialTweak(mesh, source);
+  const reflectUvChannels = VIEWER_CONFIG.materialPresets.reflectUvChannels;
+  const colorChannel = getFallbackTextureChannel(mesh, reflectUvChannels.color);
+  const roughnessChannel = getFallbackTextureChannel(mesh, reflectUvChannels.roughness);
+  const metalnessChannel = getFallbackTextureChannel(mesh, reflectUvChannels.metalness);
+  const aoChannel = getFallbackTextureChannel(mesh, reflectUvChannels.ao);
+  const normalChannel = getFallbackTextureChannel(mesh, reflectUvChannels.normal);
+  const reflectPreset = VIEWER_CONFIG.materialPresets.reflectMaterial;
+
+  applyTextureChannelOverride(map, colorChannel);
+  applyTextureChannelOverride(roughnessMap, roughnessChannel);
+  applyTextureChannelOverride(metalnessMap, metalnessChannel);
+  applyTextureChannelOverride(aoMap, aoChannel);
+  applyTextureChannelOverride(normalMap, normalChannel);
+
+  const material = new THREE.MeshPhysicalMaterial({
+    name: source.name || "ReflectMaterial",
+    map,
+    color: getMaterialTint(source, hasTexture),
+    roughness: source.roughness ?? reflectPreset.defaultRoughness,
+    roughnessMap,
+    metalness: reflectionState.metalness,
+    metalnessMap,
+    normalMap,
+    normalScale: source.normalScale?.clone?.() ?? new THREE.Vector2(1, 1),
+    aoMap,
+    envMapIntensity: reflectionState.envMapIntensity,
+    transparent: Boolean(source.transparent),
+    opacity: source.opacity ?? 1,
+    alphaTest: source.alphaTest ?? 0,
+    side: source.side ?? THREE.FrontSide,
+    vertexColors: Boolean(source.vertexColors),
+    emissive: source.emissive?.clone?.() ?? new THREE.Color(0x000000),
+    emissiveMap: normalizeTexture(source.emissiveMap || null),
+    emissiveIntensity: source.emissiveIntensity ?? 1,
+    ior: reflectionState.ior,
+    specularIntensity: reflectionState.specularIntensity,
+    clearcoat: source.clearcoat ?? 0,
+    clearcoatRoughness: source.clearcoatRoughness ?? 0,
+    transmission: source.transmission ?? 0,
+    thickness: source.thickness ?? 0,
+  });
+
+  material.envMap = reflectionState.envTexture ?? scene.environment ?? null;
+
+  stampViewerMaterialData(material, source, tweak);
+  material.userData.viewerUvChannels = {
+    color: map?.channel ?? colorChannel ?? null,
+    roughness: roughnessMap?.channel ?? roughnessChannel ?? null,
+    metalness: metalnessMap?.channel ?? metalnessChannel ?? null,
+    ao: aoMap?.channel ?? aoChannel ?? null,
+    normal: normalMap?.channel ?? normalChannel ?? null,
+  };
+  applyViewerMaterialPatches(material, { tweak });
+  reflectionState.materials.add(material);
+
+  return material;
+}
+
 function makeBackgroundMaterial(sourceMaterial, mesh) {
   const source = sourceMaterial ?? {};
   const map = getMaterialTexture(source);
@@ -1739,6 +2051,8 @@ function makeViewerMaterial(sourceMaterial, mesh, materialMode) {
       return makeAlphaCutoutMaterial(sourceMaterial, mesh);
     case "glass":
       return makeGlassMaterial(sourceMaterial, mesh);
+    case "reflect":
+      return makeReflectMaterial(sourceMaterial, mesh);
     case "fx":
       return makeFxMaterial(sourceMaterial, mesh);
     case "baked":
@@ -2079,6 +2393,7 @@ function logLayerMaterials(root, layer) {
 
 async function loadSceneLayers() {
   try {
+    await ensureReflectionEnvironment();
     const layers = await resolveSceneLayers();
     if (!layers?.length) {
       addFallbackScene();
@@ -2125,11 +2440,13 @@ async function loadSceneLayers() {
     renderLayerControls();
     applyBackgroundColorSettings();
     applyFireColorSettings();
+    applyReflectMaterialSettings();
     applyRuntimeTextureOptimizations();
     updatePerformanceDiagnostics();
 
     const spawnRoot = loadedLayers.find((entry) => entry.layer.id === "base")?.root ?? loadedLayers[0].root;
     positionCameraAtSpawn(spawnRoot);
+    applyCameraSettings();
 
     const loadedSummary = loadedLayers.map((entry) => entry.layer.label).join(", ");
     updateStatus(isTouchDevice
@@ -2320,6 +2637,16 @@ exposureSlider?.addEventListener("input", (event) => {
   applyViewportColorSettings();
 });
 
+cameraFovSlider?.addEventListener("input", (event) => {
+  cameraState.fov = Number(event.target.value);
+  applyCameraSettings();
+});
+
+cameraHeightSlider?.addEventListener("input", (event) => {
+  cameraState.height = Number(event.target.value);
+  applyCameraSettings();
+});
+
 showCrosshairToggle?.addEventListener("change", (event) => {
   VIEWER_CONFIG.interface.showCrosshair = Boolean(event.target.checked);
   applyInterfaceSettings();
@@ -2353,6 +2680,26 @@ fireSaturationSlider?.addEventListener("input", (event) => {
 fireValueSlider?.addEventListener("input", (event) => {
   fireState.value = Number(event.target.value);
   applyFireColorSettings();
+});
+
+reflectEnvIntensitySlider?.addEventListener("input", (event) => {
+  reflectionState.envMapIntensity = Number(event.target.value);
+  applyReflectMaterialSettings();
+});
+
+reflectIorSlider?.addEventListener("input", (event) => {
+  reflectionState.ior = Number(event.target.value);
+  applyReflectMaterialSettings();
+});
+
+reflectSpecularSlider?.addEventListener("input", (event) => {
+  reflectionState.specularIntensity = Number(event.target.value);
+  applyReflectMaterialSettings();
+});
+
+reflectMetalnessSlider?.addEventListener("input", (event) => {
+  reflectionState.metalness = Number(event.target.value);
+  applyReflectMaterialSettings();
 });
 
 baseLowMemoryToggle?.addEventListener("change", (event) => {
@@ -2464,8 +2811,10 @@ function animate() {
 
 syncLookStateFromCamera();
 applyViewportColorSettings();
+applyCameraSettings();
 applyInterfaceSettings();
 applyBackgroundColorSettings();
 applyFireColorSettings();
+applyReflectMaterialSettings();
 loadSceneLayers();
 animate();

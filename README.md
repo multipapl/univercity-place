@@ -227,6 +227,35 @@ Reflections and `PBR` notes:
   or a scene-derived environment capture.
 - Baking reflections directly into the main color texture is acceptable for static non-hero assets, but usually looks wrong on noticeable moving-camera metal objects.
 - Lightmaps can help add baked lighting to `PBR` assets, but they are not a replacement for proper reflection response.
+- Current reflection pass implemented in the viewer:
+  optional `reflect.glb` / `reflect.gltf` layer,
+  imported as selective hero `PBR` instead of baked-only,
+  using `MeshPhysicalMaterial` for runtime reflections and material tuning.
+- Current texture / UV contract for the reflection pass:
+  baked no-gloss color in `Base Color`,
+  `UV0` for the color texture,
+  roughness texture on `UV1`,
+  optional future `metalness` / `ao` on `UV1`,
+  normal map on `UV0`.
+- Current reflection environment contract:
+  optional `cubemap.png` / `.jpg` / `.jpeg` in `public/assets/scene/`,
+  expected as an equirectangular map,
+  converted through `PMREM` before assignment to reflective materials.
+- Current runtime test controls already exposed in the menu:
+  tone mapping,
+  exposure,
+  reflection environment intensity,
+  `IOR`,
+  specular intensity,
+  metalness,
+  `FOV`,
+  camera height.
+- Current production direction remains hybrid:
+  most of the scene stays baked,
+  only selected reflective objects go through the reflection pass.
+- Future plan for room-to-room reflections:
+  keep simple per-room probe switching first,
+  then optionally move toward blended neighboring probes with box-projected / parallax-corrected cubemap sampling for smoother transitions near room boundaries.
 
 Draw call and material budget notes:
 
@@ -259,8 +288,8 @@ Compressed summary of the current understanding:
 - `Three.js` is the correct direction for this project.
 - `WebGL` is the low-level graphics API; `Three.js` is the higher-level rendering framework built on top of that layer.
 - The current viewer is intentionally a baked-scene viewer and converts imported materials to `MeshBasicMaterial`.
-- The current viewer now supports separate `baked`, `alpha cutout`, `glass`, and `fx` layer behaviors during import.
-- Because of that, current realtime `PBR`, dynamic light response, and metallic reflections are not active yet in this viewer.
+- The current viewer now supports separate `baked`, `alpha cutout`, `glass`, `reflect`, and `fx` layer behaviors during import.
+- Realtime `PBR` and metallic reflections are now active only for the selective `reflect` layer, while the rest of the environment stays baked.
 - Video or other animated textures are possible later in `Three.js`, but they are not the current priority.
 - The healthiest production direction is a hybrid pipeline:
   mostly baked environment,
@@ -327,19 +356,24 @@ Practical implication:
 The next implementation pass should stay focused and practical:
 
 - Keep the current baked viewer working.
-- Start preparing a mixed-material path instead of forcing every mesh into baked-only rendering.
-- Add easy-to-edit configuration values in code for visual tuning.
-- Prefer exposing key values in one place instead of requiring code edits all over the file.
+- Validate the current reflection pass on more than a single test object.
+- Keep easy-to-edit runtime controls for visual tuning.
+- Add per-room reflection probe assignment without expanding realtime shading to the whole scene.
+- Keep the first multi-probe implementation simple and explicit before attempting probe blending.
 
 Likely tunable parameters we will want:
 
 - tone mapping mode
 - exposure
+- `FOV`
+- camera height
 - material-level overrides for selected meshes
-- future environment / reflection intensity for hero `PBR` objects
+- environment / reflection intensity for hero `PBR` objects
+- `IOR`, specular intensity, and metalness for reflection-pass testing
+- future per-probe assignment and future probe blending
 - future light intensities only if and when realtime-lit materials are introduced
 
 Important reminder for future work:
 
-- In the current baked-only viewer, values like `ambient light` are not meaningful yet because the scene is converted to `MeshBasicMaterial`.
-- If we want editable lighting controls, we first need a viewer path that preserves or rebuilds realtime-lit materials for selected assets.
+- In the baked layers, values like `ambient light` are still not meaningful because those layers are converted to `MeshBasicMaterial`.
+- Editable lighting-style controls only make sense on the selective realtime `PBR` reflection path unless more of the scene moves away from baked-only rendering.
