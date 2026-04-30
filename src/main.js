@@ -20,6 +20,15 @@ const VIEWER_CONFIG = {
   camera: {
     fov: 75,
     height: 1.2,
+    ambientMotion: {
+      enabled: true,
+      positionX: 0.014,
+      positionY: 0.0245,
+      positionZ: 0.0084,
+      yawDegrees: 0.175,
+      pitchDegrees: 0.126,
+      speed: 0.364,
+    },
   },
   runtimeOptimization: {
     frustumCulling: true,
@@ -43,6 +52,17 @@ const VIEWER_CONFIG = {
         "/assets/scene/bg.gltf",
         "/assets/scene/backdrop.glb",
         "/assets/scene/backdrop.gltf",
+      ],
+    },
+    {
+      id: "bg360",
+      label: "BG360",
+      searchParam: "bg360",
+      materialMode: "unlitAlpha",
+      required: false,
+      candidates: [
+        "/assets/scene/BG360.glb",
+        "/assets/scene/BG360.gltf",
       ],
     },
     {
@@ -152,8 +172,9 @@ const VIEWER_CONFIG = {
       value: 0.16,
     },
     useFallbackMapAlphaFromSeparateUv: false,
-    foliageDisableMipmaps: true,
+    foliageDisableMipmaps: false,
     foliagePremultiplyAlpha: true,
+    foliageAnisotropy: 4,
     alphaCutoutUvChannels: {
       color: 0,
       alpha: 1,
@@ -182,6 +203,12 @@ const VIEWER_CONFIG = {
       hueDegrees: 0,
       saturation: 0.77,
       value: 1.15,
+      rotationDegreesPerMinute: 0,
+      warpStrength: 0.0056,
+      warpScale: 24,
+      warpSpeed: 0.12,
+      shimmerStrength: 0.06,
+      shimmerSpeed: 0.16,
     },
   },
 };
@@ -242,6 +269,13 @@ hud.innerHTML = `
           <span class="layer-toggle-copy">
             <strong>Show Crosshair</strong>
             <small>Toggle the center reticle on desktop.</small>
+          </span>
+        </label>
+        <label class="layer-toggle">
+          <input type="checkbox" data-camera-shake ${VIEWER_CONFIG.camera.ambientMotion.enabled ? "checked" : ""} />
+          <span class="layer-toggle-copy">
+            <strong>Camera Shake</strong>
+            <small>Toggle the subtle ambient camera drift.</small>
           </span>
         </label>
       </div>
@@ -418,6 +452,7 @@ const cameraFovValue = hud.querySelector("[data-camera-fov-value]");
 const cameraHeightSlider = hud.querySelector("[data-camera-height]");
 const cameraHeightValue = hud.querySelector("[data-camera-height-value]");
 const showCrosshairToggle = hud.querySelector("[data-show-crosshair]");
+const cameraShakeToggle = hud.querySelector("[data-camera-shake]");
 const backgroundHueSlider = hud.querySelector("[data-background-hue]");
 const backgroundHueValue = hud.querySelector("[data-background-hue-value]");
 const backgroundSaturationSlider = hud.querySelector("[data-background-saturation]");
@@ -461,6 +496,7 @@ renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.shadowMap.enabled = false;
 viewport.prepend(renderer.domElement);
+const maxSupportedAnisotropy = renderer.capabilities.getMaxAnisotropy();
 
 const scene = new THREE.Scene();
 scene.background = new THREE.Color("#050816");
@@ -540,7 +576,7 @@ VIEWER_CONFIG.runtimeOptimization.baseTextureMaxSize = parsePositiveInteger(sear
 
 const keys = new Set();
 const movement = {
-  baseSpeed: 5,
+  baseSpeed: 1.5,
   boostMultiplier: 3.5,
 };
 const uiState = {
@@ -577,6 +613,10 @@ const backgroundState = {
   saturation: VIEWER_CONFIG.materialPresets.background.saturation,
   value: VIEWER_CONFIG.materialPresets.background.value,
   materials: new Set(),
+  roots: new Set(),
+  motionTime: 0,
+  rotationRadiansPerSecond:
+    THREE.MathUtils.degToRad(VIEWER_CONFIG.materialPresets.background.rotationDegreesPerMinute) / 60,
 };
 const fxState = {
   videoUrl: null,
@@ -616,6 +656,10 @@ const cameraState = {
   fov: VIEWER_CONFIG.camera.fov,
   height: VIEWER_CONFIG.camera.height,
   lastAppliedHeight: VIEWER_CONFIG.camera.height,
+  ambientMotionTime: 0,
+  lastOffset: new THREE.Vector3(),
+  lastYawOffset: 0,
+  lastPitchOffset: 0,
 };
 const pointerLockState = {
   unlockCooldownMs: 400,
@@ -747,6 +791,53 @@ function applyCameraSettings() {
   cameraState.lastAppliedHeight = cameraState.height;
 }
 
+function applyCameraMotionSettings() {
+  if (cameraShakeToggle) {
+    cameraShakeToggle.checked = VIEWER_CONFIG.camera.ambientMotion.enabled;
+  }
+}
+
+function clearCameraAmbientMotion() {
+  if (cameraState.lastOffset.lengthSq() > 0) {
+    camera.position.sub(cameraState.lastOffset);
+    cameraState.lastOffset.set(0, 0, 0);
+  }
+
+  if (cameraState.lastYawOffset !== 0 || cameraState.lastPitchOffset !== 0) {
+    camera.rotation.y -= cameraState.lastYawOffset;
+    camera.rotation.x -= cameraState.lastPitchOffset;
+    cameraState.lastYawOffset = 0;
+    cameraState.lastPitchOffset = 0;
+  }
+}
+
+function applyCameraAmbientMotion(delta) {
+  const ambientMotion = VIEWER_CONFIG.camera.ambientMotion;
+  if (!ambientMotion?.enabled) {
+    return;
+  }
+
+  cameraState.ambientMotionTime += delta * ambientMotion.speed;
+  const t = cameraState.ambientMotionTime;
+
+  const offsetX = Math.sin(t * 0.83) * ambientMotion.positionX;
+  const offsetY = Math.cos(t * 1.11) * ambientMotion.positionY;
+  const offsetZ = Math.sin(t * 0.57 + 1.3) * ambientMotion.positionZ;
+
+  camera.position.x += offsetX;
+  camera.position.y += offsetY;
+  camera.position.z += offsetZ;
+  cameraState.lastOffset.set(offsetX, offsetY, offsetZ);
+
+  const yawOffset = THREE.MathUtils.degToRad(ambientMotion.yawDegrees) * Math.sin(t * 0.41 + 0.6);
+  const pitchOffset = THREE.MathUtils.degToRad(ambientMotion.pitchDegrees) * Math.cos(t * 0.52 + 1.1);
+
+  camera.rotation.y += yawOffset;
+  camera.rotation.x += pitchOffset;
+  cameraState.lastYawOffset = yawOffset;
+  cameraState.lastPitchOffset = pitchOffset;
+}
+
 function applyInterfaceSettings() {
   if (showCrosshairToggle) {
     showCrosshairToggle.checked = VIEWER_CONFIG.interface.showCrosshair;
@@ -798,6 +889,27 @@ function applyBackgroundColorSettings() {
     uniforms.viewerBackgroundSaturation.value = backgroundState.saturation;
     uniforms.viewerBackgroundValue.value = backgroundState.value;
     material.uniformsNeedUpdate = true;
+  });
+}
+
+function updateBackgroundMotion(delta) {
+  backgroundState.motionTime += delta;
+
+  backgroundState.materials.forEach((material) => {
+    const uniforms = material.uniforms ?? material.userData.viewerBackgroundUniforms;
+    if (!uniforms?.viewerBackgroundTime) {
+      return;
+    }
+
+    uniforms.viewerBackgroundTime.value = backgroundState.motionTime;
+  });
+
+  if (!backgroundState.rotationRadiansPerSecond || !backgroundState.roots.size) {
+    return;
+  }
+
+  backgroundState.roots.forEach((root) => {
+    root.rotation.y += backgroundState.rotationRadiansPerSecond * delta;
   });
 }
 
@@ -1383,7 +1495,16 @@ function tuneFoliageTexture(texture) {
     texture.generateMipmaps = false;
     texture.minFilter = THREE.LinearFilter;
     texture.magFilter = THREE.LinearFilter;
+  } else {
+    texture.generateMipmaps = true;
+    texture.minFilter = THREE.LinearMipmapLinearFilter;
+    texture.magFilter = THREE.LinearFilter;
   }
+
+  texture.anisotropy = Math.min(
+    VIEWER_CONFIG.materialPresets.foliageAnisotropy ?? 1,
+    maxSupportedAnisotropy || 1,
+  );
 
   if (VIEWER_CONFIG.materialPresets.foliagePremultiplyAlpha) {
     texture.premultiplyAlpha = true;
@@ -1944,6 +2065,12 @@ function makeBackgroundMaterial(sourceMaterial, mesh) {
     viewerBackgroundHue: { value: backgroundState.hueDegrees / 360 },
     viewerBackgroundSaturation: { value: backgroundState.saturation },
     viewerBackgroundValue: { value: backgroundState.value },
+    viewerBackgroundTime: { value: backgroundState.motionTime },
+    viewerBackgroundWarpStrength: { value: VIEWER_CONFIG.materialPresets.background.warpStrength },
+    viewerBackgroundWarpScale: { value: VIEWER_CONFIG.materialPresets.background.warpScale },
+    viewerBackgroundWarpSpeed: { value: VIEWER_CONFIG.materialPresets.background.warpSpeed },
+    viewerBackgroundShimmerStrength: { value: VIEWER_CONFIG.materialPresets.background.shimmerStrength },
+    viewerBackgroundShimmerSpeed: { value: VIEWER_CONFIG.materialPresets.background.shimmerSpeed },
   };
 
   const material = new THREE.ShaderMaterial({
@@ -1963,6 +2090,12 @@ uniform float viewerBackgroundOpacity;
 uniform float viewerBackgroundHue;
 uniform float viewerBackgroundSaturation;
 uniform float viewerBackgroundValue;
+uniform float viewerBackgroundTime;
+uniform float viewerBackgroundWarpStrength;
+uniform float viewerBackgroundWarpScale;
+uniform float viewerBackgroundWarpSpeed;
+uniform float viewerBackgroundShimmerStrength;
+uniform float viewerBackgroundShimmerSpeed;
 varying vec2 vViewerUv;
 
 vec3 viewerRgbToHsv(vec3 color) {
@@ -1980,12 +2113,27 @@ vec3 viewerHsvToRgb(vec3 color) {
 }
 
 void main() {
-  vec4 sampled = texture2D(viewerBackgroundMap, vViewerUv);
+  float warpTime = viewerBackgroundTime * viewerBackgroundWarpSpeed;
+  vec2 warpedUv = vViewerUv;
+  vec2 warp = vec2(
+    sin((warpedUv.y * 1.7 + warpedUv.x * 0.35) * viewerBackgroundWarpScale + warpTime * 1.13)
+      + cos((warpedUv.y * 0.8 - warpedUv.x * 0.55) * viewerBackgroundWarpScale - warpTime * 0.87),
+    cos((warpedUv.x * 1.35 - warpedUv.y * 0.25) * viewerBackgroundWarpScale - warpTime * 0.91)
+      + sin((warpedUv.x * 0.65 + warpedUv.y * 0.45) * viewerBackgroundWarpScale + warpTime * 1.29)
+  );
+  warpedUv += warp * (viewerBackgroundWarpStrength * 0.5);
+  warpedUv = clamp(warpedUv, vec2(0.001), vec2(0.999));
+
+  vec4 sampled = texture2D(viewerBackgroundMap, warpedUv);
   vec3 color = sampled.rgb * viewerBackgroundTint;
   vec3 hsv = viewerRgbToHsv(color);
   hsv.x = fract(hsv.x + viewerBackgroundHue);
   hsv.y = clamp(hsv.y * viewerBackgroundSaturation, 0.0, 2.0);
-  hsv.z = clamp(hsv.z * viewerBackgroundValue, 0.0, 2.0);
+  float shimmer = 1.0 + sin(
+    (warpedUv.x + warpedUv.y * 1.4) * (viewerBackgroundWarpScale * 0.55)
+    + viewerBackgroundTime * viewerBackgroundShimmerSpeed
+  ) * viewerBackgroundShimmerStrength;
+  hsv.z = clamp(hsv.z * viewerBackgroundValue * shimmer, 0.0, 2.0);
   gl_FragColor = vec4(viewerHsvToRgb(hsv), sampled.a * viewerBackgroundOpacity);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
@@ -2002,6 +2150,34 @@ void main() {
   material.userData.viewerBackgroundUniforms = backgroundUniforms;
   material.uniformsNeedUpdate = true;
   backgroundState.materials.add(material);
+
+  return material;
+}
+
+function makeUnlitAlphaMaterial(sourceMaterial, mesh) {
+  const source = sourceMaterial ?? {};
+  const map = getMaterialTexture(source);
+  const alphaMap = getMaterialAlphaTexture(source);
+  const hasTexture = Boolean(map);
+
+  const material = new THREE.MeshBasicMaterial({
+    name: source.name || "UnlitAlphaMaterial",
+    map,
+    alphaMap,
+    color: getMaterialTint(source, hasTexture),
+    transparent: true,
+    opacity: source.opacity ?? 1,
+    alphaTest: source.alphaTest ?? 0,
+    side: source.side ?? THREE.DoubleSide,
+    depthWrite: false,
+    blending: THREE.NormalBlending,
+    vertexColors: Boolean(source.vertexColors),
+    fog: false,
+  });
+
+  material.toneMapped = false;
+  material.userData.sourceMaterialName = source.name || "";
+  material.userData.viewerTweakId = null;
 
   return material;
 }
@@ -2047,6 +2223,8 @@ function makeViewerMaterial(sourceMaterial, mesh, materialMode) {
   switch (materialMode) {
     case "background":
       return makeBackgroundMaterial(sourceMaterial, mesh);
+    case "unlitAlpha":
+      return makeUnlitAlphaMaterial(sourceMaterial, mesh);
     case "alphaCutout":
       return makeAlphaCutoutMaterial(sourceMaterial, mesh);
     case "glass":
@@ -2073,7 +2251,8 @@ function convertMeshForLayer(mesh, materialMode) {
   if (mesh.geometry && !mesh.geometry.boundingSphere) {
     mesh.geometry.computeBoundingSphere();
   }
-  mesh.frustumCulled = materialMode !== "background" && VIEWER_CONFIG.runtimeOptimization.frustumCulling;
+  mesh.frustumCulled = !["background", "unlitAlpha"].includes(materialMode)
+    && VIEWER_CONFIG.runtimeOptimization.frustumCulling;
 
   if (materialMode === "background") {
     mesh.onBeforeRender = (_renderer, _scene, _camera, _geometry, renderMaterial) => {
@@ -2087,6 +2266,11 @@ function convertMeshForLayer(mesh, materialMode) {
       uniforms.viewerBackgroundValue.value = backgroundState.value;
     };
     mesh.renderOrder = -1000;
+    return;
+  }
+
+  if (materialMode === "unlitAlpha") {
+    mesh.renderOrder = -900;
   }
 }
 
@@ -2419,6 +2603,10 @@ async function loadSceneLayers() {
           await applyFxRuntimeAssets(root);
         }
 
+        if (layer.id === "background") {
+          backgroundState.roots.add(root);
+        }
+
         logLayerMaterials(root, layer);
         sceneRoots.add(root);
         loadedLayers.push({ layer, root });
@@ -2652,6 +2840,13 @@ showCrosshairToggle?.addEventListener("change", (event) => {
   applyInterfaceSettings();
 });
 
+cameraShakeToggle?.addEventListener("change", (event) => {
+  VIEWER_CONFIG.camera.ambientMotion.enabled = Boolean(event.target.checked);
+  clearCameraAmbientMotion();
+  applyLookState();
+  applyCameraMotionSettings();
+});
+
 backgroundHueSlider?.addEventListener("input", (event) => {
   backgroundState.hueDegrees = Number(event.target.value);
   applyBackgroundColorSettings();
@@ -2792,10 +2987,13 @@ function updateMovement(delta) {
 
 function animate() {
   const delta = clock.getDelta();
+  clearCameraAmbientMotion();
   if (fxState.videoElement?.paused && performance.now() - fxState.lastResumeAttemptAt > 1500) {
     resumeFireVideoPlayback();
   }
+  updateBackgroundMotion(delta);
   updateMovement(delta);
+  applyCameraAmbientMotion(delta);
   renderer.render(scene, camera);
   diagnosticsState.frameAccumulator += delta;
   diagnosticsState.frameCounter += 1;
@@ -2812,6 +3010,7 @@ function animate() {
 syncLookStateFromCamera();
 applyViewportColorSettings();
 applyCameraSettings();
+applyCameraMotionSettings();
 applyInterfaceSettings();
 applyBackgroundColorSettings();
 applyFireColorSettings();
