@@ -472,6 +472,12 @@ const assetQuery = debugMode
       ? `v=${encodeURIComponent(assetBustValue)}`
       : (isLocalAssetDevelopment ? `v=${encodeURIComponent(`${Date.now()}`)}` : ""));
 
+if (!debugMode) {
+  debugOnlySections.forEach((section) => {
+    section.remove();
+  });
+}
+
 try {
   window.localStorage.removeItem("viewer.debugMode");
 } catch {
