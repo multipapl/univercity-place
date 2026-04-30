@@ -8,6 +8,7 @@ import {
   SCENE_LOAD_STATUS_HTML,
   VIEWER_CONFIG,
 } from "./config/viewerConfig.js";
+import { createNavigationController } from "./camera/navigationController.js";
 import { createPerformanceDiagnostics } from "./diagnostics/performanceDiagnostics.js";
 import { createSceneLayerLoader } from "./loaders/sceneLayerLoader.js";
 import { createMaterialPipeline } from "./materials/materialPipeline.js";
@@ -85,7 +86,7 @@ hud.innerHTML = `
         </label>
       </div>
     </div>
-    <div class="menu-section">
+    <div class="menu-section" data-debug-only>
       <h2>Background</h2>
       <div class="color-tools">
         <label class="field field-range">
@@ -105,7 +106,7 @@ hud.innerHTML = `
         </label>
       </div>
     </div>
-    <div class="menu-section">
+    <div class="menu-section" data-debug-only>
       <h2>Fire</h2>
       <div class="color-tools">
         <label class="field field-range">
@@ -125,7 +126,7 @@ hud.innerHTML = `
         </label>
       </div>
     </div>
-    <div class="menu-section">
+    <div class="menu-section" data-debug-only>
       <h2>Reflect</h2>
       <div class="color-tools">
         <label class="field field-range">
@@ -150,13 +151,13 @@ hud.innerHTML = `
         </label>
       </div>
     </div>
-    <div class="menu-section">
+    <div class="menu-section" data-debug-only>
       <h2>Layers</h2>
       <div class="layer-controls" data-layer-controls>
         <p class="empty-state">Layers will appear here after scene load.</p>
       </div>
     </div>
-    <div class="menu-section">
+    <div class="menu-section" data-debug-only>
       <h2>Performance</h2>
       <div class="layer-controls">
         <label class="layer-toggle">
@@ -249,6 +250,7 @@ const loadingStatusLine = loadingScreen.querySelector("[data-loading-status]");
 const menuToggleButton = hud.querySelector("[data-menu-toggle]");
 const menuCloseButton = hud.querySelector("[data-menu-close]");
 const hudPanel = hud.querySelector("[data-hud-panel]");
+const debugOnlySections = [...hud.querySelectorAll("[data-debug-only]")];
 const toneMappingSelect = hud.querySelector("[data-tone-mapping]");
 const exposureSlider = hud.querySelector("[data-exposure]");
 const exposureValue = hud.querySelector("[data-exposure-value]");
@@ -372,18 +374,32 @@ function getStoredBaseTextureCap() {
   }
 }
 
+function getStoredDebugMode() {
+  try {
+    return parseBooleanFlag(window.localStorage.getItem("viewer.debugMode"));
+  } catch {
+    return null;
+  }
+}
+
 VIEWER_CONFIG.runtimeOptimization.lowMemoryBaseMipmaps = parseBooleanFlag(searchParams.get("lowMemoryBase"))
   ?? getStoredLowMemoryBaseMode()
   ?? VIEWER_CONFIG.runtimeOptimization.lowMemoryBaseMipmaps;
 VIEWER_CONFIG.runtimeOptimization.baseTextureMaxSize = parsePositiveInteger(searchParams.get("baseTextureCap"))
   ?? getStoredBaseTextureCap()
   ?? VIEWER_CONFIG.runtimeOptimization.baseTextureMaxSize;
+const debugMode = parseBooleanFlag(searchParams.get("debug"))
+  ?? getStoredDebugMode()
+  ?? false;
 
-const keys = new Set();
-const movement = {
-  baseSpeed: 1.5,
-  boostMultiplier: 3.5,
-};
+if (searchParams.has("debug")) {
+  try {
+    window.localStorage.setItem("viewer.debugMode", debugMode ? "1" : "0");
+  } catch {
+    // Ignore storage failures and keep this preference in-memory for the current session.
+  }
+}
+
 const uiState = {
   menuOpen: false,
   relockAfterMenuClose: false,
@@ -395,23 +411,6 @@ const diagnosticsState = {
   fps: 0,
   frameMs: 0,
   lastUpdateAt: 0,
-};
-const touchInput = {
-  moveX: 0,
-  moveZ: 0,
-  moveY: 0,
-  boost: false,
-  joystickTouchId: null,
-  lookTouchId: null,
-  lastLookX: 0,
-  lastLookY: 0,
-};
-const sceneMetrics = {
-  bounds: new THREE.Box3(),
-  center: new THREE.Vector3(),
-  size: new THREE.Vector3(),
-  groundY: 0,
-  walkY: VIEWER_CONFIG.locomotion.eyeHeight,
 };
 const backgroundState = {
   hueDegrees: VIEWER_CONFIG.materialPresets.background.hueDegrees,
@@ -452,6 +451,7 @@ const materialPipeline = createMaterialPipeline({
   reflectionEnvironment,
 });
 const performanceDiagnostics = createPerformanceDiagnostics({
+  enabled: debugMode,
   renderer,
   diagnosticsState,
   runtimeOptimization: VIEWER_CONFIG.runtimeOptimization,
@@ -469,32 +469,21 @@ const performanceDiagnostics = createPerformanceDiagnostics({
 const updatePerformanceDiagnostics = () => {
   performanceDiagnostics.update();
 };
-
-const tmpForward = new THREE.Vector3();
-const tmpRight = new THREE.Vector3();
-const tmpUp = new THREE.Vector3();
-const velocity = new THREE.Vector3();
-const tmpBox = new THREE.Box3();
-const lookState = {
-  pitch: 0,
-  yaw: 0,
-  sensitivity: 0.002,
-  minPitch: -Math.PI / 2,
-  maxPitch: Math.PI / 2,
-};
-const cameraState = {
-  fov: VIEWER_CONFIG.camera.fov,
-  height: VIEWER_CONFIG.camera.height,
-  lastAppliedHeight: VIEWER_CONFIG.camera.height,
-  ambientMotionTime: 0,
-  lastOffset: new THREE.Vector3(),
-  lastYawOffset: 0,
-  lastPitchOffset: 0,
-};
-const pointerLockState = {
-  unlockCooldownMs: 400,
-  lastUnlockAt: 0,
-};
+const navigationController = createNavigationController({
+  camera,
+  renderer,
+  viewport,
+  joystickBase,
+  joystickThumb,
+  lookPad,
+  flyUpButton,
+  flyDownButton,
+  boostButton,
+  isTouchDevice,
+  isWalkMode,
+  viewerConfig: VIEWER_CONFIG,
+  updateStatus,
+});
 const toneMappingModes = {
   standard: THREE.LinearToneMapping,
   none: THREE.NoToneMapping,
@@ -508,43 +497,10 @@ if (baseTextureCapSelect) {
   baseTextureCapSelect.value = `${VIEWER_CONFIG.runtimeOptimization.baseTextureMaxSize}`;
 }
 
-const controls = {
-  lock({ ignoreCooldown = false } = {}) {
-    if (this.isLocked) {
-      return;
-    }
-
-    if (uiState.menuOpen) {
-      return;
-    }
-
-    const timeSinceUnlock = performance.now() - pointerLockState.lastUnlockAt;
-    if (!ignoreCooldown && timeSinceUnlock < pointerLockState.unlockCooldownMs) {
-      updateStatus("Pointer lock was just released. Click again in a moment.");
-      return;
-    }
-
-    const maybePromise = renderer.domElement.requestPointerLock();
-    if (maybePromise?.catch) {
-      maybePromise.catch(() => {
-        updateStatus("Click once more to re-capture the mouse.");
-      });
-    }
-  },
-  unlock() {
-    if (this.isLocked) {
-      document.exitPointerLock();
-    }
-  },
-  get isLocked() {
-    return document.pointerLockElement === renderer.domElement;
-  },
-};
-
 function updateStatus(message) {
   statusLine.textContent = message;
   if (loadingStatusLine) {
-    loadingStatusLine.innerHTML = message;
+    loadingStatusLine.textContent = message;
   }
 }
 
@@ -589,36 +545,25 @@ function applyViewportColorSettings() {
 }
 
 function applyCameraSettings() {
-  VIEWER_CONFIG.camera.fov = cameraState.fov;
-  VIEWER_CONFIG.camera.height = cameraState.height;
-  VIEWER_CONFIG.locomotion.eyeHeight = cameraState.height;
-
-  camera.fov = cameraState.fov;
-  camera.updateProjectionMatrix();
+  navigationController.applyCameraSettings();
 
   if (cameraFovSlider) {
-    cameraFovSlider.value = cameraState.fov.toFixed(0);
+    cameraFovSlider.value = navigationController.cameraState.fov.toFixed(0);
   }
 
   if (cameraFovValue) {
-    cameraFovValue.value = `${cameraState.fov.toFixed(0)}°`;
-    cameraFovValue.textContent = `${cameraState.fov.toFixed(0)}°`;
+    cameraFovValue.value = `${navigationController.cameraState.fov.toFixed(0)}°`;
+    cameraFovValue.textContent = `${navigationController.cameraState.fov.toFixed(0)}°`;
   }
 
   if (cameraHeightSlider) {
-    cameraHeightSlider.value = cameraState.height.toFixed(2);
+    cameraHeightSlider.value = navigationController.cameraState.height.toFixed(2);
   }
 
   if (cameraHeightValue) {
-    cameraHeightValue.value = cameraState.height.toFixed(2);
-    cameraHeightValue.textContent = cameraState.height.toFixed(2);
+    cameraHeightValue.value = navigationController.cameraState.height.toFixed(2);
+    cameraHeightValue.textContent = navigationController.cameraState.height.toFixed(2);
   }
-
-  sceneMetrics.walkY = sceneMetrics.groundY + VIEWER_CONFIG.locomotion.eyeHeight;
-  const delta = cameraState.height - cameraState.lastAppliedHeight;
-  camera.position.y += delta;
-
-  cameraState.lastAppliedHeight = cameraState.height;
 }
 
 function applyCameraMotionSettings() {
@@ -628,44 +573,11 @@ function applyCameraMotionSettings() {
 }
 
 function clearCameraAmbientMotion() {
-  if (cameraState.lastOffset.lengthSq() > 0) {
-    camera.position.sub(cameraState.lastOffset);
-    cameraState.lastOffset.set(0, 0, 0);
-  }
-
-  if (cameraState.lastYawOffset !== 0 || cameraState.lastPitchOffset !== 0) {
-    camera.rotation.y -= cameraState.lastYawOffset;
-    camera.rotation.x -= cameraState.lastPitchOffset;
-    cameraState.lastYawOffset = 0;
-    cameraState.lastPitchOffset = 0;
-  }
+  navigationController.clearCameraAmbientMotion();
 }
 
 function applyCameraAmbientMotion(delta) {
-  const ambientMotion = VIEWER_CONFIG.camera.ambientMotion;
-  if (!ambientMotion?.enabled) {
-    return;
-  }
-
-  cameraState.ambientMotionTime += delta * ambientMotion.speed;
-  const t = cameraState.ambientMotionTime;
-
-  const offsetX = Math.sin(t * 0.83) * ambientMotion.positionX;
-  const offsetY = Math.cos(t * 1.11) * ambientMotion.positionY;
-  const offsetZ = Math.sin(t * 0.57 + 1.3) * ambientMotion.positionZ;
-
-  camera.position.x += offsetX;
-  camera.position.y += offsetY;
-  camera.position.z += offsetZ;
-  cameraState.lastOffset.set(offsetX, offsetY, offsetZ);
-
-  const yawOffset = THREE.MathUtils.degToRad(ambientMotion.yawDegrees) * Math.sin(t * 0.41 + 0.6);
-  const pitchOffset = THREE.MathUtils.degToRad(ambientMotion.pitchDegrees) * Math.cos(t * 0.52 + 1.1);
-
-  camera.rotation.y += yawOffset;
-  camera.rotation.x += pitchOffset;
-  cameraState.lastYawOffset = yawOffset;
-  cameraState.lastPitchOffset = pitchOffset;
+  navigationController.applyCameraAmbientMotion(delta);
 }
 
 function applyInterfaceSettings() {
@@ -679,6 +591,12 @@ function applyInterfaceSettings() {
   }
 
   crosshair.style.display = VIEWER_CONFIG.interface.showCrosshair ? "" : "none";
+}
+
+function applyDebugModeSettings() {
+  debugOnlySections.forEach((section) => {
+    section.hidden = !debugMode;
+  });
 }
 
 function applyBackgroundColorSettings() {
@@ -838,6 +756,11 @@ function renderLayerControls() {
     return;
   }
 
+  if (!debugMode) {
+    layerControls.innerHTML = "";
+    return;
+  }
+
   if (!diagnosticsState.loadedLayers.length) {
     layerControls.innerHTML = `<p class="empty-state">Layers will appear here after scene load.</p>`;
     return;
@@ -882,87 +805,18 @@ function setMenuOpen(nextOpen) {
   }
 
   if (nextOpen) {
-    uiState.relockAfterMenuClose = controls.isLocked && !isTouchDevice;
-    controls.unlock();
-    keys.clear();
-    resetJoystick();
-    setTouchMoveY(0);
-    setTouchBoost(false);
+    uiState.relockAfterMenuClose = navigationController.controls.isLocked && !isTouchDevice;
+    navigationController.controls.unlock();
+    navigationController.resetMovementInputs();
     updateStatus("Menu open. Scene controls are paused.");
     return;
   }
 
   if (uiState.relockAfterMenuClose && !isTouchDevice) {
     requestAnimationFrame(() => {
-      controls.lock({ ignoreCooldown: true });
+      navigationController.controls.lock({ ignoreCooldown: true });
     });
   }
-}
-
-function setTouchMoveY(value) {
-  touchInput.moveY = value;
-}
-
-function setTouchBoost(active) {
-  touchInput.boost = active;
-  boostButton?.classList.toggle("is-active", active);
-}
-
-function resetJoystick() {
-  touchInput.moveX = 0;
-  touchInput.moveZ = 0;
-  touchInput.joystickTouchId = null;
-  if (joystickThumb) {
-    joystickThumb.style.transform = "translate(-50%, -50%) translate(0px, 0px)";
-  }
-}
-
-function updateJoystickFromTouch(touch) {
-  if (!joystickBase || !joystickThumb) {
-    return;
-  }
-
-  const rect = joystickBase.getBoundingClientRect();
-  const centerX = rect.left + rect.width / 2;
-  const centerY = rect.top + rect.height / 2;
-  const radius = rect.width * 0.35;
-  const deltaX = touch.clientX - centerX;
-  const deltaY = touch.clientY - centerY;
-  const distance = Math.hypot(deltaX, deltaY);
-  const clampedDistance = Math.min(distance, radius);
-  const angle = Math.atan2(deltaY, deltaX);
-  const moveX = Math.cos(angle) * clampedDistance;
-  const moveY = Math.sin(angle) * clampedDistance;
-
-  joystickThumb.style.transform = `translate(-50%, -50%) translate(${moveX}px, ${moveY}px)`;
-  touchInput.moveX = THREE.MathUtils.clamp(moveX / radius, -1, 1);
-  touchInput.moveZ = THREE.MathUtils.clamp(-moveY / radius, -1, 1);
-}
-
-function applyLookDelta(deltaX, deltaY) {
-  lookState.yaw -= deltaX * lookState.sensitivity;
-  lookState.pitch = THREE.MathUtils.clamp(
-    lookState.pitch - deltaY * lookState.sensitivity,
-    lookState.minPitch,
-    lookState.maxPitch,
-  );
-  applyLookState();
-}
-
-function syncLookStateFromCamera() {
-  lookState.pitch = camera.rotation.x;
-  lookState.yaw = camera.rotation.y;
-}
-
-function applyLookState() {
-  camera.rotation.order = "YXZ";
-  camera.rotation.x = lookState.pitch;
-  camera.rotation.y = lookState.yaw;
-}
-
-function clampSpeed(nextSpeed) {
-  movement.baseSpeed = THREE.MathUtils.clamp(nextSpeed, 1, 50);
-  updateStatus(`Move speed: ${movement.baseSpeed.toFixed(1)} u/s`);
 }
 
 function applyRuntimeTextureOptimizations() {
@@ -1005,92 +859,8 @@ function setBaseTextureCap(nextCap) {
   updateStatus(cap ? `Base texture cap set to ${cap}px.` : "Base texture cap disabled.");
 }
 
-function computeSceneMetrics(root) {
-  let hasGameplayBounds = false;
-
-  sceneMetrics.bounds.makeEmpty();
-
-  root.traverse((child) => {
-    if (!child.isMesh || !materialPipeline.isGameplayMesh(child)) {
-      return;
-    }
-
-    tmpBox.setFromObject(child);
-    if (tmpBox.isEmpty()) {
-      return;
-    }
-
-    if (!hasGameplayBounds) {
-      sceneMetrics.bounds.copy(tmpBox);
-      hasGameplayBounds = true;
-      return;
-    }
-
-    sceneMetrics.bounds.union(tmpBox);
-  });
-
-  if (!hasGameplayBounds) {
-    sceneMetrics.bounds.setFromObject(root);
-  }
-
-  if (sceneMetrics.bounds.isEmpty()) {
-    return;
-  }
-
-  sceneMetrics.bounds.getSize(sceneMetrics.size);
-  sceneMetrics.bounds.getCenter(sceneMetrics.center);
-  sceneMetrics.groundY = VIEWER_CONFIG.locomotion.fixedFloorY;
-  sceneMetrics.walkY = sceneMetrics.groundY + VIEWER_CONFIG.locomotion.eyeHeight;
-}
-
 function positionCameraAtSpawn(root) {
-  computeSceneMetrics(root);
-  if (sceneMetrics.bounds.isEmpty()) {
-    return;
-  }
-
-  if (VIEWER_CONFIG.locomotion.startPosition) {
-    const startY = isWalkMode
-      ? VIEWER_CONFIG.locomotion.startPosition.y + VIEWER_CONFIG.locomotion.eyeHeight
-      : VIEWER_CONFIG.locomotion.startPosition.y;
-
-    camera.position.set(
-      VIEWER_CONFIG.locomotion.startPosition.x,
-      startY,
-      VIEWER_CONFIG.locomotion.startPosition.z,
-    );
-  } else if (isWalkMode) {
-    camera.position.set(
-      sceneMetrics.center.x,
-      sceneMetrics.walkY,
-      sceneMetrics.center.z,
-    );
-  } else {
-    const distance = Math.max(sceneMetrics.size.x, sceneMetrics.size.y, sceneMetrics.size.z) || 1;
-    camera.position.set(
-      sceneMetrics.center.x,
-      sceneMetrics.center.y + Math.max(sceneMetrics.size.y * 0.1, 1.7),
-      sceneMetrics.center.z + distance * 0.4,
-    );
-  }
-
-  if (VIEWER_CONFIG.locomotion.startLookAt) {
-    camera.lookAt(
-      VIEWER_CONFIG.locomotion.startLookAt.x,
-      VIEWER_CONFIG.locomotion.startLookAt.y,
-      VIEWER_CONFIG.locomotion.startLookAt.z,
-    );
-    syncLookStateFromCamera();
-  } else if (!isWalkMode) {
-    camera.lookAt(sceneMetrics.center);
-    syncLookStateFromCamera();
-  } else {
-    lookState.yaw = THREE.MathUtils.degToRad(VIEWER_CONFIG.locomotion.startYawDegrees ?? 0);
-    lookState.pitch = THREE.MathUtils.degToRad(VIEWER_CONFIG.locomotion.startPitchDegrees ?? 0);
-    applyLookState();
-  }
-
-  controls.unlock();
+  navigationController.positionCameraAtSpawn(root, materialPipeline.isGameplayMesh);
 }
 
 function addFallbackScene() {
@@ -1137,171 +907,12 @@ const sceneLayerLoader = createSceneLayerLoader({
   isWalkMode,
 });
 
-window.addEventListener("keydown", (event) => {
-  sceneLayerLoader.resumeFireVideoPlayback();
-
-  if (event.code === "KeyM") {
-    event.preventDefault();
-    setMenuOpen(!uiState.menuOpen);
-    return;
-  }
-
-  if (event.code === "Escape" && uiState.menuOpen) {
-    event.preventDefault();
-    setMenuOpen(false);
-    return;
-  }
-
-  if (uiState.menuOpen) {
-    return;
-  }
-
-  keys.add(event.code);
+navigationController.bindInputEvents({
+  getMenuOpen: () => uiState.menuOpen,
+  onToggleMenu: () => setMenuOpen(!uiState.menuOpen),
+  onCloseMenu: () => setMenuOpen(false),
+  onResumeFireVideo: () => sceneLayerLoader.resumeFireVideoPlayback(),
 });
-
-window.addEventListener("keyup", (event) => {
-  keys.delete(event.code);
-});
-
-document.addEventListener("pointerlockchange", () => {
-  if (!controls.isLocked) {
-    pointerLockState.lastUnlockAt = performance.now();
-  }
-});
-
-if (!isTouchDevice) {
-  viewport.addEventListener("click", (event) => {
-    if (event.target.closest(".hud")) {
-      return;
-    }
-
-    sceneLayerLoader.resumeFireVideoPlayback();
-    controls.lock();
-  });
-}
-
-window.addEventListener("mousemove", (event) => {
-  if (!controls.isLocked || uiState.menuOpen) {
-    return;
-  }
-
-  applyLookDelta(event.movementX, event.movementY);
-});
-
-window.addEventListener("focus", () => {
-  sceneLayerLoader.resumeFireVideoPlayback();
-});
-
-document.addEventListener("visibilitychange", () => {
-  if (!document.hidden) {
-    sceneLayerLoader.resumeFireVideoPlayback();
-  }
-});
-
-if (isTouchDevice) {
-  viewport.classList.add("is-touch");
-  applyInterfaceSettings();
-
-  joystickBase?.addEventListener("touchstart", (event) => {
-    const [touch] = event.changedTouches;
-    if (!touch || touchInput.joystickTouchId !== null) {
-      return;
-    }
-
-    touchInput.joystickTouchId = touch.identifier;
-    updateJoystickFromTouch(touch);
-    event.preventDefault();
-  }, { passive: false });
-
-  joystickBase?.addEventListener("touchmove", (event) => {
-    const touch = [...event.changedTouches].find((item) => item.identifier === touchInput.joystickTouchId);
-    if (!touch) {
-      return;
-    }
-
-    updateJoystickFromTouch(touch);
-    event.preventDefault();
-  }, { passive: false });
-
-  const releaseJoystick = (event) => {
-    const touch = [...event.changedTouches].find((item) => item.identifier === touchInput.joystickTouchId);
-    if (!touch) {
-      return;
-    }
-
-    resetJoystick();
-    event.preventDefault();
-  };
-
-  joystickBase?.addEventListener("touchend", releaseJoystick, { passive: false });
-  joystickBase?.addEventListener("touchcancel", releaseJoystick, { passive: false });
-
-  lookPad?.addEventListener("touchstart", (event) => {
-    const [touch] = event.changedTouches;
-    if (!touch || touchInput.lookTouchId !== null) {
-      return;
-    }
-
-    touchInput.lookTouchId = touch.identifier;
-    touchInput.lastLookX = touch.clientX;
-    touchInput.lastLookY = touch.clientY;
-    event.preventDefault();
-  }, { passive: false });
-
-  lookPad?.addEventListener("touchmove", (event) => {
-    const touch = [...event.changedTouches].find((item) => item.identifier === touchInput.lookTouchId);
-    if (!touch) {
-      return;
-    }
-
-    const deltaX = touch.clientX - touchInput.lastLookX;
-    const deltaY = touch.clientY - touchInput.lastLookY;
-    touchInput.lastLookX = touch.clientX;
-    touchInput.lastLookY = touch.clientY;
-    applyLookDelta(deltaX, deltaY);
-    event.preventDefault();
-  }, { passive: false });
-
-  const releaseLook = (event) => {
-    const touch = [...event.changedTouches].find((item) => item.identifier === touchInput.lookTouchId);
-    if (!touch) {
-      return;
-    }
-
-    touchInput.lookTouchId = null;
-    touchInput.lastLookX = 0;
-    touchInput.lastLookY = 0;
-    event.preventDefault();
-  };
-
-  lookPad?.addEventListener("touchend", releaseLook, { passive: false });
-  lookPad?.addEventListener("touchcancel", releaseLook, { passive: false });
-
-  const bindHoldButton = (element, onStart, onEnd) => {
-    if (!element) {
-      return;
-    }
-
-    const start = (event) => {
-      onStart();
-      element.classList.add("is-active");
-      event.preventDefault();
-    };
-    const end = (event) => {
-      onEnd();
-      element.classList.remove("is-active");
-      event.preventDefault();
-    };
-
-    element.addEventListener("touchstart", start, { passive: false });
-    element.addEventListener("touchend", end, { passive: false });
-    element.addEventListener("touchcancel", end, { passive: false });
-  };
-
-  bindHoldButton(flyUpButton, () => setTouchMoveY(1), () => setTouchMoveY(0));
-  bindHoldButton(flyDownButton, () => setTouchMoveY(-1), () => setTouchMoveY(0));
-  bindHoldButton(boostButton, () => setTouchBoost(true), () => setTouchBoost(false));
-}
 
 toneMappingSelect?.addEventListener("change", (event) => {
   VIEWER_CONFIG.colorPipeline.toneMapping = event.target.value;
@@ -1314,12 +925,12 @@ exposureSlider?.addEventListener("input", (event) => {
 });
 
 cameraFovSlider?.addEventListener("input", (event) => {
-  cameraState.fov = Number(event.target.value);
+  navigationController.cameraState.fov = Number(event.target.value);
   applyCameraSettings();
 });
 
 cameraHeightSlider?.addEventListener("input", (event) => {
-  cameraState.height = Number(event.target.value);
+  navigationController.cameraState.height = Number(event.target.value);
   applyCameraSettings();
 });
 
@@ -1331,7 +942,7 @@ showCrosshairToggle?.addEventListener("change", (event) => {
 cameraShakeToggle?.addEventListener("change", (event) => {
   VIEWER_CONFIG.camera.ambientMotion.enabled = Boolean(event.target.checked);
   clearCameraAmbientMotion();
-  applyLookState();
+  navigationController.applyLookState();
   applyCameraMotionSettings();
 });
 
@@ -1401,84 +1012,12 @@ menuCloseButton?.addEventListener("click", () => {
   setMenuOpen(false);
 });
 
-window.addEventListener(
-  "wheel",
-  (event) => {
-    if (uiState.menuOpen) {
-      return;
-    }
-
-    const delta = event.deltaY > 0 ? -0.75 : 0.75;
-    clampSpeed(movement.baseSpeed + delta);
-  },
-  { passive: true },
-);
-
-window.addEventListener("resize", () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
-
-function updateMovement(delta) {
-  if (uiState.menuOpen) {
-    return;
-  }
-
-  const canMove = controls.isLocked || isTouchDevice;
-  if (!canMove) {
-    return;
-  }
-
-  velocity.set(0, 0, 0);
-  const isBoosting = keys.has("ShiftLeft") || keys.has("ShiftRight") || touchInput.boost;
-  const currentSpeed = isBoosting
-    ? movement.baseSpeed * movement.boostMultiplier
-    : movement.baseSpeed;
-
-  if (keys.has("KeyW")) velocity.z += 1;
-  if (keys.has("KeyS")) velocity.z -= 1;
-  if (keys.has("KeyA")) velocity.x -= 1;
-  if (keys.has("KeyD")) velocity.x += 1;
-  if (keys.has("Space")) velocity.y += 1;
-  if (keys.has("KeyC")) velocity.y -= 1;
-
-  velocity.x += touchInput.moveX;
-  velocity.y += touchInput.moveY;
-  velocity.z += touchInput.moveZ;
-
-  if (isWalkMode) {
-    velocity.y = 0;
-  }
-
-  if (velocity.lengthSq() === 0) {
-    return;
-  }
-
-  velocity.normalize();
-
-  if (isWalkMode) {
-    tmpForward.set(-Math.sin(lookState.yaw), 0, -Math.cos(lookState.yaw));
-    tmpRight.set(Math.cos(lookState.yaw), 0, -Math.sin(lookState.yaw));
-  } else {
-    tmpForward.set(0, 0, -1).applyQuaternion(camera.quaternion);
-    tmpRight.set(1, 0, 0).applyQuaternion(camera.quaternion);
-  }
-  tmpUp.set(0, 1, 0);
-
-  camera.position
-    .addScaledVector(tmpForward, velocity.z * currentSpeed * delta)
-    .addScaledVector(tmpRight, velocity.x * currentSpeed * delta)
-    .addScaledVector(tmpUp, velocity.y * currentSpeed * delta);
-}
-
 function animate() {
   const delta = clock.getDelta();
   clearCameraAmbientMotion();
   sceneLayerLoader.syncFireVideoPlayback();
   updateBackgroundMotion(delta);
-  updateMovement(delta);
+  navigationController.updateMovement(delta, uiState.menuOpen);
   applyCameraAmbientMotion(delta);
   renderer.render(scene, camera);
   diagnosticsState.frameAccumulator += delta;
@@ -1493,11 +1032,12 @@ function animate() {
   requestAnimationFrame(animate);
 }
 
-syncLookStateFromCamera();
+navigationController.syncLookStateFromCamera();
 applyViewportColorSettings();
 applyCameraSettings();
 applyCameraMotionSettings();
 applyInterfaceSettings();
+applyDebugModeSettings();
 applyBackgroundColorSettings();
 applyFireColorSettings();
 applyReflectMaterialSettings();

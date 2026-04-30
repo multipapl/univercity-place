@@ -1,4 +1,5 @@
 export function createPerformanceDiagnostics({
+  enabled = true,
   renderer,
   diagnosticsState,
   runtimeOptimization,
@@ -76,6 +77,10 @@ export function createPerformanceDiagnostics({
   }
 
   function update() {
+    if (!enabled) {
+      return;
+    }
+
     const textureUsage = estimateVisibleTextureMemory();
     const renderInfo = renderer.info.render;
 
