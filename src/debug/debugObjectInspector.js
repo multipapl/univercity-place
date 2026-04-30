@@ -78,6 +78,7 @@ export function createDebugObjectInspector({
     pickerArmed: false,
     loadedLayers: [],
     overridesDocument: createDefaultOverridesDocument(),
+    selectedEntry: null,
     selectedTargetKey: "",
     hasLoadedOverrides: false,
   };
@@ -122,6 +123,17 @@ export function createDebugObjectInspector({
 
   function findMaterialEntryByKey(targetKey) {
     return getMaterialEntries().find((entry) => entry.key === targetKey) ?? null;
+  }
+
+  function resolveSelectedEntry() {
+    if (!state.selectedTargetKey) {
+      state.selectedEntry = null;
+      return null;
+    }
+
+    const nextEntry = findMaterialEntryByKey(state.selectedTargetKey) ?? state.selectedEntry;
+    state.selectedEntry = nextEntry ?? null;
+    return state.selectedEntry;
   }
 
   function setPickerArmed(nextValue) {
@@ -247,15 +259,13 @@ export function createDebugObjectInspector({
       }
     });
 
-    const selectedEntry = state.selectedTargetKey
-      ? findMaterialEntryByKey(state.selectedTargetKey)
-      : null;
-    setSelectionUi(selectedEntry);
+    setSelectionUi(resolveSelectedEntry());
   }
 
   function selectEntry(entry) {
+    state.selectedEntry = entry ?? null;
     state.selectedTargetKey = entry?.key ?? "";
-    setSelectionUi(entry);
+    setSelectionUi(state.selectedEntry);
   }
 
   function upsertOverride(targetOverride) {
@@ -279,9 +289,7 @@ export function createDebugObjectInspector({
   }
 
   function updateSelectedOverride(mutator) {
-    const selectedEntry = state.selectedTargetKey
-      ? findMaterialEntryByKey(state.selectedTargetKey)
-      : null;
+    const selectedEntry = resolveSelectedEntry();
     if (!selectedEntry || !materialPipeline.canApplyDebugColorCorrection(selectedEntry.material)) {
       return;
     }
@@ -344,13 +352,11 @@ export function createDebugObjectInspector({
 
     setPickerArmed(true);
     updateStatus("Picker armed. Click an object in the scene while the debug menu is open.");
-    setSelectionUi(state.selectedTargetKey ? findMaterialEntryByKey(state.selectedTargetKey) : null);
+    setSelectionUi(resolveSelectedEntry());
   }
 
   function resetSelectedOverride() {
-    const selectedEntry = state.selectedTargetKey
-      ? findMaterialEntryByKey(state.selectedTargetKey)
-      : null;
+    const selectedEntry = resolveSelectedEntry();
     if (!selectedEntry) {
       return;
     }
@@ -423,6 +429,7 @@ export function createDebugObjectInspector({
 
   function setLoadedLayers(loadedLayers = []) {
     state.loadedLayers = loadedLayers;
+    resolveSelectedEntry();
     applyOverridesToLoadedLayers();
   }
 

@@ -571,12 +571,12 @@ vec3 viewerDebugHsvToRgb(vec3 color) {
 vec3 viewerDebugApplyColorCorrection(vec3 color) {
   vec3 hsv = viewerDebugRgbToHsv(max(color, vec3(0.0)));
   hsv.x = fract(hsv.x + viewerDebugHue);
-  hsv.y = clamp(hsv.y * viewerDebugSaturation, 0.0, 2.0);
-  hsv.z = clamp(hsv.z * viewerDebugValue, 0.0, 4.0);
+  hsv.y = clamp(hsv.y * viewerDebugSaturation, 0.0, 4.0);
+  hsv.z = clamp(hsv.z * viewerDebugValue, 0.0, 8.0);
   vec3 corrected = viewerDebugHsvToRgb(hsv);
-  return pow(max(corrected, vec3(0.0)), vec3(max(viewerDebugGamma, 0.0001)));
+  return pow(max(corrected, vec3(0.0)), vec3(1.0 / max(viewerDebugGamma, 0.0001)));
 }`,
-        );
+      );
 
         shader.fragmentShader = shader.fragmentShader.replace(
           "#include <colorspace_fragment>",

@@ -207,17 +207,17 @@ hud.innerHTML = `
           </label>
           <label class="field field-range">
             <span>Saturation</span>
-            <input type="range" min="0" max="2" step="0.01" value="1" data-object-saturation />
+            <input type="range" min="0" max="4" step="0.02" value="1" data-object-saturation />
             <output data-object-saturation-value>1.00</output>
           </label>
           <label class="field field-range">
             <span>Value</span>
-            <input type="range" min="0" max="2" step="0.01" value="1" data-object-value />
+            <input type="range" min="0" max="4" step="0.02" value="1" data-object-value />
             <output data-object-value-value>1.00</output>
           </label>
           <label class="field field-range">
             <span>Gamma</span>
-            <input type="range" min="0.2" max="3" step="0.01" value="1" data-object-gamma />
+            <input type="range" min="0.25" max="4" step="0.02" value="1" data-object-gamma />
             <output data-object-gamma-value>1.00</output>
           </label>
         </div>
