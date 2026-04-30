@@ -8,6 +8,7 @@ import {
   SCENE_LOAD_STATUS_HTML,
   VIEWER_CONFIG,
 } from "./config/viewerConfig.js";
+import { createPerformanceDiagnostics } from "./diagnostics/performanceDiagnostics.js";
 import { createSceneLayerLoader } from "./loaders/sceneLayerLoader.js";
 import { createReflectionEnvironmentManager } from "./materials/reflectionEnvironment.js";
 
@@ -434,6 +435,24 @@ const reflectionState = {
   metalness: VIEWER_CONFIG.materialPresets.reflectMaterial.defaultMetalness,
   materials: new Set(),
 };
+const performanceDiagnostics = createPerformanceDiagnostics({
+  renderer,
+  diagnosticsState,
+  runtimeOptimization: VIEWER_CONFIG.runtimeOptimization,
+  statsElements: {
+    statFps,
+    statFrameMs,
+    statDrawCalls,
+    statTriangles,
+    statTextures,
+    statTextureMemory,
+    performanceNote,
+  },
+  getTextureDimensions,
+});
+const updatePerformanceDiagnostics = () => {
+  performanceDiagnostics.update();
+};
 
 const tmpForward = new THREE.Vector3();
 const tmpRight = new THREE.Vector3();
@@ -796,119 +815,6 @@ function applyReflectMaterialSettings() {
 
     material.needsUpdate = true;
   });
-}
-
-function formatInteger(value) {
-  return new Intl.NumberFormat("en-US").format(Math.round(value || 0));
-}
-
-function formatMegabytes(bytes) {
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function collectMaterialTextures(material, target) {
-  const textureKeys = [
-    "map",
-    "alphaMap",
-    "roughnessMap",
-    "emissiveMap",
-    "metalnessMap",
-    "normalMap",
-  ];
-
-  textureKeys.forEach((key) => {
-    const texture = material?.[key];
-    if (texture?.isTexture) {
-      target.set(texture.id, texture);
-    }
-  });
-}
-
-function estimateTextureBytes(texture) {
-  const image = texture?.image;
-  if (!image) {
-    return 0;
-  }
-
-  const { width, height } = getTextureDimensions(image);
-  if (!width || !height) {
-    return 0;
-  }
-
-  const mipFactor = texture.generateMipmaps ? (4 / 3) : 1;
-  return width * height * 4 * mipFactor;
-}
-
-function estimateVisibleTextureMemory() {
-  const uniqueTextures = new Map();
-
-  diagnosticsState.loadedLayers.forEach((entry) => {
-    if (!entry.root.visible) {
-      return;
-    }
-
-    entry.root.traverse((child) => {
-      if (!child.isMesh) {
-        return;
-      }
-
-      const materials = Array.isArray(child.material) ? child.material : [child.material];
-      materials.forEach((material) => collectMaterialTextures(material, uniqueTextures));
-    });
-  });
-
-  let textureBytes = 0;
-  uniqueTextures.forEach((texture) => {
-    textureBytes += estimateTextureBytes(texture);
-  });
-
-  return {
-    count: uniqueTextures.size,
-    bytes: textureBytes,
-  };
-}
-
-function updatePerformanceDiagnostics() {
-  const textureUsage = estimateVisibleTextureMemory();
-  const renderInfo = renderer.info.render;
-
-  if (statFps) {
-    statFps.textContent = formatInteger(diagnosticsState.fps);
-  }
-
-  if (statFrameMs) {
-    statFrameMs.textContent = `${diagnosticsState.frameMs.toFixed(1)} ms`;
-  }
-
-  if (statDrawCalls) {
-    statDrawCalls.textContent = formatInteger(renderInfo.calls);
-  }
-
-  if (statTriangles) {
-    statTriangles.textContent = formatInteger(renderInfo.triangles);
-  }
-
-  if (statTextures) {
-    statTextures.textContent = formatInteger(textureUsage.count);
-  }
-
-  if (statTextureMemory) {
-    statTextureMemory.textContent = formatMegabytes(textureUsage.bytes);
-  }
-
-  if (performanceNote) {
-    const visibleLayerLabels = diagnosticsState.loadedLayers
-      .filter((entry) => entry.root.visible)
-      .map((entry) => entry.layer.label);
-    const deviceMemory = navigator.deviceMemory ? `${navigator.deviceMemory} GB reported RAM` : "device RAM unavailable";
-    const mipMode = VIEWER_CONFIG.runtimeOptimization.lowMemoryBaseMipmaps
-      ? "Base mipmaps disabled."
-      : "Base mipmaps enabled.";
-    const textureCap = VIEWER_CONFIG.runtimeOptimization.baseTextureMaxSize
-      ? `Base textures capped to ${VIEWER_CONFIG.runtimeOptimization.baseTextureMaxSize}px.`
-      : "Base textures uncapped.";
-    performanceNote.textContent = `Visible layers: ${visibleLayerLabels.join(", ") || "none"}. Texture VRAM is an approximation. ${mipMode} ${textureCap} ${deviceMemory}.`;
-  }
 }
 
 function renderLayerControls() {
