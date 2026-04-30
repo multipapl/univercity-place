@@ -1,52 +1,5 @@
 import * as THREE from "three";
-
-async function findFirstReachableScene(candidates = []) {
-  for (const candidate of candidates) {
-    try {
-      const response = await fetch(candidate, { method: "HEAD" });
-      const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
-      const looksLikeHtmlFallback = contentType.includes("text/html");
-      if (response.ok && !looksLikeHtmlFallback) {
-        return candidate;
-      }
-    } catch (error) {
-      console.warn(`Scene probe failed for ${candidate}.`, error);
-    }
-  }
-
-  return null;
-}
-
-async function resolveOptionalAssetUrl(searchParams, searchParam, candidates = []) {
-  const directUrl = searchParams.get(searchParam);
-  if (directUrl) {
-    return directUrl;
-  }
-
-  return findFirstReachableScene(candidates);
-}
-
-async function resolveSceneLayers(sceneLayers, searchParams) {
-  const resolvedLayers = [];
-
-  for (const layer of sceneLayers) {
-    const directUrl = searchParams.get(layer.searchParam ?? layer.id);
-    const url = directUrl || await findFirstReachableScene(layer.candidates);
-    if (!url) {
-      if (layer.required) {
-        return null;
-      }
-      continue;
-    }
-
-    resolvedLayers.push({
-      ...layer,
-      url,
-    });
-  }
-
-  return resolvedLayers;
-}
+import { resolveOptionalAssetUrl, resolveSceneLayers } from "./assetResolver.js";
 
 function logLayerMaterials(root, layer, enabled) {
   if (!enabled) {

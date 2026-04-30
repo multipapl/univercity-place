@@ -1,7 +1,6 @@
 import "./style.css";
 
 import * as THREE from "three";
-import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import {
@@ -10,6 +9,7 @@ import {
   VIEWER_CONFIG,
 } from "./config/viewerConfig.js";
 import { createSceneLayerLoader } from "./loaders/sceneLayerLoader.js";
+import { createReflectionEnvironmentManager } from "./materials/reflectionEnvironment.js";
 
 const app = document.querySelector("#app");
 const viewport = document.createElement("div");
@@ -428,8 +428,6 @@ const fireState = {
   materials: new Set(),
 };
 const reflectionState = {
-  envUrl: null,
-  envTexture: null,
   envMapIntensity: VIEWER_CONFIG.materialPresets.reflectMaterial.envMapIntensity,
   ior: VIEWER_CONFIG.materialPresets.reflectMaterial.ior,
   specularIntensity: VIEWER_CONFIG.materialPresets.reflectMaterial.specularIntensity,
@@ -1493,51 +1491,13 @@ function getMaterialAoTexture(source) {
   return normalizeDataTexture(source.aoMap || null);
 }
 
-function buildFallbackReflectionEnvironment() {
-  const reflectionEnvironmentScene = new RoomEnvironment();
-  const reflectionEnvironmentTarget = reflectionPmremGenerator.fromScene(reflectionEnvironmentScene, 0.04);
-  const reflectionEnvironmentMap = reflectionEnvironmentTarget.texture;
-  reflectionEnvironmentScene.dispose();
-  return reflectionEnvironmentMap;
-}
-
-async function ensureReflectionEnvironment() {
-  if (reflectionState.envTexture) {
-    return reflectionState.envTexture;
-  }
-
-  if (!reflectionState.envUrl) {
-    reflectionState.envUrl = await resolveOptionalAssetUrl(
-      VIEWER_CONFIG.materialPresets.reflectMaterial.searchParam,
-      VIEWER_CONFIG.materialPresets.reflectMaterial.candidates,
-    );
-  }
-
-  if (!reflectionState.envUrl) {
-    reflectionState.envTexture = buildFallbackReflectionEnvironment();
-    scene.environment = reflectionState.envTexture;
-    return reflectionState.envTexture;
-  }
-
-  try {
-    const equirectTexture = await new THREE.TextureLoader().loadAsync(reflectionState.envUrl);
-    equirectTexture.colorSpace = THREE.SRGBColorSpace;
-    equirectTexture.mapping = THREE.EquirectangularReflectionMapping;
-    equirectTexture.needsUpdate = true;
-
-    const reflectionEnvironmentTarget = reflectionPmremGenerator.fromEquirectangular(equirectTexture);
-    equirectTexture.dispose();
-    reflectionState.envTexture = reflectionEnvironmentTarget.texture;
-    scene.environment = reflectionState.envTexture;
-    updateStatus(`Reflection environment loaded from ${reflectionState.envUrl}.`);
-    return reflectionState.envTexture;
-  } catch (error) {
-    console.warn(`Failed to load reflection environment from ${reflectionState.envUrl}.`, error);
-    reflectionState.envTexture = buildFallbackReflectionEnvironment();
-    scene.environment = reflectionState.envTexture;
-    return reflectionState.envTexture;
-  }
-}
+const reflectionEnvironment = createReflectionEnvironmentManager({
+  viewerConfig: VIEWER_CONFIG,
+  searchParams,
+  reflectionPmremGenerator,
+  scene,
+  updateStatus,
+});
 
 function getMaterialTint(source, hasTexture) {
   return hasTexture
@@ -1834,7 +1794,7 @@ function makeReflectMaterial(sourceMaterial, mesh) {
     thickness: source.thickness ?? 0,
   });
 
-  material.envMap = reflectionState.envTexture ?? scene.environment ?? null;
+  material.envMap = reflectionEnvironment.getEnvironmentMap();
 
   stampViewerMaterialData(material, source, tweak);
   material.userData.viewerUvChannels = {
@@ -2191,7 +2151,7 @@ const sceneLayerLoader = createSceneLayerLoader({
   sceneRoots,
   backgroundRoots: backgroundState.roots,
   diagnosticsState,
-  ensureReflectionEnvironment,
+  ensureReflectionEnvironment: () => reflectionEnvironment.ensureEnvironment(),
   convertMeshForLayer,
   matchesFireVideoTarget,
   getFallbackTextureChannel,
