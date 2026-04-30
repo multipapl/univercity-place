@@ -39,6 +39,10 @@ export function createMaterialPipeline({
 
     const state = {
       baseHook: typeof material.onBeforeCompile === "function" ? material.onBeforeCompile : null,
+      baseCustomProgramCacheKey:
+        typeof material.customProgramCacheKey === "function"
+          ? material.customProgramCacheKey.bind(material)
+          : (() => ""),
       hooks: new Map(),
     };
 
@@ -52,6 +56,10 @@ export function createMaterialPipeline({
       state.hooks.forEach((hook) => {
         hook(shader, renderer);
       });
+    };
+    material.customProgramCacheKey = () => {
+      const hookSignature = [...state.hooks.keys()].sort().join(",");
+      return `${state.baseCustomProgramCacheKey()}|viewerHooks:${hookSignature}`;
     };
 
     return state;
