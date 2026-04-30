@@ -392,9 +392,13 @@ const debugMode = parseBooleanFlag(searchParams.get("debug"))
   ?? getStoredDebugMode()
   ?? false;
 const assetBustValue = searchParams.get("assetBust");
+const isLocalAssetDevelopment = import.meta.env.DEV
+  || ["localhost", "127.0.0.1", "0.0.0.0"].includes(window.location.hostname);
 const assetQuery = debugMode
   ? `v=${encodeURIComponent(assetBustValue || `${Date.now()}`)}`
-  : (assetBustValue ? `v=${encodeURIComponent(assetBustValue)}` : "");
+  : (assetBustValue
+      ? `v=${encodeURIComponent(assetBustValue)}`
+      : (isLocalAssetDevelopment ? `v=${encodeURIComponent(`${Date.now()}`)}` : ""));
 
 if (searchParams.has("debug")) {
   try {
@@ -793,7 +797,9 @@ function renderLayerControls() {
 
     const textWrap = document.createElement("span");
     textWrap.className = "layer-toggle-copy";
-    textWrap.innerHTML = `<strong>${entry.layer.label}</strong><small>${entry.layer.id}</small>`;
+    textWrap.innerHTML = debugMode
+      ? `<strong>${entry.layer.label}</strong><small>${entry.layer.id} · ${entry.layer.url}</small>`
+      : `<strong>${entry.layer.label}</strong><small>${entry.layer.id}</small>`;
 
     label.append(checkbox, textWrap);
     layerControls.append(label);
