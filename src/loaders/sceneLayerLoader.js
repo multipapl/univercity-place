@@ -50,6 +50,7 @@ export function createSceneLayerLoader({
   positionCameraAtSpawn,
   applyCameraSettings,
   setLoadingScreenVisible,
+  onLayersLoaded,
   isTouchDevice,
   isWalkMode,
 }) {
@@ -204,6 +205,7 @@ export function createSceneLayerLoader({
 
           root.traverse((child) => {
             if (child.isMesh) {
+              child.userData.viewerLayerId = layer.id;
               convertMeshForLayer(child, layer.materialMode);
             }
           });
@@ -240,6 +242,7 @@ export function createSceneLayerLoader({
       applyReflectMaterialSettings();
       applyRuntimeTextureOptimizations();
       updatePerformanceDiagnostics();
+      onLayersLoaded?.(loadedLayers);
 
       const spawnRoot = loadedLayers.find((entry) => entry.layer.id === "base")?.root ?? loadedLayers[0].root;
       positionCameraAtSpawn(spawnRoot);

@@ -10,6 +10,7 @@ import {
 } from "./config/viewerConfig.js";
 import { appendAssetQuery } from "./loaders/assetResolver.js";
 import { createNavigationController } from "./camera/navigationController.js";
+import { createDebugObjectInspector } from "./debug/debugObjectInspector.js";
 import { createPerformanceDiagnostics } from "./diagnostics/performanceDiagnostics.js";
 import { createSceneLayerLoader } from "./loaders/sceneLayerLoader.js";
 import { createMaterialPipeline } from "./materials/materialPipeline.js";
@@ -185,6 +186,49 @@ hud.innerHTML = `
       </div>
     </div>
     <div class="menu-section" data-debug-only>
+      <h2>Object Inspector</h2>
+      <div class="layer-controls">
+        <p class="debug-note" data-object-selection-hint>No object selected yet. Click Pick Object, then click the scene.</p>
+        <div class="button-row">
+          <button type="button" class="action-button" data-pick-object>Pick Object</button>
+          <button type="button" class="action-button is-secondary" data-reset-object-override>Reset Selected</button>
+        </div>
+        <div class="debug-target-card">
+          <div class="debug-target-row"><span>Layer</span><strong data-selected-layer-id>None</strong></div>
+          <div class="debug-target-row"><span>Mesh</span><strong data-selected-mesh-name>None</strong></div>
+          <div class="debug-target-row"><span>Material</span><strong data-selected-material-name>None</strong></div>
+          <div class="debug-target-row"><span>Status</span><strong data-selected-target-support>No target</strong></div>
+        </div>
+        <div class="color-tools">
+          <label class="field field-range">
+            <span>Hue</span>
+            <input type="range" min="-180" max="180" step="1" value="0" data-object-hue />
+            <output data-object-hue-value>0°</output>
+          </label>
+          <label class="field field-range">
+            <span>Saturation</span>
+            <input type="range" min="0" max="2" step="0.01" value="1" data-object-saturation />
+            <output data-object-saturation-value>1.00</output>
+          </label>
+          <label class="field field-range">
+            <span>Value</span>
+            <input type="range" min="0" max="2" step="0.01" value="1" data-object-value />
+            <output data-object-value-value>1.00</output>
+          </label>
+          <label class="field field-range">
+            <span>Gamma</span>
+            <input type="range" min="0.2" max="3" step="0.01" value="1" data-object-gamma />
+            <output data-object-gamma-value>1.00</output>
+          </label>
+        </div>
+        <div class="button-row">
+          <button type="button" class="action-button" data-copy-object-overrides>Copy Overrides JSON</button>
+          <button type="button" class="action-button is-secondary" data-save-object-overrides>Save Overrides JSON</button>
+        </div>
+        <p class="debug-note" data-object-overrides-status>Local object overrides will appear here.</p>
+      </div>
+    </div>
+    <div class="menu-section" data-debug-only>
       <h2>Session</h2>
       <div class="layer-controls">
         <p class="debug-note" data-debug-session-note>Debug tools are active for this URL.</p>
@@ -314,6 +358,24 @@ const baseTextureCapSelect = hud.querySelector("[data-base-texture-cap]");
 const debugSessionNote = hud.querySelector("[data-debug-session-note]");
 const reloadAssetsButton = hud.querySelector("[data-reload-assets]");
 const exitDebugButton = hud.querySelector("[data-exit-debug]");
+const objectSelectionHint = hud.querySelector("[data-object-selection-hint]");
+const pickObjectButton = hud.querySelector("[data-pick-object]");
+const resetObjectOverrideButton = hud.querySelector("[data-reset-object-override]");
+const selectedLayerId = hud.querySelector("[data-selected-layer-id]");
+const selectedMeshName = hud.querySelector("[data-selected-mesh-name]");
+const selectedMaterialName = hud.querySelector("[data-selected-material-name]");
+const selectedTargetSupport = hud.querySelector("[data-selected-target-support]");
+const objectHueSlider = hud.querySelector("[data-object-hue]");
+const objectHueValue = hud.querySelector("[data-object-hue-value]");
+const objectSaturationSlider = hud.querySelector("[data-object-saturation]");
+const objectSaturationValue = hud.querySelector("[data-object-saturation-value]");
+const objectValueSlider = hud.querySelector("[data-object-value]");
+const objectValueValue = hud.querySelector("[data-object-value-value]");
+const objectGammaSlider = hud.querySelector("[data-object-gamma]");
+const objectGammaValue = hud.querySelector("[data-object-gamma-value]");
+const copyObjectOverridesButton = hud.querySelector("[data-copy-object-overrides]");
+const saveObjectOverridesButton = hud.querySelector("[data-save-object-overrides]");
+const objectOverridesStatus = hud.querySelector("[data-object-overrides-status]");
 const joystickBase = mobileControls.querySelector("[data-joystick]");
 const joystickThumb = mobileControls.querySelector("[data-joystick-thumb]");
 const lookPad = mobileControls.querySelector("[data-lookpad]");
@@ -515,6 +577,37 @@ const performanceDiagnostics = createPerformanceDiagnostics({
 const updatePerformanceDiagnostics = () => {
   performanceDiagnostics.update();
 };
+const debugObjectInspector = createDebugObjectInspector({
+  enabled: debugMode,
+  isDev: import.meta.env.DEV,
+  assetQuery,
+  camera,
+  sceneRoots,
+  rendererDomElement: renderer.domElement,
+  materialPipeline,
+  updateStatus,
+  getMenuOpen: () => uiState.menuOpen,
+  ui: {
+    pickButton: pickObjectButton,
+    resetButton: resetObjectOverrideButton,
+    copyButton: copyObjectOverridesButton,
+    saveButton: saveObjectOverridesButton,
+    selectionHint: objectSelectionHint,
+    selectionLayer: selectedLayerId,
+    selectionMesh: selectedMeshName,
+    selectionMaterial: selectedMaterialName,
+    selectionSupport: selectedTargetSupport,
+    hueSlider: objectHueSlider,
+    hueValue: objectHueValue,
+    saturationSlider: objectSaturationSlider,
+    saturationValue: objectSaturationValue,
+    valueSlider: objectValueSlider,
+    valueValue: objectValueValue,
+    gammaSlider: objectGammaSlider,
+    gammaValue: objectGammaValue,
+    saveStatus: objectOverridesStatus,
+  },
+});
 const navigationController = createNavigationController({
   camera,
   renderer,
@@ -978,6 +1071,9 @@ const sceneLayerLoader = createSceneLayerLoader({
   positionCameraAtSpawn,
   applyCameraSettings,
   setLoadingScreenVisible,
+  onLayersLoaded: (loadedLayers) => {
+    debugObjectInspector.setLoadedLayers(loadedLayers);
+  },
   isTouchDevice,
   isWalkMode,
 });
@@ -988,6 +1084,8 @@ navigationController.bindInputEvents({
   onCloseMenu: () => setMenuOpen(false),
   onResumeFireVideo: () => sceneLayerLoader.resumeFireVideoPlayback(),
 });
+debugObjectInspector.bindUi();
+debugObjectInspector.loadOverrides();
 
 toneMappingSelect?.addEventListener("change", (event) => {
   VIEWER_CONFIG.colorPipeline.toneMapping = event.target.value;

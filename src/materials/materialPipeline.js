@@ -8,6 +8,13 @@ export function createMaterialPipeline({
   reflectionState,
   reflectionEnvironment,
 }) {
+  const DEBUG_COLOR_DEFAULTS = Object.freeze({
+    hue: 0,
+    saturation: 1,
+    value: 1,
+    gamma: 1,
+  });
+
   function matchesNameIncludes(name, includes = []) {
     const normalized = `${name ?? ""}`.toLowerCase();
     return includes.some((token) => normalized.includes(token.toLowerCase()));
@@ -25,6 +32,70 @@ export function createMaterialPipeline({
     return channel === 0 ? "uv" : `uv${channel}`;
   }
 
+  function getMaterialCompileHookState(material) {
+    if (material.userData.viewerCompileHookState) {
+      return material.userData.viewerCompileHookState;
+    }
+
+    const state = {
+      baseHook: typeof material.onBeforeCompile === "function" ? material.onBeforeCompile : null,
+      hooks: new Map(),
+    };
+
+    material.userData.viewerCompileHookState = state;
+    material.onBeforeCompile = (shader, renderer) => {
+      material.userData.viewerCompiledShader = shader;
+      if (typeof state.baseHook === "function") {
+        state.baseHook(shader, renderer);
+      }
+
+      state.hooks.forEach((hook) => {
+        hook(shader, renderer);
+      });
+    };
+
+    return state;
+  }
+
+  function setMaterialCompileHook(material, key, hook) {
+    const state = getMaterialCompileHookState(material);
+    if (hook) {
+      state.hooks.set(key, hook);
+    } else {
+      state.hooks.delete(key);
+    }
+    material.needsUpdate = true;
+  }
+
+  function normalizeDebugColorOverride(override = {}) {
+    return {
+      hue: Number.isFinite(override.hue) ? override.hue : DEBUG_COLOR_DEFAULTS.hue,
+      saturation: Number.isFinite(override.saturation) ? override.saturation : DEBUG_COLOR_DEFAULTS.saturation,
+      value: Number.isFinite(override.value) ? override.value : DEBUG_COLOR_DEFAULTS.value,
+      gamma: Number.isFinite(override.gamma) ? override.gamma : DEBUG_COLOR_DEFAULTS.gamma,
+    };
+  }
+
+  function isDefaultDebugColorOverride(override = {}) {
+    return Math.abs((override.hue ?? 0) - DEBUG_COLOR_DEFAULTS.hue) < 0.0001
+      && Math.abs((override.saturation ?? 1) - DEBUG_COLOR_DEFAULTS.saturation) < 0.0001
+      && Math.abs((override.value ?? 1) - DEBUG_COLOR_DEFAULTS.value) < 0.0001
+      && Math.abs((override.gamma ?? 1) - DEBUG_COLOR_DEFAULTS.gamma) < 0.0001;
+  }
+
+  function syncDebugColorUniforms(material) {
+    const uniforms = material.userData.viewerDebugColorUniforms;
+    const override = material.userData.viewerDebugColorOverride;
+    if (!uniforms || !override) {
+      return;
+    }
+
+    uniforms.viewerDebugHue.value = override.hue / 360;
+    uniforms.viewerDebugSaturation.value = override.saturation;
+    uniforms.viewerDebugValue.value = override.value;
+    uniforms.viewerDebugGamma.value = override.gamma;
+  }
+
   function applyViewerMaterialPatches(material, { tweak = null, alphaFromMapChannel = null } = {}) {
     const hasTweak = Boolean(tweak)
       && (Number.isFinite(tweak.brightness) || Number.isFinite(tweak.saturation));
@@ -40,7 +111,7 @@ export function createMaterialPipeline({
       ? getUvAttributeName(alphaFromMapChannel)
       : null;
 
-    material.onBeforeCompile = (shader) => {
+    setMaterialCompileHook(material, "viewerMaterialPatch", (shader) => {
       if (hasTweak) {
         shader.fragmentShader = shader.fragmentShader.replace(
           "#include <common>",
@@ -98,8 +169,7 @@ diffuseColor.rgb *= ${brightness.toFixed(3)};`;
         "#include <map_fragment>",
         mapFragmentReplacement,
       );
-    };
-    material.needsUpdate = true;
+    });
   }
 
   function applyGlassMaterialPatch(material, {
@@ -108,7 +178,7 @@ diffuseColor.rgb *= ${brightness.toFixed(3)};`;
     power,
     edgeTintStrength,
   } = {}) {
-    material.onBeforeCompile = (shader) => {
+    setMaterialCompileHook(material, "viewerGlassPatch", (shader) => {
       shader.uniforms.viewerGlassCenterOpacity = { value: centerOpacity };
       shader.uniforms.viewerGlassEdgeOpacity = { value: edgeOpacity };
       shader.uniforms.viewerGlassPower = { value: power };
@@ -158,9 +228,7 @@ diffuseColor.a *= viewerGlassOpacityValue;`,
         `vec3 outgoingLight = reflectedLight.indirectDiffuse;
 outgoingLight = mix( outgoingLight, vec3( 1.0 ), viewerGlassFresnelValue * viewerGlassEdgeTintStrength );`,
       );
-    };
-
-    material.needsUpdate = true;
+    });
   }
 
   function normalizeTexture(texture) {
@@ -351,7 +419,7 @@ outgoingLight = mix( outgoingLight, vec3( 1.0 ), viewerGlassFresnelValue * viewe
     const whitePoint = fireVideoPreset.whitePoint.toFixed(3);
     const brightnessBoost = fireVideoPreset.brightnessBoost.toFixed(3);
 
-    material.onBeforeCompile = (shader) => {
+    setMaterialCompileHook(material, "viewerFireVideoPatch", (shader) => {
       const fireUniforms = {
         viewerFireHue: { value: fireState.hueDegrees / 360 },
         viewerFireSaturation: { value: fireState.saturation },
@@ -408,16 +476,110 @@ diffuseColor.a *= texture2D( alphaMap, vAlphaMapUv ).g;
 #endif`,
         );
       }
-    };
+    });
 
     fireState.materials.add(material);
-    material.needsUpdate = true;
   }
 
   function stampViewerMaterialData(material, source, tweak) {
     material.toneMapped = true;
     material.userData.sourceMaterialName = source.name || "";
     material.userData.viewerTweakId = tweak?.id || null;
+  }
+
+  function describeMaterialTarget(mesh, material) {
+    return {
+      layerId: mesh?.userData?.viewerLayerId || material?.userData?.viewerLayerId || "",
+      meshName: mesh?.name || "",
+      materialName: material?.userData?.sourceMaterialName || material?.name || "",
+    };
+  }
+
+  function canApplyDebugColorCorrection(material) {
+    return Boolean(material?.isMaterial) && !material?.isShaderMaterial;
+  }
+
+  function clearDebugColorCorrection(material) {
+    if (!material?.isMaterial) {
+      return;
+    }
+
+    delete material.userData.viewerDebugColorOverride;
+    delete material.userData.viewerDebugColorUniforms;
+    setMaterialCompileHook(material, "viewerDebugColorCorrection", null);
+  }
+
+  function applyDebugColorCorrection(material, override) {
+    if (!canApplyDebugColorCorrection(material)) {
+      return false;
+    }
+
+    const normalizedOverride = normalizeDebugColorOverride(override);
+    if (isDefaultDebugColorOverride(normalizedOverride)) {
+      clearDebugColorCorrection(material);
+      return false;
+    }
+
+    const hookState = getMaterialCompileHookState(material);
+    const hasExistingHook = hookState.hooks.has("viewerDebugColorCorrection");
+    material.userData.viewerDebugColorOverride = normalizedOverride;
+    if (!hasExistingHook) {
+      setMaterialCompileHook(material, "viewerDebugColorCorrection", (shader) => {
+        const uniforms = material.userData.viewerDebugColorUniforms ?? {
+          viewerDebugHue: { value: normalizedOverride.hue / 360 },
+          viewerDebugSaturation: { value: normalizedOverride.saturation },
+          viewerDebugValue: { value: normalizedOverride.value },
+          viewerDebugGamma: { value: normalizedOverride.gamma },
+        };
+
+        shader.uniforms.viewerDebugHue = uniforms.viewerDebugHue;
+        shader.uniforms.viewerDebugSaturation = uniforms.viewerDebugSaturation;
+        shader.uniforms.viewerDebugValue = uniforms.viewerDebugValue;
+        shader.uniforms.viewerDebugGamma = uniforms.viewerDebugGamma;
+        material.userData.viewerDebugColorUniforms = uniforms;
+
+        shader.fragmentShader = shader.fragmentShader.replace(
+          "#include <common>",
+          `#include <common>
+uniform float viewerDebugHue;
+uniform float viewerDebugSaturation;
+uniform float viewerDebugValue;
+uniform float viewerDebugGamma;
+
+vec3 viewerDebugRgbToHsv(vec3 color) {
+  vec4 K = vec4(0.0, -1.0 / 3.0, 2.0 / 3.0, -1.0);
+  vec4 p = mix(vec4(color.bg, K.wz), vec4(color.gb, K.xy), step(color.b, color.g));
+  vec4 q = mix(vec4(p.xyw, color.r), vec4(color.r, p.yzx), step(p.x, color.r));
+  float d = q.x - min(q.w, q.y);
+  float e = 1.0e-10;
+  return vec3(abs(q.z + (q.w - q.y) / (6.0 * d + e)), d / (q.x + e), q.x);
+}
+
+vec3 viewerDebugHsvToRgb(vec3 color) {
+  vec3 rgb = clamp(abs(mod(color.x * 6.0 + vec3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
+  return color.z * mix(vec3(1.0), rgb, color.y);
+}
+
+vec3 viewerDebugApplyColorCorrection(vec3 color) {
+  vec3 hsv = viewerDebugRgbToHsv(max(color, vec3(0.0)));
+  hsv.x = fract(hsv.x + viewerDebugHue);
+  hsv.y = clamp(hsv.y * viewerDebugSaturation, 0.0, 2.0);
+  hsv.z = clamp(hsv.z * viewerDebugValue, 0.0, 4.0);
+  vec3 corrected = viewerDebugHsvToRgb(hsv);
+  return pow(max(corrected, vec3(0.0)), vec3(max(viewerDebugGamma, 0.0001)));
+}`,
+        );
+
+        shader.fragmentShader = shader.fragmentShader.replace(
+          "#include <colorspace_fragment>",
+          `gl_FragColor.rgb = viewerDebugApplyColorCorrection(gl_FragColor.rgb);
+#include <colorspace_fragment>`,
+        );
+      });
+    }
+
+    syncDebugColorUniforms(material);
+    return true;
   }
 
   function applyTextureChannelOverride(texture, fallbackChannel) {
@@ -950,10 +1112,14 @@ void main() {
   }
 
   return {
+    applyDebugColorCorrection,
     applyFireVideoMaterialPatch,
     applyTextureChannelOverride,
     applyRuntimeTextureOptimizations,
+    canApplyDebugColorCorrection,
+    clearDebugColorCorrection,
     convertMeshForLayer,
+    describeMaterialTarget,
     getFallbackTextureChannel,
     getTextureDimensions,
     isGameplayMesh,
