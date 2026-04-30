@@ -74,10 +74,12 @@ export function createDebugObjectInspector({
   const pointer = new THREE.Vector2();
 
   const state = {
+    enabled,
     pickerArmed: false,
     loadedLayers: [],
     overridesDocument: createDefaultOverridesDocument(),
     selectedTargetKey: "",
+    hasLoadedOverrides: false,
   };
 
   function getOverridesUrl() {
@@ -336,7 +338,7 @@ export function createDebugObjectInspector({
   }
 
   function armPicker() {
-    if (!enabled) {
+    if (!state.enabled) {
       return;
     }
 
@@ -359,7 +361,7 @@ export function createDebugObjectInspector({
   }
 
   function handleCanvasPointerDown(event) {
-    if (!enabled || !state.pickerArmed || !getMenuOpen()) {
+    if (!state.enabled || !state.pickerArmed || !getMenuOpen()) {
       return;
     }
 
@@ -396,7 +398,7 @@ export function createDebugObjectInspector({
   }
 
   async function loadOverrides() {
-    if (!enabled) {
+    if (!state.enabled) {
       return;
     }
 
@@ -407,11 +409,13 @@ export function createDebugObjectInspector({
       }
 
       state.overridesDocument = normalizeOverridesDocument(await response.json());
+      state.hasLoadedOverrides = true;
       applyOverridesToLoadedLayers();
       updateSaveStatus(`Loaded ${state.overridesDocument.targets.length} local override target(s).`);
     } catch (error) {
       console.warn("Debug override file could not be loaded.", error);
       state.overridesDocument = createDefaultOverridesDocument();
+      state.hasLoadedOverrides = true;
       applyOverridesToLoadedLayers();
       updateSaveStatus("No local overrides file loaded yet. Save will create one.");
     }
@@ -423,10 +427,6 @@ export function createDebugObjectInspector({
   }
 
   function bindUi() {
-    if (!enabled) {
-      return;
-    }
-
     ui.pickButton?.addEventListener("click", armPicker);
     ui.resetButton?.addEventListener("click", resetSelectedOverride);
     ui.copyButton?.addEventListener("click", copyOverrides);
@@ -456,5 +456,19 @@ export function createDebugObjectInspector({
     bindUi,
     loadOverrides,
     setLoadedLayers,
+    setEnabled(nextEnabled) {
+      state.enabled = Boolean(nextEnabled);
+      if (!state.enabled) {
+        setPickerArmed(false);
+        return;
+      }
+
+      if (!state.hasLoadedOverrides) {
+        loadOverrides();
+        return;
+      }
+
+      applyOverridesToLoadedLayers();
+    },
   };
 }

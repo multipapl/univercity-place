@@ -7,6 +7,10 @@ export function createPerformanceDiagnostics({
   statsElements,
   getTextureDimensions,
 }) {
+  const state = {
+    detailedStatsEnabled,
+  };
+
   function formatInteger(value) {
     return new Intl.NumberFormat("en-US").format(Math.round(value || 0));
   }
@@ -83,7 +87,7 @@ export function createPerformanceDiagnostics({
     }
 
     const renderInfo = renderer.info.render;
-    const textureUsage = detailedStatsEnabled
+    const textureUsage = state.detailedStatsEnabled
       ? estimateVisibleTextureMemory()
       : null;
 
@@ -116,7 +120,7 @@ export function createPerformanceDiagnostics({
     }
 
     if (statsElements.performanceNote) {
-      if (!detailedStatsEnabled) {
+      if (!state.detailedStatsEnabled) {
         statsElements.performanceNote.textContent = "Detailed texture stats and memory tuning are available in debug mode only.";
         return;
       }
@@ -136,6 +140,9 @@ export function createPerformanceDiagnostics({
   }
 
   return {
+    setDetailedStatsEnabled(nextEnabled) {
+      state.detailedStatsEnabled = Boolean(nextEnabled);
+    },
     update,
   };
 }

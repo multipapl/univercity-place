@@ -462,7 +462,7 @@ VIEWER_CONFIG.runtimeOptimization.lowMemoryBaseMipmaps = parseBooleanFlag(search
 VIEWER_CONFIG.runtimeOptimization.baseTextureMaxSize = parsePositiveInteger(searchParams.get("baseTextureCap"))
   ?? getStoredBaseTextureCap()
   ?? VIEWER_CONFIG.runtimeOptimization.baseTextureMaxSize;
-const debugMode = parseBooleanFlag(searchParams.get("debug")) ?? false;
+let debugMode = parseBooleanFlag(searchParams.get("debug")) ?? false;
 const assetBustValue = searchParams.get("assetBust");
 const isLocalAssetDevelopment = import.meta.env.DEV
   || ["localhost", "127.0.0.1", "0.0.0.0"].includes(window.location.hostname);
@@ -471,12 +471,6 @@ const assetQuery = debugMode
   : (assetBustValue
       ? `v=${encodeURIComponent(assetBustValue)}`
       : (isLocalAssetDevelopment ? `v=${encodeURIComponent(`${Date.now()}`)}` : ""));
-
-if (!debugMode) {
-  debugOnlySections.forEach((section) => {
-    section.remove();
-  });
-}
 
 try {
   window.localStorage.removeItem("viewer.debugMode");
@@ -993,15 +987,28 @@ function reloadWithUpdatedSearchParams(mutator) {
 }
 
 function setDebugMode(nextEnabled) {
-  reloadWithUpdatedSearchParams((nextSearchParams) => {
-    if (nextEnabled) {
-      nextSearchParams.set("debug", "1");
-      nextSearchParams.set("assetBust", `${Date.now()}`);
-      return;
-    }
+  const normalizedEnabled = Boolean(nextEnabled);
+  if (debugMode === normalizedEnabled) {
+    return;
+  }
 
-    nextSearchParams.delete("debug");
-  });
+  debugMode = normalizedEnabled;
+  const nextUrl = new URL(window.location.href);
+  if (debugMode) {
+    nextUrl.searchParams.set("debug", "1");
+  } else {
+    nextUrl.searchParams.delete("debug");
+  }
+  window.history.replaceState({}, "", nextUrl.toString());
+
+  performanceDiagnostics.setDetailedStatsEnabled(debugMode);
+  debugObjectInspector.setEnabled(debugMode);
+  applyDebugModeSettings();
+  renderLayerControls();
+  updatePerformanceDiagnostics();
+  updateStatus(debugMode
+    ? "Debug mode enabled. Scene stayed live; advanced tools are now available."
+    : "Debug mode disabled. Scene stayed live; advanced tools are hidden.");
 }
 
 function applyRuntimeTextureOptimizations() {
@@ -1103,7 +1110,7 @@ navigationController.bindInputEvents({
   onResumeFireVideo: () => sceneLayerLoader.resumeFireVideoPlayback(),
 });
 debugObjectInspector.bindUi();
-debugObjectInspector.loadOverrides();
+debugObjectInspector.setEnabled(debugMode);
 
 toneMappingSelect?.addEventListener("change", (event) => {
   VIEWER_CONFIG.colorPipeline.toneMapping = event.target.value;
