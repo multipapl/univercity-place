@@ -1,10 +1,18 @@
-function appendAssetQuery(url, assetQuery = "") {
+export function appendAssetQuery(url, assetQuery = "") {
   if (!assetQuery) {
     return url;
   }
 
-  const separator = url.includes("?") ? "&" : "?";
-  return `${url}${separator}${assetQuery}`;
+  const [urlWithoutHash, hashFragment = ""] = url.split("#", 2);
+  if (
+    urlWithoutHash.includes(`?${assetQuery}`)
+    || urlWithoutHash.includes(`&${assetQuery}`)
+  ) {
+    return url;
+  }
+
+  const separator = urlWithoutHash.includes("?") ? "&" : "?";
+  return `${urlWithoutHash}${separator}${assetQuery}${hashFragment ? `#${hashFragment}` : ""}`;
 }
 
 export async function findFirstReachableAsset(candidates = [], assetQuery = "") {

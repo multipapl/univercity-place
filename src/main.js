@@ -8,6 +8,7 @@ import {
   SCENE_LOAD_STATUS_HTML,
   VIEWER_CONFIG,
 } from "./config/viewerConfig.js";
+import { appendAssetQuery } from "./loaders/assetResolver.js";
 import { createNavigationController } from "./camera/navigationController.js";
 import { createPerformanceDiagnostics } from "./diagnostics/performanceDiagnostics.js";
 import { createSceneLayerLoader } from "./loaders/sceneLayerLoader.js";
@@ -158,6 +159,16 @@ hud.innerHTML = `
       </div>
     </div>
     <div class="menu-section" data-debug-only>
+      <h2>Session</h2>
+      <div class="layer-controls">
+        <p class="debug-note" data-debug-session-note>Debug tools are active for this URL.</p>
+        <div class="button-row">
+          <button type="button" class="action-button" data-reload-assets>Reload Assets</button>
+          <button type="button" class="action-button is-secondary" data-exit-debug>Exit Debug</button>
+        </div>
+      </div>
+    </div>
+    <div class="menu-section" data-debug-only>
       <h2>Performance</h2>
       <div class="layer-controls">
         <label class="layer-toggle">
@@ -290,6 +301,9 @@ const statTextureMemory = hud.querySelector("[data-stat-texture-memory]");
 const performanceNote = hud.querySelector("[data-performance-note]");
 const baseLowMemoryToggle = hud.querySelector("[data-base-low-memory]");
 const baseTextureCapSelect = hud.querySelector("[data-base-texture-cap]");
+const debugSessionNote = hud.querySelector("[data-debug-session-note]");
+const reloadAssetsButton = hud.querySelector("[data-reload-assets]");
+const exitDebugButton = hud.querySelector("[data-exit-debug]");
 const joystickBase = mobileControls.querySelector("[data-joystick]");
 const joystickThumb = mobileControls.querySelector("[data-joystick-thumb]");
 const lookPad = mobileControls.querySelector("[data-lookpad]");
@@ -322,10 +336,6 @@ camera.up.set(0, 1, 0);
 camera.position.set(0, 1.7, 4);
 
 const clock = new THREE.Clock();
-const dracoLoader = new DRACOLoader();
-dracoLoader.setDecoderPath("/draco/");
-const loader = new GLTFLoader();
-loader.setDRACOLoader(dracoLoader);
 const searchParams = new URLSearchParams(window.location.search);
 
 function parseBooleanFlag(value) {
@@ -374,23 +384,13 @@ function getStoredBaseTextureCap() {
   }
 }
 
-function getStoredDebugMode() {
-  try {
-    return parseBooleanFlag(window.localStorage.getItem("viewer.debugMode"));
-  } catch {
-    return null;
-  }
-}
-
 VIEWER_CONFIG.runtimeOptimization.lowMemoryBaseMipmaps = parseBooleanFlag(searchParams.get("lowMemoryBase"))
   ?? getStoredLowMemoryBaseMode()
   ?? VIEWER_CONFIG.runtimeOptimization.lowMemoryBaseMipmaps;
 VIEWER_CONFIG.runtimeOptimization.baseTextureMaxSize = parsePositiveInteger(searchParams.get("baseTextureCap"))
   ?? getStoredBaseTextureCap()
   ?? VIEWER_CONFIG.runtimeOptimization.baseTextureMaxSize;
-const debugMode = parseBooleanFlag(searchParams.get("debug"))
-  ?? getStoredDebugMode()
-  ?? false;
+const debugMode = parseBooleanFlag(searchParams.get("debug")) ?? false;
 const assetBustValue = searchParams.get("assetBust");
 const isLocalAssetDevelopment = import.meta.env.DEV
   || ["localhost", "127.0.0.1", "0.0.0.0"].includes(window.location.hostname);
@@ -400,13 +400,38 @@ const assetQuery = debugMode
       ? `v=${encodeURIComponent(assetBustValue)}`
       : (isLocalAssetDevelopment ? `v=${encodeURIComponent(`${Date.now()}`)}` : ""));
 
-if (searchParams.has("debug")) {
+try {
+  window.localStorage.removeItem("viewer.debugMode");
+} catch {
+  // Ignore storage failures and continue with query-only debug mode.
+}
+
+function shouldAppendAssetQuery(url) {
+  if (!assetQuery || !url || /^data:|^blob:/i.test(url)) {
+    return false;
+  }
+
   try {
-    window.localStorage.setItem("viewer.debugMode", debugMode ? "1" : "0");
+    const resolvedUrl = new URL(url, window.location.href);
+    return resolvedUrl.origin === window.location.origin
+      && !resolvedUrl.pathname.startsWith("/draco/");
   } catch {
-    // Ignore storage failures and keep this preference in-memory for the current session.
+    return false;
   }
 }
+
+const loadingManager = new THREE.LoadingManager();
+loadingManager.setURLModifier((url) => (
+  shouldAppendAssetQuery(url)
+    ? appendAssetQuery(url, assetQuery)
+    : url
+));
+
+const dracoLoader = new DRACOLoader();
+dracoLoader.setDecoderPath("/draco/");
+const loader = new GLTFLoader(loadingManager);
+loader.setDRACOLoader(dracoLoader);
+const textureLoader = new THREE.TextureLoader(loadingManager);
 
 const uiState = {
   menuOpen: false,
@@ -449,6 +474,7 @@ const reflectionEnvironment = createReflectionEnvironmentManager({
   assetQuery,
   reflectionPmremGenerator,
   scene,
+  textureLoader,
   updateStatus,
 });
 const materialPipeline = createMaterialPipeline({
@@ -511,6 +537,19 @@ function updateStatus(message) {
   if (loadingStatusLine) {
     loadingStatusLine.textContent = message;
   }
+}
+
+function updateDebugSessionNote() {
+  if (!debugSessionNote) {
+    return;
+  }
+
+  if (!debugMode) {
+    debugSessionNote.textContent = "Debug tools are disabled for this URL.";
+    return;
+  }
+
+  debugSessionNote.textContent = `Debug tools are active. Asset token: ${assetQuery || "none"}. Reload Assets forces a fresh scene fetch.`;
 }
 
 function setLoadingScreenVisible(visible) {
@@ -611,6 +650,8 @@ function applyDebugModeSettings() {
   if (menuToggleButton) {
     menuToggleButton.querySelector("span").textContent = debugMode ? "Debug Menu" : "Menu";
   }
+
+  updateDebugSessionNote();
 }
 
 function applyBackgroundColorSettings() {
@@ -835,6 +876,12 @@ function setMenuOpen(nextOpen) {
   }
 }
 
+function reloadWithUpdatedSearchParams(mutator) {
+  const nextUrl = new URL(window.location.href);
+  mutator(nextUrl.searchParams);
+  window.location.assign(nextUrl.toString());
+}
+
 function applyRuntimeTextureOptimizations() {
   materialPipeline.applyRuntimeTextureOptimizations(diagnosticsState.loadedLayers);
   updatePerformanceDiagnostics();
@@ -1027,6 +1074,21 @@ menuToggleButton?.addEventListener("click", () => {
 
 menuCloseButton?.addEventListener("click", () => {
   setMenuOpen(false);
+});
+
+reloadAssetsButton?.addEventListener("click", () => {
+  reloadWithUpdatedSearchParams((nextSearchParams) => {
+    nextSearchParams.set("assetBust", `${Date.now()}`);
+    if (debugMode) {
+      nextSearchParams.set("debug", "1");
+    }
+  });
+});
+
+exitDebugButton?.addEventListener("click", () => {
+  reloadWithUpdatedSearchParams((nextSearchParams) => {
+    nextSearchParams.delete("debug");
+  });
 });
 
 function animate() {

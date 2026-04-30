@@ -8,6 +8,7 @@ export function createReflectionEnvironmentManager({
   assetQuery = "",
   reflectionPmremGenerator,
   scene,
+  textureLoader,
   updateStatus,
 }) {
   const state = {
@@ -44,7 +45,7 @@ export function createReflectionEnvironmentManager({
     }
 
     try {
-      const equirectTexture = await new THREE.TextureLoader().loadAsync(state.envUrl);
+      const equirectTexture = await textureLoader.loadAsync(state.envUrl);
       equirectTexture.colorSpace = THREE.SRGBColorSpace;
       equirectTexture.mapping = THREE.EquirectangularReflectionMapping;
       equirectTexture.needsUpdate = true;

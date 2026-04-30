@@ -287,9 +287,28 @@ select {
 
 .layer-toggle-copy small,
 .empty-state,
+.debug-note,
 .performance-note {
   font-size: 12px;
   color: #94a3b8;
+}
+
+.button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.action-button {
+  padding: 10px 12px;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 12px;
+  background: rgba(59, 130, 246, 0.16);
+  color: #f8fafc;
+}
+
+.action-button.is-secondary {
+  background: rgba(15, 23, 42, 0.88);
 }
 
 .stats-grid {
