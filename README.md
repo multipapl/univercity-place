@@ -65,7 +65,7 @@ Current viewer capabilities:
 
 ## Configuration
 
-The main runtime config currently lives near the top of [src/main.js](./src/main.js) in `VIEWER_CONFIG`.
+The runtime config lives in [src/config/viewerConfig.js](./src/config/viewerConfig.js) in `VIEWER_CONFIG`.
 
 Important groups:
 
@@ -75,6 +75,14 @@ Important groups:
 - `runtimeOptimization`
 - `materialPresets`
 - `materialTweaks`
+
+To switch heavy runtime assets from local `public/assets/scene/` to object storage, set a single base URL:
+
+```bash
+VITE_SCENE_ASSET_BASE_URL=https://assets.example.com/university-place
+```
+
+Local development can keep using the default `/assets/scene`, while staging or production can point the same layer candidates at `Cloudflare R2` or another object storage origin. See [.env.example](./.env.example) for the expected variable name.
 
 ## Deployment
 
