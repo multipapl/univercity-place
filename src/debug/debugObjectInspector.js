@@ -72,10 +72,18 @@ export function createDebugObjectInspector({
 }) {
   const raycaster = new THREE.Raycaster();
   const pointer = new THREE.Vector2();
+  const hoverHelper = new THREE.BoxHelper(undefined, 0x93c5fd);
+  hoverHelper.visible = false;
+  hoverHelper.material.depthTest = false;
+  hoverHelper.material.transparent = true;
+  hoverHelper.material.opacity = 0.9;
+  hoverHelper.userData.viewerDebugHelper = true;
+  sceneRoots.add(hoverHelper);
 
   const state = {
     enabled,
     pickerArmed: false,
+    hoveredMesh: null,
     loadedLayers: [],
     overridesDocument: createDefaultOverridesDocument(),
     selectedEntry: null,
@@ -125,6 +133,21 @@ export function createDebugObjectInspector({
     return getMaterialEntries().find((entry) => entry.key === targetKey) ?? null;
   }
 
+  function getPointerIntersections(clientX, clientY) {
+    const rect = rendererDomElement.getBoundingClientRect();
+    pointer.x = ((clientX - rect.left) / rect.width) * 2 - 1;
+    pointer.y = -(((clientY - rect.top) / rect.height) * 2 - 1);
+    raycaster.setFromCamera(pointer, camera);
+
+    return raycaster
+      .intersectObject(sceneRoots, true)
+      .filter((intersection) => (
+        intersection.object?.isMesh
+        && intersection.object.visible
+        && !intersection.object.userData.viewerDebugHelper
+      ));
+  }
+
   function resolveSelectedEntry() {
     if (!state.selectedTargetKey) {
       state.selectedEntry = null;
@@ -140,6 +163,11 @@ export function createDebugObjectInspector({
     state.pickerArmed = nextValue;
     if (ui.pickButton) {
       ui.pickButton.textContent = nextValue ? "Picking..." : "Pick Object";
+    }
+
+    if (!nextValue) {
+      state.hoveredMesh = null;
+      hoverHelper.visible = false;
     }
   }
 
@@ -371,14 +399,7 @@ export function createDebugObjectInspector({
       return;
     }
 
-    const rect = rendererDomElement.getBoundingClientRect();
-    pointer.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-    pointer.y = -(((event.clientY - rect.top) / rect.height) * 2 - 1);
-    raycaster.setFromCamera(pointer, camera);
-
-    const intersections = raycaster
-      .intersectObject(sceneRoots, true)
-      .filter((intersection) => intersection.object?.isMesh && intersection.object.visible);
+    const intersections = getPointerIntersections(event.clientX, event.clientY);
 
     if (!intersections.length) {
       updateStatus("Picker missed. Click a visible mesh in the scene.");
@@ -401,6 +422,33 @@ export function createDebugObjectInspector({
     selectEntry(selectedEntry);
     setPickerArmed(false);
     updateStatus(`Picked ${target.meshName || "(unnamed mesh)"} · ${target.materialName || "(unnamed material)"}.`);
+  }
+
+  function handleCanvasPointerMove(event) {
+    if (!state.enabled || !state.pickerArmed || !getMenuOpen()) {
+      if (state.hoveredMesh || hoverHelper.visible) {
+        state.hoveredMesh = null;
+        hoverHelper.visible = false;
+      }
+      return;
+    }
+
+    const intersections = getPointerIntersections(event.clientX, event.clientY);
+    const hoveredMesh = intersections[0]?.object ?? null;
+    if (!hoveredMesh) {
+      state.hoveredMesh = null;
+      hoverHelper.visible = false;
+      return;
+    }
+
+    if (state.hoveredMesh !== hoveredMesh) {
+      state.hoveredMesh = hoveredMesh;
+      hoverHelper.setFromObject(hoveredMesh);
+    } else {
+      hoverHelper.update();
+    }
+
+    hoverHelper.visible = true;
   }
 
   async function loadOverrides() {
@@ -453,6 +501,7 @@ export function createDebugObjectInspector({
     });
 
     rendererDomElement.addEventListener("pointerdown", handleCanvasPointerDown, true);
+    rendererDomElement.addEventListener("pointermove", handleCanvasPointerMove, true);
     setSelectionUi(null);
     updateSaveStatus(isDev
       ? "Local overrides are ready. Save writes to public/debug.scene-overrides.json."
@@ -467,6 +516,8 @@ export function createDebugObjectInspector({
       state.enabled = Boolean(nextEnabled);
       if (!state.enabled) {
         setPickerArmed(false);
+        state.hoveredMesh = null;
+        hoverHelper.visible = false;
         return;
       }
 

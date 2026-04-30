@@ -407,6 +407,10 @@ export function createNavigationController({
 
     if (!isTouchDevice) {
       viewport.addEventListener("click", (event) => {
+        if (getMenuOpen()) {
+          return;
+        }
+
         if (event.target.closest(".hud")) {
           return;
         }
