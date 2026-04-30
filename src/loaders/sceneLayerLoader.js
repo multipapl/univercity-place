@@ -28,6 +28,7 @@ function logLayerMaterials(root, layer, enabled) {
 export function createSceneLayerLoader({
   viewerConfig,
   searchParams,
+  assetQuery = "",
   gltfLoader,
   sceneRoots,
   backgroundRoots,
@@ -69,6 +70,7 @@ export function createSceneLayerLoader({
         searchParams,
         viewerConfig.materialPresets.fireVideo.searchParam,
         viewerConfig.materialPresets.fireVideo.candidates,
+        assetQuery,
       );
     }
 
@@ -185,7 +187,7 @@ export function createSceneLayerLoader({
   async function loadSceneLayers() {
     try {
       await ensureReflectionEnvironment();
-      const layers = await resolveSceneLayers(viewerConfig.sceneLayers, searchParams);
+      const layers = await resolveSceneLayers(viewerConfig.sceneLayers, searchParams, assetQuery);
       if (!layers?.length) {
         addFallbackScene();
         return;

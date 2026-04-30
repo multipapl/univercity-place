@@ -391,6 +391,10 @@ VIEWER_CONFIG.runtimeOptimization.baseTextureMaxSize = parsePositiveInteger(sear
 const debugMode = parseBooleanFlag(searchParams.get("debug"))
   ?? getStoredDebugMode()
   ?? false;
+const assetBustValue = searchParams.get("assetBust");
+const assetQuery = debugMode
+  ? `v=${encodeURIComponent(assetBustValue || `${Date.now()}`)}`
+  : (assetBustValue ? `v=${encodeURIComponent(assetBustValue)}` : "");
 
 if (searchParams.has("debug")) {
   try {
@@ -438,6 +442,7 @@ const reflectionState = {
 const reflectionEnvironment = createReflectionEnvironmentManager({
   viewerConfig: VIEWER_CONFIG,
   searchParams,
+  assetQuery,
   reflectionPmremGenerator,
   scene,
   updateStatus,
@@ -594,9 +599,14 @@ function applyInterfaceSettings() {
 }
 
 function applyDebugModeSettings() {
+  hud.classList.toggle("is-debug-mode", debugMode);
   debugOnlySections.forEach((section) => {
     section.hidden = !debugMode;
   });
+
+  if (menuToggleButton) {
+    menuToggleButton.querySelector("span").textContent = debugMode ? "Debug Menu" : "Menu";
+  }
 }
 
 function applyBackgroundColorSettings() {
@@ -882,6 +892,7 @@ function addFallbackScene() {
 const sceneLayerLoader = createSceneLayerLoader({
   viewerConfig: VIEWER_CONFIG,
   searchParams,
+  assetQuery,
   gltfLoader: loader,
   sceneRoots,
   backgroundRoots: backgroundState.roots,

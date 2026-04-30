@@ -5,6 +5,7 @@ import { resolveOptionalAssetUrl } from "../loaders/assetResolver.js";
 export function createReflectionEnvironmentManager({
   viewerConfig,
   searchParams,
+  assetQuery = "",
   reflectionPmremGenerator,
   scene,
   updateStatus,
@@ -32,6 +33,7 @@ export function createReflectionEnvironmentManager({
         searchParams,
         viewerConfig.materialPresets.reflectMaterial.searchParam,
         viewerConfig.materialPresets.reflectMaterial.candidates,
+        assetQuery,
       );
     }
 
