@@ -992,6 +992,18 @@ function reloadWithUpdatedSearchParams(mutator) {
   window.location.assign(nextUrl.toString());
 }
 
+function setDebugMode(nextEnabled) {
+  reloadWithUpdatedSearchParams((nextSearchParams) => {
+    if (nextEnabled) {
+      nextSearchParams.set("debug", "1");
+      nextSearchParams.set("assetBust", `${Date.now()}`);
+      return;
+    }
+
+    nextSearchParams.delete("debug");
+  });
+}
+
 function applyRuntimeTextureOptimizations() {
   materialPipeline.applyRuntimeTextureOptimizations(diagnosticsState.loadedLayers);
   updatePerformanceDiagnostics();
@@ -1187,6 +1199,20 @@ menuToggleButton?.addEventListener("click", () => {
   setMenuOpen(!uiState.menuOpen);
 });
 
+menuToggleButton?.addEventListener("contextmenu", (event) => {
+  event.preventDefault();
+  setDebugMode(!debugMode);
+});
+
+menuToggleButton?.addEventListener("auxclick", (event) => {
+  if (event.button !== 1) {
+    return;
+  }
+
+  event.preventDefault();
+  setDebugMode(!debugMode);
+});
+
 menuCloseButton?.addEventListener("click", () => {
   setMenuOpen(false);
 });
@@ -1201,9 +1227,7 @@ reloadAssetsButton?.addEventListener("click", () => {
 });
 
 exitDebugButton?.addEventListener("click", () => {
-  reloadWithUpdatedSearchParams((nextSearchParams) => {
-    nextSearchParams.delete("debug");
-  });
+  setDebugMode(false);
 });
 
 function animate() {
