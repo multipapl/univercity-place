@@ -1,5 +1,6 @@
 export function createPerformanceDiagnostics({
   enabled = true,
+  detailedStatsEnabled = false,
   renderer,
   diagnosticsState,
   runtimeOptimization,
@@ -81,8 +82,10 @@ export function createPerformanceDiagnostics({
       return;
     }
 
-    const textureUsage = estimateVisibleTextureMemory();
     const renderInfo = renderer.info.render;
+    const textureUsage = detailedStatsEnabled
+      ? estimateVisibleTextureMemory()
+      : null;
 
     if (statsElements.statFps) {
       statsElements.statFps.textContent = formatInteger(diagnosticsState.fps);
@@ -101,14 +104,23 @@ export function createPerformanceDiagnostics({
     }
 
     if (statsElements.statTextures) {
-      statsElements.statTextures.textContent = formatInteger(textureUsage.count);
+      statsElements.statTextures.textContent = textureUsage
+        ? formatInteger(textureUsage.count)
+        : "Debug only";
     }
 
     if (statsElements.statTextureMemory) {
-      statsElements.statTextureMemory.textContent = formatMegabytes(textureUsage.bytes);
+      statsElements.statTextureMemory.textContent = textureUsage
+        ? formatMegabytes(textureUsage.bytes)
+        : "Debug only";
     }
 
     if (statsElements.performanceNote) {
+      if (!detailedStatsEnabled) {
+        statsElements.performanceNote.textContent = "Detailed texture stats and memory tuning are available in debug mode only.";
+        return;
+      }
+
       const visibleLayerLabels = diagnosticsState.loadedLayers
         .filter((entry) => entry.root.visible)
         .map((entry) => entry.layer.label);

@@ -49,13 +49,6 @@ hud.innerHTML = `
     <div class="menu-section">
       <h2>Viewport</h2>
       <div class="color-tools">
-        <label class="field">
-          <span>View Transform</span>
-          <select data-tone-mapping>
-            <option value="standard">Standard</option>
-            <option value="none">None</option>
-          </select>
-        </label>
         <label class="field field-range">
           <span>Exposure</span>
           <input type="range" min="0.25" max="2.5" step="0.01" value="${VIEWER_CONFIG.colorPipeline.exposure}" data-exposure />
@@ -84,6 +77,39 @@ hud.innerHTML = `
             <strong>Camera Shake</strong>
             <small>Toggle the subtle ambient camera drift.</small>
           </span>
+        </label>
+      </div>
+    </div>
+    <div class="menu-section">
+      <h2>Stats</h2>
+      <div class="stats-grid">
+        <div class="stat-card">
+          <span>FPS</span>
+          <strong data-stat-fps>0</strong>
+        </div>
+        <div class="stat-card">
+          <span>Frame</span>
+          <strong data-stat-frame-ms>0.0 ms</strong>
+        </div>
+        <div class="stat-card">
+          <span>Draw Calls</span>
+          <strong data-stat-draw-calls>0</strong>
+        </div>
+        <div class="stat-card">
+          <span>Triangles</span>
+          <strong data-stat-triangles>0</strong>
+        </div>
+      </div>
+    </div>
+    <div class="menu-section" data-debug-only>
+      <h2>Viewport Advanced</h2>
+      <div class="color-tools">
+        <label class="field">
+          <span>View Transform</span>
+          <select data-tone-mapping>
+            <option value="standard">Standard</option>
+            <option value="none">None</option>
+          </select>
         </label>
       </div>
     </div>
@@ -190,22 +216,6 @@ hud.innerHTML = `
         </label>
       </div>
       <div class="stats-grid">
-        <div class="stat-card">
-          <span>FPS</span>
-          <strong data-stat-fps>0</strong>
-        </div>
-        <div class="stat-card">
-          <span>Frame</span>
-          <strong data-stat-frame-ms>0.0 ms</strong>
-        </div>
-        <div class="stat-card">
-          <span>Draw Calls</span>
-          <strong data-stat-draw-calls>0</strong>
-        </div>
-        <div class="stat-card">
-          <span>Triangles</span>
-          <strong data-stat-triangles>0</strong>
-        </div>
         <div class="stat-card">
           <span>Textures</span>
           <strong data-stat-textures>0</strong>
@@ -486,7 +496,8 @@ const materialPipeline = createMaterialPipeline({
   reflectionEnvironment,
 });
 const performanceDiagnostics = createPerformanceDiagnostics({
-  enabled: debugMode,
+  enabled: true,
+  detailedStatsEnabled: debugMode,
   renderer,
   diagnosticsState,
   runtimeOptimization: VIEWER_CONFIG.runtimeOptimization,
