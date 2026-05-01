@@ -60,6 +60,8 @@ try {
 const app = document.querySelector("#app");
 const isTouchDevice = window.matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
 const isWalkMode = VIEWER_CONFIG.locomotion.mode === "walk";
+const searchParams = new URLSearchParams(window.location.search);
+let debugMode = parseBooleanFlag(searchParams.get("debug")) ?? false;
 const desktopControlText = isWalkMode
   ? "<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk, <kbd>Shift</kbd> sprint, mouse looks around, <kbd>Esc</kbd> unlocks cursor."
   : "<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move, <kbd>Space</kbd> up, <kbd>C</kbd> down, <kbd>Shift</kbd> boost, mouse wheel changes speed, <kbd>Esc</kbd> unlocks cursor.";
@@ -77,6 +79,7 @@ const {
   app,
   isTouchDevice,
   isWalkMode,
+  menuMode: debugMode ? "debug" : "viewer",
   viewerConfig: VIEWER_CONFIG,
   sceneLoadStatusHtml: SCENE_LOAD_STATUS_HTML,
   desktopControlText,
@@ -93,9 +96,9 @@ const {
   loadingStatusLine,
   loadingBarFill,
   menuToggleButton,
+  menuToggleLabel,
   menuCloseButton,
   hudPanel,
-  debugOnlySections,
   toneMappingSelect,
   exposureSlider,
   exposureValue,
@@ -173,7 +176,6 @@ camera.up.set(0, 1, 0);
 camera.position.set(0, 1.7, 4);
 
 const clock = new THREE.Clock();
-const searchParams = new URLSearchParams(window.location.search);
 const BLOOM_SCENE_LAYER = VIEWER_CONFIG.postProcessing.selectiveBloom.layer;
 const selectiveBloomConfig = {
   ...VIEWER_CONFIG.postProcessing.selectiveBloom,
@@ -273,7 +275,6 @@ const viewerConfig = {
   },
   runtimeOptimization: runtimeOptimizationState,
 };
-let debugMode = parseBooleanFlag(searchParams.get("debug")) ?? false;
 const assetBustValue = searchParams.get("assetBust");
 const isLocalAssetDevelopment = import.meta.env.DEV
   || ["localhost", "127.0.0.1", "0.0.0.0"].includes(window.location.hostname);
@@ -458,6 +459,7 @@ const menuController = createMenuController({
   hud,
   hudPanel,
   menuToggleButton,
+  initialMode: debugMode ? "debug" : "viewer",
   isTouchDevice,
   navigationController,
   updateStatus,
@@ -598,13 +600,17 @@ function applyInterfaceSettings() {
 }
 
 function applyDebugModeSettings() {
+  const menuMode = debugMode ? "debug" : "viewer";
   hud.classList.toggle("is-debug-mode", debugMode);
-  debugOnlySections.forEach((section) => {
-    section.hidden = !debugMode;
-  });
+  menuController.setMode(menuMode);
 
-  if (menuToggleButton) {
-    menuToggleButton.querySelector("span").textContent = debugMode ? "Debug Menu" : "Menu";
+  if (menuToggleLabel) {
+    menuToggleLabel.textContent = debugMode ? "Debug Menu" : "Menu";
+  }
+
+  const menuTitle = hudPanel?.querySelector("h1");
+  if (menuTitle) {
+    menuTitle.textContent = debugMode ? "Debug Menu" : "Viewer Menu";
   }
 
   updateDebugSessionNote();
@@ -1076,6 +1082,7 @@ function disposeViewerResources() {
   unbindViewerUi?.();
   unbindDebugUi?.();
   unbindNavigationEvents?.();
+  menuController.dispose?.();
   window.removeEventListener("resize", handlePostProcessingResize);
   debugObjectInspector.dispose?.();
   sceneLayerLoader.dispose();

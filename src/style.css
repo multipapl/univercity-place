@@ -179,7 +179,7 @@ select {
 
 .hud-panel {
   width: min(420px, calc(100vw - 32px));
-  max-height: min(78vh, 860px);
+  max-height: min(calc(100vh - 32px), 860px);
   margin-top: 12px;
   overflow: auto;
   padding: 18px;
@@ -225,9 +225,27 @@ select {
   margin-bottom: 0;
 }
 
+.hud-controls-copy {
+  margin-bottom: 14px;
+}
+
 .hud .status {
   margin-bottom: 14px;
   color: #93c5fd;
+}
+
+.hud-summary {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid rgba(148, 163, 184, 0.16);
+}
+
+.menu-sections {
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
 }
 
 .menu-close {
@@ -237,11 +255,50 @@ select {
 }
 
 .menu-section {
+  overflow: clip;
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.42);
+}
+
+.menu-section-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 14px 16px;
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+  color: #f8fafc;
+  text-align: left;
+}
+
+.menu-section-toggle span {
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #93c5fd;
+}
+
+.menu-section-toggle::after {
+  content: "+";
+  flex: 0 0 auto;
+  font-size: 20px;
+  line-height: 1;
+  color: #f8fafc;
+  transform: rotate(0deg);
+  transition: transform 160ms ease;
+}
+
+.menu-section.is-open .menu-section-toggle::after {
+  transform: rotate(45deg);
+}
+
+.menu-section-panel {
   display: grid;
   gap: 12px;
-  margin-top: 16px;
-  padding-top: 14px;
-  border-top: 1px solid rgba(148, 163, 184, 0.16);
+  padding: 0 16px 16px;
 }
 
 .layer-controls {
