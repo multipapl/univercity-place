@@ -37,6 +37,49 @@ export function createPerformanceDiagnostics({
     });
   }
 
+  function estimateMeshDrawCalls(mesh) {
+    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    return Math.max(materials.filter((material) => material?.isMaterial).length, 1);
+  }
+
+  function estimateMeshTriangles(mesh) {
+    const geometry = mesh.geometry;
+    if (!geometry) {
+      return 0;
+    }
+
+    if (geometry.index) {
+      return geometry.index.count / 3;
+    }
+
+    const position = geometry.getAttribute?.("position");
+    return position ? position.count / 3 : 0;
+  }
+
+  function estimateVisibleSceneComplexity() {
+    const complexity = {
+      drawCalls: 0,
+      triangles: 0,
+    };
+
+    diagnosticsState.loadedLayers.forEach((entry) => {
+      if (!entry.root.visible) {
+        return;
+      }
+
+      entry.root.traverse((child) => {
+        if (!child.isMesh || !child.visible) {
+          return;
+        }
+
+        complexity.drawCalls += estimateMeshDrawCalls(child);
+        complexity.triangles += estimateMeshTriangles(child);
+      });
+    });
+
+    return complexity;
+  }
+
   function estimateTextureBytes(texture) {
     const image = texture?.image;
     if (!image) {
@@ -86,7 +129,7 @@ export function createPerformanceDiagnostics({
       return;
     }
 
-    const renderInfo = renderer.info.render;
+    const sceneComplexity = estimateVisibleSceneComplexity();
     const textureUsage = state.detailedStatsEnabled
       ? estimateVisibleTextureMemory()
       : null;
@@ -100,11 +143,11 @@ export function createPerformanceDiagnostics({
     }
 
     if (statsElements.statDrawCalls) {
-      statsElements.statDrawCalls.textContent = formatInteger(renderInfo.calls);
+      statsElements.statDrawCalls.textContent = formatInteger(sceneComplexity.drawCalls);
     }
 
     if (statsElements.statTriangles) {
-      statsElements.statTriangles.textContent = formatInteger(renderInfo.triangles);
+      statsElements.statTriangles.textContent = formatInteger(sceneComplexity.triangles);
     }
 
     if (statsElements.statTextures) {
