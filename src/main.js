@@ -146,8 +146,10 @@ const {
 } = refs;
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
+const initialViewportWidth = viewport.clientWidth || window.innerWidth;
+const initialViewportHeight = viewport.clientHeight || window.innerHeight;
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setSize(initialViewportWidth, initialViewportHeight);
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.shadowMap.enabled = false;
 viewport.prepend(renderer.domElement);
@@ -162,7 +164,7 @@ scene.add(sceneRoots);
 
 const camera = new THREE.PerspectiveCamera(
   VIEWER_CONFIG.camera.fov,
-  window.innerWidth / window.innerHeight,
+  initialViewportWidth / initialViewportHeight,
   0.05,
   5000,
 );
@@ -184,8 +186,8 @@ const selectiveBloomPipeline = createSelectiveBloomPipeline({
   scene,
   camera,
   bloomLayerId: BLOOM_SCENE_LAYER,
-  width: window.innerWidth,
-  height: window.innerHeight,
+  width: initialViewportWidth,
+  height: initialViewportHeight,
 });
 
 function parseBooleanFlag(value) {
@@ -536,7 +538,9 @@ function applySelectiveBloomSettings() {
 
 function syncPostProcessingSize() {
   const pixelRatio = Math.min(window.devicePixelRatio, 2);
-  selectiveBloomPipeline.syncSize(window.innerWidth, window.innerHeight, pixelRatio);
+  const width = viewport.clientWidth || window.innerWidth;
+  const height = viewport.clientHeight || window.innerHeight;
+  selectiveBloomPipeline.syncSize(width, height, pixelRatio);
 }
 
 function renderSceneFrame(delta) {

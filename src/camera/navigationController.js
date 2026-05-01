@@ -64,6 +64,13 @@ export function createNavigationController({
     lastUnlockAt: 0,
   };
 
+  function getViewportDimensions() {
+    return {
+      width: viewport.clientWidth || window.innerWidth,
+      height: viewport.clientHeight || window.innerHeight,
+    };
+  }
+
   const controls = {
     lock({ ignoreCooldown = false } = {}) {
       if (this.isLocked) {
@@ -306,10 +313,11 @@ export function createNavigationController({
   }
 
   function handleResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
+    const { width, height } = getViewportDimensions();
+    camera.aspect = width / height;
     camera.updateProjectionMatrix();
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setSize(width, height);
   }
 
   function updateMovement(delta, menuOpen) {
