@@ -40,29 +40,14 @@ export function createSelectiveBloomPipeline({
   height,
 }) {
   const state = {
+    height,
+    pixelRatio: 1,
+    resources: null,
     targetCount: 0,
+    width,
   };
   const bloomLayer = new THREE.Layers();
   bloomLayer.set(bloomLayerId);
-  const bloomOcclusionMaterial = new THREE.MeshBasicMaterial({
-    color: 0x000000,
-    side: THREE.DoubleSide,
-  });
-  const darkenedBloomMaterials = new Map();
-  const bloomRenderPass = new RenderPass(scene, camera, null, 0x000000, 0);
-  const bloomPass = new UnrealBloomPass(new THREE.Vector2(width, height), 0, 0, 0);
-  const bloomComposer = new EffectComposer(renderer);
-  bloomComposer.renderToScreen = false;
-  bloomComposer.addPass(bloomRenderPass);
-  bloomComposer.addPass(bloomPass);
-  const finalRenderPass = new RenderPass(scene, camera);
-  const bloomCompositePass = new ShaderPass(bloomCompositeShader);
-  bloomCompositePass.uniforms.bloomTexture.value = bloomComposer.renderTarget2.texture;
-  const outputPass = new OutputPass();
-  const finalComposer = new EffectComposer(renderer);
-  finalComposer.addPass(finalRenderPass);
-  finalComposer.addPass(bloomCompositePass);
-  finalComposer.addPass(outputPass);
   camera.layers.set(DEFAULT_SCENE_LAYER);
 
   function hasActiveBloom(config) {
@@ -71,18 +56,95 @@ export function createSelectiveBloomPipeline({
       && state.targetCount > 0;
   }
 
+  function ensureResources() {
+    if (state.resources) {
+      return state.resources;
+    }
+
+    const bloomOcclusionMaterial = new THREE.MeshBasicMaterial({
+      color: 0x000000,
+      side: THREE.DoubleSide,
+    });
+    const darkenedBloomMaterials = new Map();
+    const bloomRenderPass = new RenderPass(scene, camera, null, 0x000000, 0);
+    const bloomPass = new UnrealBloomPass(new THREE.Vector2(state.width, state.height), 0, 0, 0);
+    const bloomComposer = new EffectComposer(renderer);
+    bloomComposer.renderToScreen = false;
+    bloomComposer.addPass(bloomRenderPass);
+    bloomComposer.addPass(bloomPass);
+    const finalRenderPass = new RenderPass(scene, camera);
+    const bloomCompositePass = new ShaderPass(bloomCompositeShader);
+    bloomCompositePass.uniforms.bloomTexture.value = bloomComposer.renderTarget2.texture;
+    const outputPass = new OutputPass();
+    const finalComposer = new EffectComposer(renderer);
+    finalComposer.addPass(finalRenderPass);
+    finalComposer.addPass(bloomCompositePass);
+    finalComposer.addPass(outputPass);
+
+    state.resources = {
+      bloomComposer,
+      bloomCompositePass,
+      bloomOcclusionMaterial,
+      bloomPass,
+      bloomRenderPass,
+      darkenedBloomMaterials,
+      finalComposer,
+      finalRenderPass,
+      outputPass,
+    };
+    syncSize(state.width, state.height, state.pixelRatio);
+    return state.resources;
+  }
+
+  function restoreDarkenedBloomObjects() {
+    state.resources?.darkenedBloomMaterials.forEach((material, object) => {
+      object.material = material;
+    });
+    state.resources?.darkenedBloomMaterials.clear();
+  }
+
+  function disposeResources() {
+    if (!state.resources) {
+      return;
+    }
+
+    restoreDarkenedBloomObjects();
+    state.resources.bloomComposer.dispose();
+    state.resources.finalComposer.dispose();
+    state.resources.bloomPass.dispose?.();
+    state.resources.bloomCompositePass.material?.dispose?.();
+    state.resources.outputPass.dispose?.();
+    state.resources.finalRenderPass.dispose?.();
+    state.resources.bloomRenderPass.dispose?.();
+    state.resources.bloomOcclusionMaterial.dispose();
+    state.resources = null;
+  }
+
   function applySettings(config) {
-    bloomPass.strength = config.strength;
-    bloomPass.radius = config.radius;
-    bloomPass.threshold = config.threshold;
-    bloomCompositePass.enabled = hasActiveBloom(config);
+    if (!hasActiveBloom(config)) {
+      disposeResources();
+      return;
+    }
+
+    const resources = ensureResources();
+    resources.bloomPass.strength = config.strength;
+    resources.bloomPass.radius = config.radius;
+    resources.bloomPass.threshold = config.threshold;
+    resources.bloomCompositePass.enabled = true;
   }
 
   function syncSize(nextWidth, nextHeight, pixelRatio) {
-    bloomComposer.setPixelRatio(pixelRatio);
-    bloomComposer.setSize(nextWidth, nextHeight);
-    finalComposer.setPixelRatio(pixelRatio);
-    finalComposer.setSize(nextWidth, nextHeight);
+    state.width = nextWidth;
+    state.height = nextHeight;
+    state.pixelRatio = pixelRatio;
+    if (!state.resources) {
+      return;
+    }
+
+    state.resources.bloomComposer.setPixelRatio(pixelRatio);
+    state.resources.bloomComposer.setSize(nextWidth, nextHeight);
+    state.resources.finalComposer.setPixelRatio(pixelRatio);
+    state.resources.finalComposer.setSize(nextWidth, nextHeight);
   }
 
   function syncTargets(loadedLayers, config) {
@@ -114,20 +176,12 @@ export function createSelectiveBloomPipeline({
       return;
     }
 
-    darkenedBloomMaterials.set(object, object.material);
-    object.material = bloomOcclusionMaterial;
-  }
-
-  function restoreDarkenedBloomObjects() {
-    darkenedBloomMaterials.forEach((material, object) => {
-      object.material = material;
-    });
-    darkenedBloomMaterials.clear();
+    state.resources.darkenedBloomMaterials.set(object, object.material);
+    object.material = state.resources.bloomOcclusionMaterial;
   }
 
   function render(delta, config) {
     const shouldRenderBloom = hasActiveBloom(config);
-    bloomCompositePass.enabled = shouldRenderBloom;
 
     if (!shouldRenderBloom) {
       camera.layers.set(DEFAULT_SCENE_LAYER);
@@ -135,31 +189,25 @@ export function createSelectiveBloomPipeline({
       return;
     }
 
+    const resources = ensureResources();
+    resources.bloomCompositePass.enabled = true;
     const previousBackground = scene.background;
     scene.background = null;
     camera.layers.set(DEFAULT_SCENE_LAYER);
     scene.traverse(darkenNonBloomedObjects);
     try {
-      bloomComposer.render(delta);
+      resources.bloomComposer.render(delta);
     } finally {
       restoreDarkenedBloomObjects();
       scene.background = previousBackground;
     }
 
     camera.layers.set(DEFAULT_SCENE_LAYER);
-    finalComposer.render(delta);
+    resources.finalComposer.render(delta);
   }
 
   function dispose() {
-    restoreDarkenedBloomObjects();
-    bloomComposer.dispose();
-    finalComposer.dispose();
-    bloomPass.dispose?.();
-    bloomCompositePass.material?.dispose?.();
-    outputPass.dispose?.();
-    finalRenderPass.dispose?.();
-    bloomRenderPass.dispose?.();
-    bloomOcclusionMaterial.dispose();
+    disposeResources();
   }
 
   return {
