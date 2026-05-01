@@ -206,7 +206,9 @@ select {
   pointer-events: none;
   opacity: 0;
   transform: translateY(10px);
-  transition: opacity 300ms ease, transform 300ms ease;
+  transition:
+    opacity var(--dock-fade-in-duration, 300ms) ease,
+    transform var(--dock-fade-in-duration, 300ms) ease;
 }
 
 .control-dock.is-visible,

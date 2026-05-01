@@ -86,6 +86,11 @@ const {
   touchControlText,
 });
 
+// Set dock animation durations from config
+viewport.style.setProperty("--dock-fade-in-duration", `${VIEWER_CONFIG.interface.dock.fadeInDuration}ms`);
+viewport.style.setProperty("--dock-fade-out-duration", `${VIEWER_CONFIG.interface.dock.fadeOutDuration}ms`);
+viewport.style.setProperty("--dock-auto-hide-delay", `${VIEWER_CONFIG.interface.dock.autoHideDelay}ms`);
+
 const refs = collectViewerDomRefs({
   hud,
   loadingScreen,
@@ -490,12 +495,13 @@ function showDock() {
     clearTimeout(controlDockState.hideTimeout);
   }
 
-  // Schedule hide after 3 seconds
+  // Schedule hide after config delay
+  const hideDelay = VIEWER_CONFIG.interface.dock.autoHideDelay;
   controlDockState.hideTimeout = setTimeout(() => {
     if (controlDock) {
       controlDock.classList.remove("is-visible");
     }
-  }, 3000);
+  }, hideDelay);
 }
 
 // Hide control dock immediately
@@ -1111,7 +1117,11 @@ const unbindNavigationEvents = navigationController.bindInputEvents({
     nudgeCameraFov(delta);
   },
   onResumeFireVideo: () => sceneLayerLoader.resumeFireVideoPlayback(),
-  onMoveStart: () => hideDock(),
+  onMoveStart: () => {
+    if (VIEWER_CONFIG.interface.dock.hideOnMovement) {
+      hideDock();
+    }
+  },
 });
 window.addEventListener("resize", handlePostProcessingResize);
 const unbindDebugUi = debugObjectInspector.bindUi();
