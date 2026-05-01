@@ -61,6 +61,7 @@ export function createSceneLayerLoader({
     videoUrl: null,
     videoElement: null,
     videoTexture: null,
+    videoTexturePromise: null,
     lastResumeAttemptAt: 0,
   };
 
@@ -97,6 +98,7 @@ export function createSceneLayerLoader({
     fxState.videoUrl = null;
     fxState.videoElement = null;
     fxState.videoTexture = null;
+    fxState.videoTexturePromise = null;
     fxState.lastResumeAttemptAt = 0;
   }
 
@@ -105,70 +107,120 @@ export function createSceneLayerLoader({
       return fxState.videoTexture;
     }
 
-    if (!fxState.videoUrl) {
-      fxState.videoUrl = resolveOptionalAssetUrl(
-        searchParams,
-        viewerConfig.materialPresets.fireVideo.searchParam,
-        viewerConfig.materialPresets.fireVideo.url,
-        assetQuery,
-      );
+    if (fxState.videoTexturePromise) {
+      return fxState.videoTexturePromise;
     }
 
-    if (!fxState.videoUrl) {
-      return null;
-    }
+    fxState.videoTexturePromise = (async () => {
+      if (!fxState.videoUrl) {
+        fxState.videoUrl = resolveOptionalAssetUrl(
+          searchParams,
+          viewerConfig.materialPresets.fireVideo.searchParam,
+          viewerConfig.materialPresets.fireVideo.url,
+          assetQuery,
+        );
+      }
 
-    const video = document.createElement("video");
-    video.src = fxState.videoUrl;
-    video.crossOrigin = "anonymous";
-    video.loop = true;
-    video.autoplay = true;
-    video.muted = true;
-    video.defaultMuted = true;
-    video.playsInline = true;
-    video.preload = "auto";
-    video.setAttribute("autoplay", "");
-    video.setAttribute("muted", "");
-    video.setAttribute("playsinline", "");
-    video.setAttribute("webkit-playsinline", "");
+      if (!fxState.videoUrl) {
+        return null;
+      }
 
-    await new Promise((resolve, reject) => {
-      const cleanup = () => {
-        video.removeEventListener("loadeddata", handleLoaded);
-        video.removeEventListener("error", handleError);
-      };
-      const handleLoaded = () => {
-        cleanup();
-        resolve();
-      };
-      const handleError = () => {
-        cleanup();
-        reject(new Error(`Failed to load fire video from ${fxState.videoUrl}.`));
-      };
+      const video = document.createElement("video");
+      video.src = fxState.videoUrl;
+      video.crossOrigin = "anonymous";
+      video.loop = true;
+      video.autoplay = true;
+      video.muted = true;
+      video.defaultMuted = true;
+      video.playsInline = true;
+      video.preload = "auto";
+      video.setAttribute("autoplay", "");
+      video.setAttribute("muted", "");
+      video.setAttribute("playsinline", "");
+      video.setAttribute("webkit-playsinline", "");
 
-      video.addEventListener("loadeddata", handleLoaded);
-      video.addEventListener("error", handleError);
-      video.load();
-    });
+      await new Promise((resolve, reject) => {
+        const cleanup = () => {
+          video.removeEventListener("loadeddata", handleLoaded);
+          video.removeEventListener("error", handleError);
+        };
+        const handleLoaded = () => {
+          cleanup();
+          resolve();
+        };
+        const handleError = () => {
+          cleanup();
+          reject(new Error(`Failed to load fire video from ${fxState.videoUrl}.`));
+        };
 
-    const texture = new THREE.VideoTexture(video);
-    texture.colorSpace = THREE.SRGBColorSpace;
-    texture.flipY = false;
-    texture.generateMipmaps = false;
-    texture.minFilter = THREE.LinearFilter;
-    texture.magFilter = THREE.LinearFilter;
-    texture.needsUpdate = true;
+        video.addEventListener("loadeddata", handleLoaded);
+        video.addEventListener("error", handleError);
+        video.load();
+      });
 
-    fxState.videoElement = video;
-    fxState.videoTexture = texture;
+      const texture = new THREE.VideoTexture(video);
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.flipY = false;
+      texture.generateMipmaps = false;
+      texture.minFilter = THREE.LinearFilter;
+      texture.magFilter = THREE.LinearFilter;
+      texture.needsUpdate = true;
+
+      fxState.videoElement = video;
+      fxState.videoTexture = texture;
+
+      try {
+        await video.play();
+      } catch {
+        // Autoplay can be blocked until a user gesture; we'll retry on click/lock.
+      }
+
+      return texture;
+    })();
 
     try {
-      await video.play();
-    } catch {
-      // Autoplay can be blocked until a user gesture; we'll retry on click/lock.
+      return await fxState.videoTexturePromise;
+    } catch (error) {
+      fxState.videoTexturePromise = null;
+      throw error;
     }
+  }
 
-    return texture;
+  async function loadLayer(layer) {
+    let root = null;
+
+    try {
+      updateStatus(`Loading ${layer.label} layer from ${layer.url}...`);
+      const gltf = await gltfLoader.loadAsync(layer.url);
+      root = gltf.scene;
+      root.name = root.name || `${layer.id}-root`;
+      root.userData.viewerLayerId = layer.id;
+
+      root.traverse((child) => {
+        if (child.isMesh) {
+          child.userData.viewerLayerId = layer.id;
+          convertMeshForLayer(child, layer.materialMode);
+        }
+      });
+
+      if (layer.id === "fx") {
+        await applyFxRuntimeAssets(root);
+      }
+
+      if (layer.id === "background") {
+        backgroundRoots.add(root);
+      }
+
+      logLayerMaterials(root, layer, viewerConfig.debug.logMaterialTargets);
+      sceneRoots.add(root);
+      return { layer, root };
+    } catch (error) {
+      if (root) {
+        cleanupLoadedRoots([{ root }]);
+      }
+
+      throw error;
+    }
   }
 
   async function applyFxRuntimeAssets(root) {
@@ -238,50 +290,31 @@ export function createSceneLayerLoader({
         return;
       }
 
-      const prioritizedLayers = [
-        ...layers.filter((layer) => layer.required),
-        ...layers.filter((layer) => !layer.required),
-      ];
+      const requiredLayers = layers.filter((layer) => layer.required);
+      const optionalLayers = layers.filter((layer) => !layer.required);
 
-      for (const layer of prioritizedLayers) {
-        let root = null;
-        try {
-          updateStatus(`Loading ${layer.label} layer from ${layer.url}...`);
-          const gltf = await gltfLoader.loadAsync(layer.url);
-          root = gltf.scene;
-          root.name = root.name || `${layer.id}-root`;
-          root.userData.viewerLayerId = layer.id;
-
-          root.traverse((child) => {
-            if (child.isMesh) {
-              child.userData.viewerLayerId = layer.id;
-              convertMeshForLayer(child, layer.materialMode);
-            }
-          });
-
-          if (layer.id === "fx") {
-            await applyFxRuntimeAssets(root);
-          }
-
-          if (layer.id === "background") {
-            backgroundRoots.add(root);
-          }
-
-          logLayerMaterials(root, layer, viewerConfig.debug.logMaterialTargets);
-          sceneRoots.add(root);
-          loadedLayers.push({ layer, root });
-        } catch (error) {
-          if (root) {
-            cleanupLoadedRoots([{ root }]);
-          }
-
-          if (layer.required) {
-            throw error;
-          }
-
-          console.warn(`Optional layer "${layer.id}" failed to load from ${layer.url}.`, error);
-        }
+      const requiredResults = await Promise.allSettled(requiredLayers.map((layer) => loadLayer(layer)));
+      const requiredFailure = requiredResults.find((result) => result.status === "rejected");
+      if (requiredFailure) {
+        throw requiredFailure.reason;
       }
+
+      loadedLayers.push(
+        ...requiredResults
+          .filter((result) => result.status === "fulfilled")
+          .map((result) => result.value),
+      );
+
+      const optionalResults = await Promise.allSettled(optionalLayers.map((layer) => loadLayer(layer)));
+      optionalResults.forEach((result, index) => {
+        if (result.status === "fulfilled") {
+          loadedLayers.push(result.value);
+          return;
+        }
+
+        const layer = optionalLayers[index];
+        console.warn(`Optional layer "${layer.id}" failed to load from ${layer.url}.`, result.reason);
+      });
 
       if (!loadedLayers.length) {
         addFallbackScene();
