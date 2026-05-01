@@ -1,0 +1,71 @@
+export const MATERIAL_TWEAKS = [
+  {
+    id: "background",
+    materialNameIncludes: ["background", "backdrop", "panorama", "sky"],
+    meshNameIncludes: ["background", "backdrop", "panorama", "sky", "dome"],
+    brightness: 1.12,
+    saturation: 0.82,
+    excludeFromGameplayBounds: true,
+  },
+];
+
+export const MATERIAL_PRESETS = {
+  alphaCutoff: 0.5,
+  glassOpacity: 0.22,
+  glassAlphaCutoff: 0.02,
+  glassFresnel: {
+    centerOpacity: 0.08,
+    edgeOpacity: 0.34,
+    power: 3.6,
+    edgeTintStrength: 0.18,
+  },
+  fxAlphaCutoff: 0.05,
+  fxUvChannels: {
+    color: 1,
+    alpha: 1,
+  },
+  fireVideo: {
+    searchParam: "fireVideo",
+    matchIncludes: ["fire", "flame", "ember"],
+    blackPoint: 0.06,
+    whitePoint: 0.34,
+    brightnessBoost: 1.15,
+    hueDegrees: -15,
+    saturation: 1.04,
+    value: 0.16,
+  },
+  useFallbackMapAlphaFromSeparateUv: false,
+  foliageDisableMipmaps: false,
+  foliagePremultiplyAlpha: true,
+  foliageAnisotropy: 4,
+  alphaCutoutUvChannels: {
+    color: 0,
+    alpha: 1,
+  },
+  reflectUvChannels: {
+    color: 0,
+    roughness: 1,
+    metalness: 1,
+    ao: 1,
+    normal: 0,
+  },
+  reflectMaterial: {
+    searchParam: "reflectEnv",
+    envMapIntensity: 1.0,
+    defaultRoughness: 1.0,
+    defaultMetalness: 0.0,
+    ior: 1.5,
+    specularIntensity: 1.0,
+  },
+  background: {
+    hueDegrees: 0,
+    saturation: 0.77,
+    value: 1.15,
+    rotationDegreesPerMinute: 0,
+    warpStrength: 0.0056,
+    warpScale: 24,
+    warpSpeed: 0.12,
+    shimmerStrength: 0.06,
+    shimmerSpeed: 0.16,
+  },
+};
