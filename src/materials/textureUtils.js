@@ -72,13 +72,14 @@ export function createTextureUtils({
       return texture;
     }
 
-    const sourceImage = texture.userData.viewerOriginalImage || texture.image;
+    const textureUserData = texture.userData;
+    const sourceImage = textureUserData.viewerOriginalImage || texture.image;
     if (!sourceImage) {
       return texture;
     }
 
-    if (!texture.userData.viewerOriginalImage) {
-      texture.userData.viewerOriginalImage = sourceImage;
+    if (!textureUserData.viewerOriginalImage) {
+      textureUserData.viewerOriginalImage = sourceImage;
     }
 
     const { width, height } = getTextureDimensions(sourceImage);
@@ -97,25 +98,29 @@ export function createTextureUtils({
     const scale = maxSize / Math.max(width, height);
     const nextWidth = Math.max(1, Math.round(width * scale));
     const nextHeight = Math.max(1, Math.round(height * scale));
+    const cappedCanvas = textureUserData.viewerCappedCanvas || document.createElement("canvas");
+    const cappedContext = textureUserData.viewerCappedContext || cappedCanvas.getContext("2d");
+    if (!cappedContext) {
+      return texture;
+    }
+
+    textureUserData.viewerCappedCanvas = cappedCanvas;
+    textureUserData.viewerCappedContext = cappedContext;
+
     const currentImage = texture.image;
     const currentDimensions = getTextureDimensions(currentImage);
     if (currentImage
-      && currentImage !== sourceImage
+      && currentImage === cappedCanvas
       && currentDimensions.width === nextWidth
       && currentDimensions.height === nextHeight) {
       return texture;
     }
 
-    const canvas = document.createElement("canvas");
-    canvas.width = nextWidth;
-    canvas.height = nextHeight;
-    const context = canvas.getContext("2d");
-    if (!context) {
-      return texture;
-    }
-
-    context.drawImage(sourceImage, 0, 0, nextWidth, nextHeight);
-    texture.image = canvas;
+    cappedCanvas.width = nextWidth;
+    cappedCanvas.height = nextHeight;
+    cappedContext.clearRect(0, 0, nextWidth, nextHeight);
+    cappedContext.drawImage(sourceImage, 0, 0, nextWidth, nextHeight);
+    texture.image = cappedCanvas;
     texture.needsUpdate = true;
     return texture;
   }
