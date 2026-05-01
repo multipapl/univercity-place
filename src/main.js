@@ -95,6 +95,8 @@ const {
   statusLine,
   loadingStatusLine,
   loadingBarFill,
+  helpFab,
+  controlDock,
   menuToggleButton,
   menuToggleLabel,
   helpToggleButton,
@@ -474,6 +476,37 @@ const helpOverlayState = {
   isOpen: false,
   relockAfterClose: false,
 };
+const controlDockState = {
+  hideTimeout: null,
+};
+
+// Show control dock and schedule auto-hide
+function showDock() {
+  if (!controlDock) return;
+  controlDock.classList.add("is-visible");
+
+  // Clear existing timeout
+  if (controlDockState.hideTimeout) {
+    clearTimeout(controlDockState.hideTimeout);
+  }
+
+  // Schedule hide after 3 seconds
+  controlDockState.hideTimeout = setTimeout(() => {
+    if (controlDock) {
+      controlDock.classList.remove("is-visible");
+    }
+  }, 3000);
+}
+
+// Hide control dock immediately
+function hideDock() {
+  if (!controlDock) return;
+  if (controlDockState.hideTimeout) {
+    clearTimeout(controlDockState.hideTimeout);
+    controlDockState.hideTimeout = null;
+  }
+  controlDock.classList.remove("is-visible");
+}
 
 if (baseLowMemoryToggle) {
   baseLowMemoryToggle.checked = runtimeOptimizationState.lowMemoryBaseMipmaps;
@@ -912,6 +945,7 @@ function nudgeCameraHeight(delta) {
 
   navigationController.cameraState.height = nextHeight;
   applyCameraSettings();
+  showDock();
   updateStatus(`Camera height set to ${nextHeight.toFixed(2)}.`);
 }
 
@@ -928,6 +962,7 @@ function nudgeCameraFov(delta) {
 
   navigationController.cameraState.fov = nextFov;
   applyCameraSettings();
+  showDock();
   updateStatus(`Camera FOV set to ${nextFov.toFixed(0)} deg.`);
 }
 
@@ -1076,6 +1111,7 @@ const unbindNavigationEvents = navigationController.bindInputEvents({
     nudgeCameraFov(delta);
   },
   onResumeFireVideo: () => sceneLayerLoader.resumeFireVideoPlayback(),
+  onMoveStart: () => hideDock(),
 });
 window.addEventListener("resize", handlePostProcessingResize);
 const unbindDebugUi = debugObjectInspector.bindUi();
@@ -1088,6 +1124,7 @@ const unbindViewerUi = bindViewerUiEvents({
   onExposureChange: (value) => {
     colorPipelineState.exposure = value;
     applyViewportColorSettings();
+    showDock();
   },
   onSelectiveBloomStrengthChange: (value) => {
     selectiveBloomConfig.strength = value;
@@ -1096,10 +1133,12 @@ const unbindViewerUi = bindViewerUiEvents({
   onCameraFovChange: (value) => {
     navigationController.cameraState.fov = value;
     applyCameraSettings();
+    showDock();
   },
   onCameraHeightChange: (value) => {
     navigationController.cameraState.height = value;
     applyCameraSettings();
+    showDock();
   },
   onShowCrosshairChange: (checked) => {
     interfaceState.showCrosshair = checked;
@@ -1161,11 +1200,12 @@ const unbindViewerUi = bindViewerUiEvents({
     if (helpOverlayState.isOpen) {
       setHelpOverlayOpen(false);
     }
-
+    showDock();
     menuController.setOpen(!menuController.isOpen());
   },
   onHelpToggle: () => {
     setHelpOverlayOpen(!helpOverlayState.isOpen);
+    showDock();
   },
   onHelpClose: () => {
     setHelpOverlayOpen(false);

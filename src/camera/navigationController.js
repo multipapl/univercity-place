@@ -380,6 +380,7 @@ export function createNavigationController({
     onAdjustCameraHeight,
     onAdjustCameraFov,
     onResumeFireVideo,
+    onMoveStart,
   }) {
     const cleanupCallbacks = [];
     const bind = (target, type, handler, options) => {
@@ -424,6 +425,12 @@ export function createNavigationController({
         event.preventDefault();
         onAdjustCameraHeight(0.05);
         return;
+      }
+
+      // Hide dock on movement keys
+      const isMovementKey = ["KeyW", "KeyA", "KeyS", "KeyD"].includes(event.code);
+      if (isMovementKey && onMoveStart) {
+        onMoveStart();
       }
 
       keys.add(event.code);

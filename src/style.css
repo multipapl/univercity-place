@@ -167,6 +167,35 @@ select {
   color: var(--ui-text);
 }
 
+/* Minimal help FAB - always visible */
+.help-fab {
+  position: absolute;
+  inset: auto 16px 16px auto;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px);
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 18px;
+  font-weight: 500;
+  pointer-events: auto;
+  transition: all 240ms ease;
+  opacity: 0.4;
+}
+
+.help-fab:hover {
+  background: rgba(0, 0, 0, 0.6);
+  color: rgba(255, 255, 255, 0.9);
+  opacity: 0.8;
+  transform: scale(1.05);
+}
+
 .control-dock {
   position: absolute;
   inset: auto 16px 16px 16px;
@@ -175,6 +204,16 @@ select {
   gap: 12px;
   align-items: end;
   pointer-events: none;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 300ms ease, transform 300ms ease;
+}
+
+.control-dock.is-visible,
+.help-fab:hover ~ .control-dock,
+.control-dock:hover {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 .dock-actions,

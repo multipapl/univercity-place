@@ -174,6 +174,7 @@ export function bindViewerUiEvents({
   bind(refs.menuCloseButton, "click", handleMenuCloseClick);
   bind(refs.helpToggleButton, "click", handleHelpToggleClick);
   bind(refs.helpCloseButton, "click", handleHelpCloseClick);
+  bind(refs.helpFab, "click", handleHelpToggleClick);
   bind(refs.reloadAssetsButton, "click", handleReloadAssetsClick);
   bind(refs.exitDebugButton, "click", handleExitDebugClick);
 

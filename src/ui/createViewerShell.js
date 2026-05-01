@@ -17,6 +17,12 @@ export function createViewerShell({
   const hud = document.createElement("div");
   hud.className = "hud";
   hud.innerHTML = `
+    <!-- Minimal help FAB - always visible -->
+    <button type="button" class="help-fab" data-help-fab aria-label="Press H for help" title="Press H for help">
+      ?
+    </button>
+
+    <!-- Control dock - shows on activity -->
     <div class="control-dock">
       <div class="dock-actions">
         <button type="button" class="menu-toggle" data-menu-toggle aria-expanded="false">
