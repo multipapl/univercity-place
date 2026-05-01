@@ -67,10 +67,10 @@ export function createSceneLayerLoader({
     }
 
     if (!fxState.videoUrl) {
-      fxState.videoUrl = await resolveOptionalAssetUrl(
+      fxState.videoUrl = resolveOptionalAssetUrl(
         searchParams,
         viewerConfig.materialPresets.fireVideo.searchParam,
-        viewerConfig.materialPresets.fireVideo.candidates,
+        viewerConfig.materialPresets.fireVideo.url,
         assetQuery,
       );
     }
@@ -188,7 +188,7 @@ export function createSceneLayerLoader({
   async function loadSceneLayers() {
     try {
       await ensureReflectionEnvironment();
-      const layers = await resolveSceneLayers(viewerConfig.sceneLayers, searchParams, assetQuery);
+      const layers = resolveSceneLayers(viewerConfig.sceneLayers, searchParams, assetQuery);
       if (!layers?.length) {
         addFallbackScene();
         return;

@@ -30,10 +30,10 @@ export function createReflectionEnvironmentManager({
     }
 
     if (!state.envUrl) {
-      state.envUrl = await resolveOptionalAssetUrl(
+      state.envUrl = resolveOptionalAssetUrl(
         searchParams,
         viewerConfig.materialPresets.reflectMaterial.searchParam,
-        viewerConfig.materialPresets.reflectMaterial.candidates,
+        viewerConfig.materialPresets.reflectMaterial.url,
         assetQuery,
       );
     }
