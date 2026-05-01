@@ -28,7 +28,6 @@ export function createDebugObjectInspector({
   hoverHelper.material.transparent = true;
   hoverHelper.material.opacity = 0.9;
   hoverHelper.userData.viewerDebugHelper = true;
-  sceneRoots.add(hoverHelper);
 
   const state = {
     enabled,
@@ -122,6 +121,14 @@ export function createDebugObjectInspector({
 
   function setPickerArmed(nextValue) {
     state.pickerArmed = nextValue;
+    if (nextValue) {
+      if (!hoverHelper.parent) {
+        sceneRoots.add(hoverHelper);
+      }
+    } else {
+      hoverHelper.parent?.remove(hoverHelper);
+    }
+
     if (ui.pickButton) {
       ui.pickButton.textContent = nextValue ? "Picking..." : "Pick Object";
     }
