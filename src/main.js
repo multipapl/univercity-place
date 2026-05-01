@@ -215,7 +215,7 @@ function getStoredLowMemoryBaseMode() {
   }
 }
 
-function parsePositiveInteger(value) {
+function parseNonNegativeInteger(value) {
   if (value == null || value === "") {
     return null;
   }
@@ -230,7 +230,7 @@ function parsePositiveInteger(value) {
 
 function getStoredBaseTextureCap() {
   try {
-    return parsePositiveInteger(window.localStorage.getItem("viewer.baseTextureMaxSize"));
+    return parseNonNegativeInteger(window.localStorage.getItem("viewer.baseTextureMaxSize"));
   } catch {
     return null;
   }
@@ -240,7 +240,7 @@ const runtimeOptimizationState = {
   lowMemoryBaseMipmaps: parseBooleanFlag(searchParams.get("lowMemoryBase"))
     ?? getStoredLowMemoryBaseMode()
     ?? VIEWER_CONFIG.runtimeOptimization.lowMemoryBaseMipmaps,
-  baseTextureMaxSize: parsePositiveInteger(searchParams.get("baseTextureCap"))
+  baseTextureMaxSize: parseNonNegativeInteger(searchParams.get("baseTextureCap"))
     ?? getStoredBaseTextureCap()
     ?? VIEWER_CONFIG.runtimeOptimization.baseTextureMaxSize,
 };
@@ -1037,7 +1037,7 @@ const unbindViewerUi = bindViewerUiEvents({
     setBaseLowMemoryMode(checked);
   },
   onBaseTextureCapChange: (value) => {
-    setBaseTextureCap(parsePositiveInteger(value) ?? 0);
+    setBaseTextureCap(parseNonNegativeInteger(value) ?? 0);
   },
   onMenuToggle: () => {
     menuController.setOpen(!menuController.isOpen());
