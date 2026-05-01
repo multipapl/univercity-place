@@ -2,12 +2,7 @@ import "./style.css";
 
 import * as THREE from "three";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
-import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
-import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
-import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
-import { ShaderPass } from "three/examples/jsm/postprocessing/ShaderPass.js";
-import { UnrealBloomPass } from "three/examples/jsm/postprocessing/UnrealBloomPass.js";
 import {
   getMissingSceneStatusMessage,
   SCENE_LOAD_STATUS_HTML,
@@ -20,6 +15,7 @@ import { createPerformanceDiagnostics } from "./diagnostics/performanceDiagnosti
 import { createSceneLayerLoader } from "./loaders/sceneLayerLoader.js";
 import { createMaterialPipeline } from "./materials/materialPipeline.js";
 import { createReflectionEnvironmentManager } from "./materials/reflectionEnvironment.js";
+import { createSelectiveBloomPipeline } from "./postprocessing/createSelectiveBloomPipeline.js";
 import { bindViewerUiEvents } from "./ui/debugPanelBindings.js";
 import { createMenuController } from "./ui/menuController.js";
 import { createViewerShell } from "./ui/createViewerShell.js";
@@ -174,68 +170,22 @@ camera.position.set(0, 1.7, 4);
 
 const clock = new THREE.Clock();
 const searchParams = new URLSearchParams(window.location.search);
-const DEFAULT_SCENE_LAYER = 0;
 const BLOOM_SCENE_LAYER = VIEWER_CONFIG.postProcessing.selectiveBloom.layer;
-const bloomCompositeShader = {
-  uniforms: {
-    tDiffuse: { value: null },
-    bloomTexture: { value: null },
-  },
-  vertexShader: `
-    varying vec2 vUv;
-
-    void main() {
-      vUv = uv;
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-    }
-  `,
-  fragmentShader: `
-    uniform sampler2D tDiffuse;
-    uniform sampler2D bloomTexture;
-    varying vec2 vUv;
-
-    void main() {
-      gl_FragColor = texture2D(tDiffuse, vUv) + texture2D(bloomTexture, vUv);
-    }
-  `,
-};
 const selectiveBloomConfig = {
   ...VIEWER_CONFIG.postProcessing.selectiveBloom,
-};
-const bloomState = {
-  targetCount: 0,
 };
 const viewerLifecycle = {
   animationFrameId: null,
   disposed: false,
 };
-const bloomLayer = new THREE.Layers();
-bloomLayer.set(BLOOM_SCENE_LAYER);
-const bloomOcclusionMaterial = new THREE.MeshBasicMaterial({
-  color: 0x000000,
-  side: THREE.DoubleSide,
+const selectiveBloomPipeline = createSelectiveBloomPipeline({
+  renderer,
+  scene,
+  camera,
+  bloomLayerId: BLOOM_SCENE_LAYER,
+  width: window.innerWidth,
+  height: window.innerHeight,
 });
-const darkenedBloomMaterials = new Map();
-const bloomRenderPass = new RenderPass(scene, camera, null, 0x000000, 0);
-const bloomPass = new UnrealBloomPass(
-  new THREE.Vector2(window.innerWidth, window.innerHeight),
-  selectiveBloomConfig.strength,
-  selectiveBloomConfig.radius,
-  selectiveBloomConfig.threshold,
-);
-const bloomComposer = new EffectComposer(renderer);
-bloomComposer.renderToScreen = false;
-bloomComposer.addPass(bloomRenderPass);
-bloomComposer.addPass(bloomPass);
-const finalRenderPass = new RenderPass(scene, camera);
-const bloomCompositePass = new ShaderPass(bloomCompositeShader);
-bloomCompositePass.uniforms.bloomTexture.value = bloomComposer.renderTarget2.texture;
-const outputPass = new OutputPass();
-const finalComposer = new EffectComposer(renderer);
-finalComposer.addPass(finalRenderPass);
-finalComposer.addPass(bloomCompositePass);
-finalComposer.addPass(outputPass);
-camera.layers.set(DEFAULT_SCENE_LAYER);
 
 function parseBooleanFlag(value) {
   if (value == null) {
@@ -541,17 +491,8 @@ function applyViewportColorSettings() {
   }
 }
 
-function hasActiveSelectiveBloom() {
-  return selectiveBloomConfig.enabled
-    && selectiveBloomConfig.strength > 0
-    && bloomState.targetCount > 0;
-}
-
 function applySelectiveBloomSettings() {
-  bloomPass.strength = selectiveBloomConfig.strength;
-  bloomPass.radius = selectiveBloomConfig.radius;
-  bloomPass.threshold = selectiveBloomConfig.threshold;
-  bloomCompositePass.enabled = hasActiveSelectiveBloom();
+  selectiveBloomPipeline.applySettings(selectiveBloomConfig);
 
   if (selectiveBloomStrengthSlider) {
     selectiveBloomStrengthSlider.value = selectiveBloomConfig.strength.toFixed(2);
@@ -565,75 +506,11 @@ function applySelectiveBloomSettings() {
 
 function syncPostProcessingSize() {
   const pixelRatio = Math.min(window.devicePixelRatio, 2);
-  bloomComposer.setPixelRatio(pixelRatio);
-  bloomComposer.setSize(window.innerWidth, window.innerHeight);
-  finalComposer.setPixelRatio(pixelRatio);
-  finalComposer.setSize(window.innerWidth, window.innerHeight);
-}
-
-function syncSelectiveBloomTargets(loadedLayers) {
-  let targetCount = 0;
-
-  loadedLayers.forEach((entry) => {
-    const shouldBloom = entry.layer.id === "fx";
-    entry.root.traverse((child) => {
-      if (!child.isMesh) {
-        return;
-      }
-
-      if (shouldBloom) {
-        child.layers.enable(BLOOM_SCENE_LAYER);
-        targetCount += 1;
-        return;
-      }
-
-      child.layers.disable(BLOOM_SCENE_LAYER);
-    });
-  });
-
-  bloomState.targetCount = targetCount;
-  applySelectiveBloomSettings();
-}
-
-function darkenNonBloomedObjects(object) {
-  if (!object.isMesh || bloomLayer.test(object.layers)) {
-    return;
-  }
-
-  darkenedBloomMaterials.set(object, object.material);
-  object.material = bloomOcclusionMaterial;
-}
-
-function restoreDarkenedBloomObjects() {
-  darkenedBloomMaterials.forEach((material, object) => {
-    object.material = material;
-  });
-  darkenedBloomMaterials.clear();
+  selectiveBloomPipeline.syncSize(window.innerWidth, window.innerHeight, pixelRatio);
 }
 
 function renderSceneFrame(delta) {
-  const shouldRenderBloom = hasActiveSelectiveBloom();
-  bloomCompositePass.enabled = shouldRenderBloom;
-
-  if (!shouldRenderBloom) {
-    camera.layers.set(DEFAULT_SCENE_LAYER);
-    renderer.render(scene, camera);
-    return;
-  }
-
-  const previousBackground = scene.background;
-  scene.background = null;
-  camera.layers.set(DEFAULT_SCENE_LAYER);
-  scene.traverse(darkenNonBloomedObjects);
-  try {
-    bloomComposer.render(delta);
-  } finally {
-    restoreDarkenedBloomObjects();
-    scene.background = previousBackground;
-  }
-
-  camera.layers.set(DEFAULT_SCENE_LAYER);
-  finalComposer.render(delta);
+  selectiveBloomPipeline.render(delta, selectiveBloomConfig);
 }
 
 function applyCameraSettings() {
@@ -1028,7 +905,7 @@ const sceneLayerLoader = createSceneLayerLoader({
   applyCameraSettings,
   setLoadingScreenVisible,
   onLayersLoaded: (loadedLayers) => {
-    syncSelectiveBloomTargets(loadedLayers);
+    selectiveBloomPipeline.syncTargets(loadedLayers, selectiveBloomConfig);
     debugObjectInspector.setLoadedLayers(loadedLayers);
   },
   isTouchDevice,
@@ -1168,17 +1045,8 @@ function disposeViewerResources() {
   debugObjectInspector.dispose?.();
   sceneLayerLoader.dispose();
   clearFallbackScene();
-  restoreDarkenedBloomObjects();
-  darkenedBloomMaterials.clear();
   reflectionEnvironment.dispose();
-  bloomComposer.dispose();
-  finalComposer.dispose();
-  bloomPass.dispose?.();
-  bloomCompositePass.material?.dispose?.();
-  outputPass.dispose?.();
-  finalRenderPass.dispose?.();
-  bloomRenderPass.dispose?.();
-  bloomOcclusionMaterial.dispose();
+  selectiveBloomPipeline.dispose();
   reflectionPmremGenerator.dispose();
   renderer.renderLists.dispose();
   renderer.dispose();
