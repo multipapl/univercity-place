@@ -432,6 +432,10 @@ export function createNavigationController({
       onResumeFireVideo();
     });
 
+    window.addEventListener("blur", () => {
+      resetMovementInputs();
+    });
+
     document.addEventListener("visibilitychange", () => {
       if (!document.hidden) {
         onResumeFireVideo();
