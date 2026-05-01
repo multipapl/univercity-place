@@ -2,6 +2,7 @@ export function collectViewerDomRefs({ hud, loadingScreen, mobileControls }) {
   return {
     statusLine: hud.querySelector("[data-status]"),
     loadingStatusLine: loadingScreen.querySelector("[data-loading-status]"),
+    loadingBarFill: loadingScreen.querySelector("[data-loading-bar-fill]"),
     menuToggleButton: hud.querySelector("[data-menu-toggle]"),
     menuCloseButton: hud.querySelector("[data-menu-close]"),
     hudPanel: hud.querySelector("[data-hud-panel]"),

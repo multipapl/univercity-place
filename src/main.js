@@ -91,6 +91,7 @@ const refs = collectViewerDomRefs({
 const {
   statusLine,
   loadingStatusLine,
+  loadingBarFill,
   menuToggleButton,
   hudPanel,
   debugOnlySections,
@@ -300,11 +301,41 @@ function shouldAppendAssetQuery(url) {
 }
 
 const loadingManager = new THREE.LoadingManager();
+function setLoadingProgress(progress, { indeterminate = false } = {}) {
+  if (!loadingBarFill) {
+    return;
+  }
+
+  if (indeterminate) {
+    loadingBarFill.classList.add("is-indeterminate");
+    loadingBarFill.style.removeProperty("--loading-progress");
+    return;
+  }
+
+  const normalizedProgress = Math.min(Math.max(progress, 0), 1);
+  loadingBarFill.classList.remove("is-indeterminate");
+  loadingBarFill.style.setProperty("--loading-progress", `${(normalizedProgress * 100).toFixed(1)}%`);
+}
+
 loadingManager.setURLModifier((url) => (
   shouldAppendAssetQuery(url)
     ? appendAssetQuery(url, assetQuery)
     : url
 ));
+loadingManager.onStart = () => {
+  setLoadingProgress(0, { indeterminate: true });
+};
+loadingManager.onProgress = (_url, itemsLoaded, itemsTotal) => {
+  if (!itemsTotal) {
+    setLoadingProgress(0, { indeterminate: true });
+    return;
+  }
+
+  setLoadingProgress(itemsLoaded / itemsTotal);
+};
+loadingManager.onLoad = () => {
+  setLoadingProgress(1);
+};
 
 const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath("/draco/");

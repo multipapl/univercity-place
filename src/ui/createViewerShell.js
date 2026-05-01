@@ -269,7 +269,7 @@ export function createViewerShell({
       <h1>Loading Scene</h1>
       <p class="loading-copy" data-loading-status>${sceneLoadStatusHtml}</p>
       <div class="loading-bar" aria-hidden="true">
-        <span class="loading-bar-fill"></span>
+        <span class="loading-bar-fill is-indeterminate" data-loading-bar-fill></span>
       </div>
     </div>
   `;
