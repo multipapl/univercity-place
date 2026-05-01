@@ -199,7 +199,9 @@ const bloomCompositeShader = {
     }
   `,
 };
-const selectiveBloomConfig = VIEWER_CONFIG.postProcessing.selectiveBloom;
+const selectiveBloomConfig = {
+  ...VIEWER_CONFIG.postProcessing.selectiveBloom,
+};
 const bloomState = {
   targetCount: 0,
 };
@@ -281,12 +283,42 @@ function getStoredBaseTextureCap() {
   }
 }
 
-VIEWER_CONFIG.runtimeOptimization.lowMemoryBaseMipmaps = parseBooleanFlag(searchParams.get("lowMemoryBase"))
-  ?? getStoredLowMemoryBaseMode()
-  ?? VIEWER_CONFIG.runtimeOptimization.lowMemoryBaseMipmaps;
-VIEWER_CONFIG.runtimeOptimization.baseTextureMaxSize = parsePositiveInteger(searchParams.get("baseTextureCap"))
-  ?? getStoredBaseTextureCap()
-  ?? VIEWER_CONFIG.runtimeOptimization.baseTextureMaxSize;
+const runtimeOptimizationState = {
+  lowMemoryBaseMipmaps: parseBooleanFlag(searchParams.get("lowMemoryBase"))
+    ?? getStoredLowMemoryBaseMode()
+    ?? VIEWER_CONFIG.runtimeOptimization.lowMemoryBaseMipmaps,
+  baseTextureMaxSize: parsePositiveInteger(searchParams.get("baseTextureCap"))
+    ?? getStoredBaseTextureCap()
+    ?? VIEWER_CONFIG.runtimeOptimization.baseTextureMaxSize,
+};
+const colorPipelineState = {
+  toneMapping: VIEWER_CONFIG.colorPipeline.toneMapping,
+  exposure: VIEWER_CONFIG.colorPipeline.exposure,
+};
+const interfaceState = {
+  showCrosshair: VIEWER_CONFIG.interface.showCrosshair,
+};
+const cameraMotionState = {
+  enabled: VIEWER_CONFIG.camera.ambientMotion.enabled,
+};
+const viewerConfig = {
+  ...VIEWER_CONFIG,
+  camera: {
+    ...VIEWER_CONFIG.camera,
+    ambientMotion: {
+      ...VIEWER_CONFIG.camera.ambientMotion,
+    },
+  },
+  colorPipeline: colorPipelineState,
+  interface: interfaceState,
+  locomotion: {
+    ...VIEWER_CONFIG.locomotion,
+  },
+  postProcessing: {
+    ...VIEWER_CONFIG.postProcessing,
+  },
+  runtimeOptimization: runtimeOptimizationState,
+};
 let debugMode = parseBooleanFlag(searchParams.get("debug")) ?? false;
 const assetBustValue = searchParams.get("assetBust");
 const isLocalAssetDevelopment = import.meta.env.DEV
@@ -363,7 +395,7 @@ const reflectionState = {
 };
 const fallbackSceneRoots = [];
 const reflectionEnvironment = createReflectionEnvironmentManager({
-  viewerConfig: VIEWER_CONFIG,
+  viewerConfig,
   searchParams,
   assetQuery,
   reflectionPmremGenerator,
@@ -372,7 +404,7 @@ const reflectionEnvironment = createReflectionEnvironmentManager({
   updateStatus,
 });
 const materialPipeline = createMaterialPipeline({
-  viewerConfig: VIEWER_CONFIG,
+  viewerConfig,
   maxSupportedAnisotropy,
   backgroundState,
   fireState,
@@ -384,7 +416,7 @@ const performanceDiagnostics = createPerformanceDiagnostics({
   detailedStatsEnabled: debugMode,
   renderer,
   diagnosticsState,
-  runtimeOptimization: VIEWER_CONFIG.runtimeOptimization,
+  runtimeOptimization: runtimeOptimizationState,
   statsElements: {
     statFps,
     statFrameMs,
@@ -423,7 +455,8 @@ const navigationController = createNavigationController({
   boostButton,
   isTouchDevice,
   isWalkMode,
-  viewerConfig: VIEWER_CONFIG,
+  viewerConfig,
+  cameraMotionState,
   updateStatus,
 });
 const toneMappingModes = {
@@ -441,11 +474,11 @@ const menuController = createMenuController({
 });
 
 if (baseLowMemoryToggle) {
-  baseLowMemoryToggle.checked = VIEWER_CONFIG.runtimeOptimization.lowMemoryBaseMipmaps;
+  baseLowMemoryToggle.checked = runtimeOptimizationState.lowMemoryBaseMipmaps;
 }
 
 if (baseTextureCapSelect) {
-  baseTextureCapSelect.value = `${VIEWER_CONFIG.runtimeOptimization.baseTextureMaxSize}`;
+  baseTextureCapSelect.value = `${runtimeOptimizationState.baseTextureMaxSize}`;
 }
 
 function updateStatus(message) {
@@ -488,23 +521,23 @@ function setLoadingScreenVisible(visible) {
 }
 
 function applyViewportColorSettings() {
-  const toneMappingKey = VIEWER_CONFIG.colorPipeline.toneMapping in toneMappingModes
-    ? VIEWER_CONFIG.colorPipeline.toneMapping
+  const toneMappingKey = colorPipelineState.toneMapping in toneMappingModes
+    ? colorPipelineState.toneMapping
     : "standard";
   renderer.toneMapping = toneMappingModes[toneMappingKey];
-  renderer.toneMappingExposure = VIEWER_CONFIG.colorPipeline.exposure;
+  renderer.toneMappingExposure = colorPipelineState.exposure;
 
   if (toneMappingSelect) {
     toneMappingSelect.value = toneMappingKey;
   }
 
   if (exposureSlider) {
-    exposureSlider.value = VIEWER_CONFIG.colorPipeline.exposure.toFixed(2);
+    exposureSlider.value = colorPipelineState.exposure.toFixed(2);
   }
 
   if (exposureValue) {
-    exposureValue.value = VIEWER_CONFIG.colorPipeline.exposure.toFixed(2);
-    exposureValue.textContent = VIEWER_CONFIG.colorPipeline.exposure.toFixed(2);
+    exposureValue.value = colorPipelineState.exposure.toFixed(2);
+    exposureValue.textContent = colorPipelineState.exposure.toFixed(2);
   }
 }
 
@@ -627,7 +660,7 @@ function applyCameraSettings() {
 
 function applyCameraMotionSettings() {
   if (cameraShakeToggle) {
-    cameraShakeToggle.checked = VIEWER_CONFIG.camera.ambientMotion.enabled;
+    cameraShakeToggle.checked = cameraMotionState.enabled;
   }
 }
 
@@ -641,7 +674,7 @@ function applyCameraAmbientMotion(delta) {
 
 function applyInterfaceSettings() {
   if (showCrosshairToggle) {
-    showCrosshairToggle.checked = VIEWER_CONFIG.interface.showCrosshair;
+    showCrosshairToggle.checked = interfaceState.showCrosshair;
   }
 
   if (isTouchDevice) {
@@ -649,7 +682,7 @@ function applyInterfaceSettings() {
     return;
   }
 
-  crosshair.style.display = VIEWER_CONFIG.interface.showCrosshair ? "" : "none";
+  crosshair.style.display = interfaceState.showCrosshair ? "" : "none";
 }
 
 function applyDebugModeSettings() {
@@ -895,7 +928,7 @@ function applyRuntimeTextureOptimizations() {
 }
 
 function setBaseLowMemoryMode(enabled) {
-  VIEWER_CONFIG.runtimeOptimization.lowMemoryBaseMipmaps = enabled;
+  runtimeOptimizationState.lowMemoryBaseMipmaps = enabled;
 
   if (baseLowMemoryToggle) {
     baseLowMemoryToggle.checked = enabled;
@@ -913,7 +946,7 @@ function setBaseLowMemoryMode(enabled) {
 
 function setBaseTextureCap(nextCap) {
   const cap = Number.isFinite(nextCap) && nextCap > 0 ? Math.round(nextCap) : 0;
-  VIEWER_CONFIG.runtimeOptimization.baseTextureMaxSize = cap;
+  runtimeOptimizationState.baseTextureMaxSize = cap;
 
   if (baseTextureCapSelect) {
     baseTextureCapSelect.value = `${cap}`;
@@ -969,7 +1002,7 @@ function addFallbackScene() {
 }
 
 const sceneLayerLoader = createSceneLayerLoader({
-  viewerConfig: VIEWER_CONFIG,
+  viewerConfig,
   searchParams,
   assetQuery,
   gltfLoader: loader,
@@ -1020,11 +1053,11 @@ const unbindDebugUi = debugObjectInspector.bindUi();
 const unbindViewerUi = bindViewerUiEvents({
   refs,
   onToneMappingChange: (value) => {
-    VIEWER_CONFIG.colorPipeline.toneMapping = value;
+    colorPipelineState.toneMapping = value;
     applyViewportColorSettings();
   },
   onExposureChange: (value) => {
-    VIEWER_CONFIG.colorPipeline.exposure = value;
+    colorPipelineState.exposure = value;
     applyViewportColorSettings();
   },
   onSelectiveBloomStrengthChange: (value) => {
@@ -1040,11 +1073,11 @@ const unbindViewerUi = bindViewerUiEvents({
     applyCameraSettings();
   },
   onShowCrosshairChange: (checked) => {
-    VIEWER_CONFIG.interface.showCrosshair = checked;
+    interfaceState.showCrosshair = checked;
     applyInterfaceSettings();
   },
   onCameraShakeChange: (checked) => {
-    VIEWER_CONFIG.camera.ambientMotion.enabled = checked;
+    cameraMotionState.enabled = checked;
     clearCameraAmbientMotion();
     navigationController.applyLookState();
     applyCameraMotionSettings();

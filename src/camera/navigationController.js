@@ -13,6 +13,7 @@ export function createNavigationController({
   isTouchDevice,
   isWalkMode,
   viewerConfig,
+  cameraMotionState,
   updateStatus,
 }) {
   const keys = new Set();
@@ -93,14 +94,10 @@ export function createNavigationController({
   };
 
   function applyCameraSettings() {
-    viewerConfig.camera.fov = cameraState.fov;
-    viewerConfig.camera.height = cameraState.height;
-    viewerConfig.locomotion.eyeHeight = cameraState.height;
-
     camera.fov = cameraState.fov;
     camera.updateProjectionMatrix();
 
-    sceneMetrics.walkY = sceneMetrics.groundY + viewerConfig.locomotion.eyeHeight;
+    sceneMetrics.walkY = sceneMetrics.groundY + cameraState.height;
     const delta = cameraState.height - cameraState.lastAppliedHeight;
     camera.position.y += delta;
     cameraState.lastAppliedHeight = cameraState.height;
@@ -122,7 +119,7 @@ export function createNavigationController({
 
   function applyCameraAmbientMotion(delta) {
     const ambientMotion = viewerConfig.camera.ambientMotion;
-    if (!ambientMotion?.enabled) {
+    if (!cameraMotionState.enabled || !ambientMotion) {
       return;
     }
 
@@ -255,7 +252,7 @@ export function createNavigationController({
     sceneMetrics.bounds.getSize(sceneMetrics.size);
     sceneMetrics.bounds.getCenter(sceneMetrics.center);
     sceneMetrics.groundY = viewerConfig.locomotion.fixedFloorY;
-    sceneMetrics.walkY = sceneMetrics.groundY + viewerConfig.locomotion.eyeHeight;
+    sceneMetrics.walkY = sceneMetrics.groundY + cameraState.height;
   }
 
   function positionCameraAtSpawn(root, isGameplayMesh) {
@@ -266,7 +263,7 @@ export function createNavigationController({
 
     if (viewerConfig.locomotion.startPosition) {
       const startY = isWalkMode
-        ? viewerConfig.locomotion.startPosition.y + viewerConfig.locomotion.eyeHeight
+        ? viewerConfig.locomotion.startPosition.y + cameraState.height
         : viewerConfig.locomotion.startPosition.y;
 
       camera.position.set(
