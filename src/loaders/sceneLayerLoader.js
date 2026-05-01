@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { resolveOptionalAssetUrl, resolveSceneLayers } from "./assetResolver.js";
+import { disposeObjectTree } from "../utils/threeDisposal.js";
 
 function logLayerMaterials(root, layer, enabled) {
   if (!enabled) {
@@ -42,6 +43,7 @@ export function createSceneLayerLoader({
   updateStatus,
   addFallbackScene,
   renderLayerControls,
+  clearFallbackScene,
   applyBackgroundColorSettings,
   applyFireColorSettings,
   applyReflectMaterialSettings,
@@ -53,6 +55,7 @@ export function createSceneLayerLoader({
   onLayersLoaded,
   isTouchDevice,
   isWalkMode,
+  trackedMaterialSets = [],
 }) {
   const fxState = {
     videoUrl: null,
@@ -62,16 +65,39 @@ export function createSceneLayerLoader({
   };
 
   function cleanupLoadedRoots(loadedLayers = []) {
+    const seenGeometries = new Set();
+    const seenMaterials = new Set();
+    const seenTextures = new Set();
+
     loadedLayers.forEach(({ root }) => {
       if (!root) {
         return;
       }
 
       backgroundRoots.delete(root);
-      if (root.parent) {
-        root.parent.remove(root);
-      }
+      disposeObjectTree(root, {
+        trackedMaterialSets,
+        seenGeometries,
+        seenMaterials,
+        seenTextures,
+      });
     });
+  }
+
+  function disposeFireVideoResources() {
+    fxState.videoTexture?.dispose();
+
+    if (fxState.videoElement) {
+      fxState.videoElement.pause();
+      fxState.videoElement.removeAttribute("src");
+      fxState.videoElement.load();
+      fxState.videoElement.remove();
+    }
+
+    fxState.videoUrl = null;
+    fxState.videoElement = null;
+    fxState.videoTexture = null;
+    fxState.lastResumeAttemptAt = 0;
   }
 
   async function ensureFireVideoTexture() {
@@ -201,6 +227,10 @@ export function createSceneLayerLoader({
   async function loadSceneLayers() {
     const loadedLayers = [];
     try {
+      cleanupLoadedRoots(diagnosticsState.loadedLayers);
+      diagnosticsState.loadedLayers = [];
+      disposeFireVideoResources();
+      clearFallbackScene();
       await ensureReflectionEnvironment();
       const layers = resolveSceneLayers(viewerConfig.sceneLayers, searchParams, assetQuery);
       if (!layers?.length) {
@@ -214,10 +244,11 @@ export function createSceneLayerLoader({
       ];
 
       for (const layer of prioritizedLayers) {
+        let root = null;
         try {
           updateStatus(`Loading ${layer.label} layer from ${layer.url}...`);
           const gltf = await gltfLoader.loadAsync(layer.url);
-          const root = gltf.scene;
+          root = gltf.scene;
           root.name = root.name || `${layer.id}-root`;
           root.userData.viewerLayerId = layer.id;
 
@@ -240,6 +271,10 @@ export function createSceneLayerLoader({
           sceneRoots.add(root);
           loadedLayers.push({ layer, root });
         } catch (error) {
+          if (root) {
+            cleanupLoadedRoots([{ root }]);
+          }
+
           if (layer.required) {
             throw error;
           }
@@ -274,6 +309,7 @@ export function createSceneLayerLoader({
     } catch (error) {
       console.error(error);
       cleanupLoadedRoots(loadedLayers);
+      disposeFireVideoResources();
       diagnosticsState.loadedLayers = [];
       renderLayerControls();
       addFallbackScene();
@@ -282,7 +318,15 @@ export function createSceneLayerLoader({
     }
   }
 
+  function dispose() {
+    cleanupLoadedRoots(diagnosticsState.loadedLayers);
+    diagnosticsState.loadedLayers = [];
+    clearFallbackScene();
+    disposeFireVideoResources();
+  }
+
   return {
+    dispose,
     loadSceneLayers,
     resumeFireVideoPlayback,
     syncFireVideoPlayback,

@@ -24,6 +24,7 @@ import { bindViewerUiEvents } from "./ui/debugPanelBindings.js";
 import { createMenuController } from "./ui/menuController.js";
 import { createViewerShell } from "./ui/createViewerShell.js";
 import { collectViewerDomRefs, createDebugInspectorUi } from "./ui/viewerDomRefs.js";
+import { disposeObjectTree } from "./utils/threeDisposal.js";
 
 const app = document.querySelector("#app");
 const isTouchDevice = window.matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
@@ -321,6 +322,7 @@ const reflectionState = {
   metalness: VIEWER_CONFIG.materialPresets.reflectMaterial.defaultMetalness,
   materials: new Set(),
 };
+const fallbackSceneRoots = [];
 const reflectionEnvironment = createReflectionEnvironmentManager({
   viewerConfig: VIEWER_CONFIG,
   searchParams,
@@ -892,10 +894,28 @@ function positionCameraAtSpawn(root) {
   navigationController.positionCameraAtSpawn(root, materialPipeline.isGameplayMesh);
 }
 
+function clearFallbackScene() {
+  const seenGeometries = new Set();
+  const seenMaterials = new Set();
+  const seenTextures = new Set();
+
+  while (fallbackSceneRoots.length) {
+    const root = fallbackSceneRoots.pop();
+    disposeObjectTree(root, {
+      seenGeometries,
+      seenMaterials,
+      seenTextures,
+    });
+  }
+}
+
 function addFallbackScene() {
+  clearFallbackScene();
+
   const grid = new THREE.GridHelper(24, 24, 0x93c5fd, 0x334155);
   grid.position.y = -0.001;
   scene.add(grid);
+  fallbackSceneRoots.push(grid);
 
   const room = new THREE.Group();
   const wallMaterial = new THREE.MeshBasicMaterial({ color: "#1e293b", wireframe: true });
@@ -903,6 +923,7 @@ function addFallbackScene() {
   roomMesh.position.y = 2;
   room.add(roomMesh);
   scene.add(room);
+  fallbackSceneRoots.push(room);
 
   updateStatus(getMissingSceneStatusMessage());
   setLoadingScreenVisible(false);
@@ -925,6 +946,7 @@ const sceneLayerLoader = createSceneLayerLoader({
   updateStatus,
   addFallbackScene,
   renderLayerControls,
+  clearFallbackScene,
   applyBackgroundColorSettings,
   applyFireColorSettings,
   applyReflectMaterialSettings,
@@ -939,7 +961,33 @@ const sceneLayerLoader = createSceneLayerLoader({
   },
   isTouchDevice,
   isWalkMode,
+  trackedMaterialSets: [
+    backgroundState.materials,
+    fireState.materials,
+    reflectionState.materials,
+  ],
 });
+
+function disposeViewerResources() {
+  sceneLayerLoader.dispose();
+  clearFallbackScene();
+  restoreDarkenedBloomObjects();
+  darkenedBloomMaterials.clear();
+  reflectionEnvironment.dispose();
+  bloomComposer.dispose();
+  finalComposer.dispose();
+  bloomPass.dispose?.();
+  bloomCompositePass.material?.dispose?.();
+  outputPass.dispose?.();
+  finalRenderPass.dispose?.();
+  bloomRenderPass.dispose?.();
+  bloomOcclusionMaterial.dispose();
+  reflectionPmremGenerator.dispose();
+  renderer.renderLists.dispose();
+  renderer.dispose();
+}
+
+window.addEventListener("beforeunload", disposeViewerResources, { once: true });
 
 navigationController.bindInputEvents({
   getMenuOpen: () => menuController.isOpen(),

@@ -21,6 +21,8 @@ export function createMaterialPipeline({
   reflectionState,
   reflectionEnvironment,
 }) {
+  const disposedSourceMaterials = new Set();
+
   function matchesNameIncludes(name, includes = []) {
     const normalized = `${name ?? ""}`.toLowerCase();
     return includes.some((token) => normalized.includes(token.toLowerCase()));
@@ -281,12 +283,21 @@ export function createMaterialPipeline({
     }
   }
 
-  function convertMeshForLayer(mesh, materialMode) {
-    if (Array.isArray(mesh.material)) {
-      mesh.material = mesh.material.map((material) => makeViewerMaterial(material, mesh, materialMode));
-    } else {
-      mesh.material = makeViewerMaterial(mesh.material, mesh, materialMode);
+  function disposeSourceMaterial(material) {
+    if (!material?.isMaterial || disposedSourceMaterials.has(material)) {
+      return;
     }
+
+    disposedSourceMaterials.add(material);
+    material.dispose();
+  }
+
+  function convertMeshForLayer(mesh, materialMode) {
+    const sourceMaterials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    const nextMaterials = sourceMaterials.map((material) => makeViewerMaterial(material, mesh, materialMode));
+
+    mesh.material = Array.isArray(mesh.material) ? nextMaterials : nextMaterials[0];
+    sourceMaterials.forEach(disposeSourceMaterial);
 
     mesh.castShadow = false;
     mesh.receiveShadow = false;
