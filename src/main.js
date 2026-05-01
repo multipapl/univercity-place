@@ -168,6 +168,10 @@ const selectiveBloomConfig = VIEWER_CONFIG.postProcessing.selectiveBloom;
 const bloomState = {
   targetCount: 0,
 };
+const viewerLifecycle = {
+  animationFrameId: null,
+  disposed: false,
+};
 const bloomLayer = new THREE.Layers();
 bloomLayer.set(BLOOM_SCENE_LAYER);
 const bloomOcclusionMaterial = new THREE.MeshBasicMaterial({
@@ -969,6 +973,16 @@ const sceneLayerLoader = createSceneLayerLoader({
 });
 
 function disposeViewerResources() {
+  if (viewerLifecycle.disposed) {
+    return;
+  }
+
+  viewerLifecycle.disposed = true;
+  if (viewerLifecycle.animationFrameId !== null) {
+    window.cancelAnimationFrame(viewerLifecycle.animationFrameId);
+    viewerLifecycle.animationFrameId = null;
+  }
+
   sceneLayerLoader.dispose();
   clearFallbackScene();
   restoreDarkenedBloomObjects();
@@ -988,6 +1002,11 @@ function disposeViewerResources() {
 }
 
 window.addEventListener("beforeunload", disposeViewerResources, { once: true });
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    disposeViewerResources();
+  });
+}
 
 navigationController.bindInputEvents({
   getMenuOpen: () => menuController.isOpen(),
@@ -1100,6 +1119,10 @@ bindViewerUiEvents({
 });
 
 function animate() {
+  if (viewerLifecycle.disposed) {
+    return;
+  }
+
   const delta = clock.getDelta();
   clearCameraAmbientMotion();
   sceneLayerLoader.syncFireVideoPlayback();
@@ -1116,7 +1139,7 @@ function animate() {
     diagnosticsState.frameCounter = 0;
     updatePerformanceDiagnostics();
   }
-  requestAnimationFrame(animate);
+  viewerLifecycle.animationFrameId = window.requestAnimationFrame(animate);
 }
 
 navigationController.syncLookStateFromCamera();
@@ -1131,4 +1154,4 @@ applyBackgroundColorSettings();
 applyFireColorSettings();
 applyReflectMaterialSettings();
 sceneLayerLoader.loadSceneLayers();
-animate();
+viewerLifecycle.animationFrameId = window.requestAnimationFrame(animate);
