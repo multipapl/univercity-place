@@ -97,8 +97,14 @@ const {
   loadingBarFill,
   menuToggleButton,
   menuToggleLabel,
+  helpToggleButton,
+  helpOverlay,
+  helpCloseButton,
   menuCloseButton,
   hudPanel,
+  quickExposureValue,
+  quickCameraFovValue,
+  quickCameraHeightValue,
   toneMappingSelect,
   exposureSlider,
   exposureValue,
@@ -464,6 +470,10 @@ const menuController = createMenuController({
   navigationController,
   updateStatus,
 });
+const helpOverlayState = {
+  isOpen: false,
+  relockAfterClose: false,
+};
 
 if (baseLowMemoryToggle) {
   baseLowMemoryToggle.checked = runtimeOptimizationState.lowMemoryBaseMipmaps;
@@ -484,6 +494,36 @@ function updateDebugSessionNote() {
   }
 
   debugSessionNote.textContent = `Debug tools are active. Asset token: ${assetQuery || "none"}. Reload Assets forces a fresh scene fetch.`;
+}
+
+function setHelpOverlayOpen(nextOpen) {
+  const normalizedOpen = Boolean(nextOpen);
+  if (helpOverlayState.isOpen === normalizedOpen) {
+    return;
+  }
+
+  helpOverlayState.isOpen = normalizedOpen;
+  helpToggleButton?.setAttribute("aria-expanded", `${normalizedOpen}`);
+
+  if (helpOverlay) {
+    helpOverlay.hidden = !normalizedOpen;
+  }
+
+  viewport.classList.toggle("has-help-open", normalizedOpen);
+
+  if (normalizedOpen) {
+    helpOverlayState.relockAfterClose = navigationController.controls.isLocked && !isTouchDevice;
+    navigationController.controls.unlock();
+    navigationController.resetMovementInputs();
+    updateStatus("Help open. Scene controls are paused.");
+    return;
+  }
+
+  if (helpOverlayState.relockAfterClose && !isTouchDevice && !menuController.isOpen()) {
+    requestAnimationFrame(() => {
+      navigationController.controls.lock({ ignoreCooldown: true });
+    });
+  }
 }
 
 function setLoadingScreenVisible(visible) {
@@ -523,6 +563,10 @@ function applyViewportColorSettings() {
   if (exposureValue) {
     exposureValue.value = colorPipelineState.exposure.toFixed(2);
     exposureValue.textContent = colorPipelineState.exposure.toFixed(2);
+  }
+
+  if (quickExposureValue) {
+    quickExposureValue.textContent = colorPipelineState.exposure.toFixed(2);
   }
 }
 
@@ -570,6 +614,14 @@ function applyCameraSettings() {
     cameraHeightValue.value = navigationController.cameraState.height.toFixed(2);
     cameraHeightValue.textContent = navigationController.cameraState.height.toFixed(2);
   }
+
+  if (quickCameraFovValue) {
+    quickCameraFovValue.textContent = `${navigationController.cameraState.fov.toFixed(0)} deg`;
+  }
+
+  if (quickCameraHeightValue) {
+    quickCameraHeightValue.textContent = navigationController.cameraState.height.toFixed(2);
+  }
 }
 
 function applyCameraMotionSettings() {
@@ -605,12 +657,19 @@ function applyDebugModeSettings() {
   menuController.setMode(menuMode);
 
   if (menuToggleLabel) {
-    menuToggleLabel.textContent = debugMode ? "Debug Menu" : "Menu";
+    menuToggleLabel.textContent = debugMode ? "Debug Menu" : "Controls";
+  }
+
+  const menuKicker = hudPanel?.querySelector(".panel-kicker");
+  if (menuKicker) {
+    menuKicker.textContent = debugMode ? "Debug Controls" : "Viewer Controls";
   }
 
   const menuTitle = hudPanel?.querySelector("h1");
   if (menuTitle) {
-    menuTitle.textContent = debugMode ? "Debug Menu" : "Viewer Menu";
+    menuTitle.textContent = debugMode
+      ? "Tune the scene without losing flow"
+      : "Keep the scene readable and easy to tune";
   }
 
   updateDebugSessionNote();
@@ -840,6 +899,38 @@ function setDebugMode(nextEnabled) {
     : "Debug mode disabled. Scene stayed live; advanced tools are hidden.");
 }
 
+function nudgeCameraHeight(delta) {
+  const nextHeight = THREE.MathUtils.clamp(
+    navigationController.cameraState.height + delta,
+    0.5,
+    2.5,
+  );
+
+  if (nextHeight === navigationController.cameraState.height) {
+    return;
+  }
+
+  navigationController.cameraState.height = nextHeight;
+  applyCameraSettings();
+  updateStatus(`Camera height set to ${nextHeight.toFixed(2)}.`);
+}
+
+function nudgeCameraFov(delta) {
+  const nextFov = THREE.MathUtils.clamp(
+    navigationController.cameraState.fov + delta,
+    30,
+    110,
+  );
+
+  if (nextFov === navigationController.cameraState.fov) {
+    return;
+  }
+
+  navigationController.cameraState.fov = nextFov;
+  applyCameraSettings();
+  updateStatus(`Camera FOV set to ${nextFov.toFixed(0)} deg.`);
+}
+
 function applyRuntimeTextureOptimizations() {
   materialPipeline.applyRuntimeTextureOptimizations(diagnosticsState.loadedLayers);
   updatePerformanceDiagnostics();
@@ -961,9 +1052,29 @@ const handlePostProcessingResize = () => {
   syncPostProcessingSize();
 };
 const unbindNavigationEvents = navigationController.bindInputEvents({
-  getMenuOpen: () => menuController.isOpen(),
-  onToggleMenu: () => menuController.setOpen(!menuController.isOpen()),
-  onCloseMenu: () => menuController.setOpen(false),
+  getMenuOpen: () => menuController.isOpen() || helpOverlayState.isOpen,
+  onToggleMenu: () => {
+    if (helpOverlayState.isOpen) {
+      setHelpOverlayOpen(false);
+    }
+
+    menuController.setOpen(!menuController.isOpen());
+  },
+  onToggleHelp: () => setHelpOverlayOpen(!helpOverlayState.isOpen),
+  onCloseMenu: () => {
+    if (helpOverlayState.isOpen) {
+      setHelpOverlayOpen(false);
+      return;
+    }
+
+    menuController.setOpen(false);
+  },
+  onAdjustCameraHeight: (delta) => {
+    nudgeCameraHeight(delta);
+  },
+  onAdjustCameraFov: (delta) => {
+    nudgeCameraFov(delta);
+  },
   onResumeFireVideo: () => sceneLayerLoader.resumeFireVideoPlayback(),
 });
 window.addEventListener("resize", handlePostProcessingResize);
@@ -1047,7 +1158,17 @@ const unbindViewerUi = bindViewerUiEvents({
     setBaseTextureCap(parseNonNegativeInteger(value) ?? 0);
   },
   onMenuToggle: () => {
+    if (helpOverlayState.isOpen) {
+      setHelpOverlayOpen(false);
+    }
+
     menuController.setOpen(!menuController.isOpen());
+  },
+  onHelpToggle: () => {
+    setHelpOverlayOpen(!helpOverlayState.isOpen);
+  },
+  onHelpClose: () => {
+    setHelpOverlayOpen(false);
   },
   onToggleDebugMode: () => {
     setDebugMode(!debugMode);
@@ -1083,6 +1204,7 @@ function disposeViewerResources() {
   unbindDebugUi?.();
   unbindNavigationEvents?.();
   menuController.dispose?.();
+  setHelpOverlayOpen(false);
   window.removeEventListener("resize", handlePostProcessingResize);
   debugObjectInspector.dispose?.();
   sceneLayerLoader.dispose();

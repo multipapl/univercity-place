@@ -20,6 +20,8 @@ export function bindViewerUiEvents({
   onBaseLowMemoryToggle,
   onBaseTextureCapChange,
   onMenuToggle,
+  onHelpToggle,
+  onHelpClose,
   onToggleDebugMode,
   onMenuClose,
   onReloadAssets,
@@ -131,6 +133,14 @@ export function bindViewerUiEvents({
     onMenuClose();
   };
 
+  const handleHelpToggleClick = () => {
+    onHelpToggle();
+  };
+
+  const handleHelpCloseClick = () => {
+    onHelpClose();
+  };
+
   const handleReloadAssetsClick = () => {
     onReloadAssets();
   };
@@ -162,6 +172,8 @@ export function bindViewerUiEvents({
   bind(refs.menuToggleButton, "contextmenu", handleMenuToggleContextMenu);
   bind(refs.menuToggleButton, "auxclick", handleMenuToggleAuxClick);
   bind(refs.menuCloseButton, "click", handleMenuCloseClick);
+  bind(refs.helpToggleButton, "click", handleHelpToggleClick);
+  bind(refs.helpCloseButton, "click", handleHelpCloseClick);
   bind(refs.reloadAssetsButton, "click", handleReloadAssetsClick);
   bind(refs.exitDebugButton, "click", handleExitDebugClick);
 

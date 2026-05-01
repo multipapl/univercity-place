@@ -1,4 +1,5 @@
 import { buildMenuSectionsMarkup } from "./menuSections.js";
+import { buildHelpOverlayMarkup } from "./helpOverlayContent.js";
 
 export function createViewerShell({
   app,
@@ -16,14 +17,40 @@ export function createViewerShell({
   const hud = document.createElement("div");
   hud.className = "hud";
   hud.innerHTML = `
-    <button type="button" class="menu-toggle" data-menu-toggle aria-expanded="false">
-      <span data-menu-toggle-label>${menuMode === "debug" ? "Debug Menu" : "Menu"}</span>
-      <kbd>M</kbd>
-    </button>
+    <div class="control-dock">
+      <div class="dock-actions">
+        <button type="button" class="menu-toggle" data-menu-toggle aria-expanded="false">
+          <span data-menu-toggle-label>${menuMode === "debug" ? "Debug Menu" : "Controls"}</span>
+          <kbd>M</kbd>
+        </button>
+        <button type="button" class="menu-toggle is-secondary" data-help-toggle aria-expanded="false">
+          <span>Help</span>
+          <kbd>H</kbd>
+        </button>
+      </div>
+      <div class="dock-readouts">
+        <div class="dock-readout">
+          <span>Exposure</span>
+          <strong data-quick-exposure-value>${viewerConfig.colorPipeline.exposure.toFixed(2)}</strong>
+          <small>Drawer</small>
+        </div>
+        <div class="dock-readout">
+          <span>FOV</span>
+          <strong data-quick-camera-fov-value>${viewerConfig.camera.fov.toFixed(0)}&deg;</strong>
+          <small>Shift + Wheel</small>
+        </div>
+        <div class="dock-readout">
+          <span>Height</span>
+          <strong data-quick-camera-height-value>${viewerConfig.camera.height.toFixed(2)}</strong>
+          <small>Q / E</small>
+        </div>
+      </div>
+    </div>
     <div class="hud-panel" data-hud-panel hidden>
       <div class="hud-header">
         <div>
-          <h1>${menuMode === "debug" ? "Debug Menu" : "Viewer Menu"}</h1>
+          <p class="panel-kicker">${menuMode === "debug" ? "Debug Controls" : "Viewer Controls"}</p>
+          <h1>${menuMode === "debug" ? "Tune the scene without losing flow" : "Keep the scene readable and easy to tune"}</h1>
           <p>${isTouchDevice
             ? `Touch controls are enabled for mobile ${isWalkMode ? "walking" : "flight"}.`
             : "Menu pauses controls so you can tune the scene without fighting pointer lock."}</p>
@@ -31,9 +58,19 @@ export function createViewerShell({
         <button type="button" class="menu-close" data-menu-close aria-label="Close menu">Close</button>
       </div>
       <p class="status" data-status>${sceneLoadStatusHtml}</p>
-      <p class="hud-controls-copy">${isTouchDevice ? touchControlText : desktopControlText}</p>
+      <div class="hud-topline">
+        <p class="hud-controls-copy">${isTouchDevice ? touchControlText : desktopControlText}</p>
+        <div class="hotkey-strip">
+          <span><kbd>Q</kbd><kbd>E</kbd> height</span>
+          <span><kbd>Shift</kbd> + <kbd>Wheel</kbd> FOV</span>
+          <span><kbd>H</kbd> help</span>
+        </div>
+      </div>
       <div class="hud-summary">
-        <h2>Stats</h2>
+        <div class="section-heading">
+          <h2>Live Stats</h2>
+          <p>The essentials stay visible up top so the drawer can stay compact.</p>
+        </div>
         <div class="stats-grid">
           <div class="stat-card">
             <span>FPS</span>
@@ -56,6 +93,12 @@ export function createViewerShell({
       <div class="menu-sections" data-menu-sections>
         ${buildMenuSectionsMarkup({ menuMode, viewerConfig })}
       </div>
+    </div>
+    <div class="help-overlay" data-help-overlay hidden>
+      ${buildHelpOverlayMarkup({
+        isTouchDevice,
+        isWalkMode,
+      })}
     </div>
   `;
 

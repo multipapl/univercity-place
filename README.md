@@ -104,8 +104,11 @@ Useful runtime flags:
 - `Space` moves up in fly mode.
 - `C` moves down in fly mode.
 - Mouse wheel changes movement speed.
+- `Shift` + mouse wheel adjusts camera FOV.
+- `Q` / `E` lower or raise camera height.
 - `Esc` releases pointer lock.
-- `M` opens the menu.
+- `M` opens the bottom control drawer.
+- `H` opens the help overlay.
 
 The current locomotion default is `walk`.
 
@@ -143,6 +146,8 @@ Debug mode adds:
 
 - advanced viewport controls
 - layer visibility toggles
+- object inspector overrides
+- performance and texture diagnostics
 - texture/runtime tuning controls
 - object picking and per-material overrides
 - copy/save flow for debug override JSON

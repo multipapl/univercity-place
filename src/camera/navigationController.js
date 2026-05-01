@@ -375,7 +375,10 @@ export function createNavigationController({
   function bindInputEvents({
     getMenuOpen,
     onToggleMenu,
+    onToggleHelp,
     onCloseMenu,
+    onAdjustCameraHeight,
+    onAdjustCameraFov,
     onResumeFireVideo,
   }) {
     const cleanupCallbacks = [];
@@ -395,6 +398,12 @@ export function createNavigationController({
         return;
       }
 
+      if (event.code === "KeyH") {
+        event.preventDefault();
+        onToggleHelp();
+        return;
+      }
+
       if (event.code === "Escape" && getMenuOpen()) {
         event.preventDefault();
         onCloseMenu();
@@ -402,6 +411,18 @@ export function createNavigationController({
       }
 
       if (getMenuOpen()) {
+        return;
+      }
+
+      if (event.code === "KeyQ") {
+        event.preventDefault();
+        onAdjustCameraHeight(-0.05);
+        return;
+      }
+
+      if (event.code === "KeyE") {
+        event.preventDefault();
+        onAdjustCameraHeight(0.05);
         return;
       }
 
@@ -576,6 +597,12 @@ export function createNavigationController({
 
     const handleWheel = (event) => {
       if (getMenuOpen()) {
+        return;
+      }
+
+      if (event.shiftKey) {
+        const fovDelta = event.deltaY > 0 ? 2 : -2;
+        onAdjustCameraFov(fovDelta);
         return;
       }
 
