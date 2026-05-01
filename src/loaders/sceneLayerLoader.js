@@ -61,6 +61,19 @@ export function createSceneLayerLoader({
     lastResumeAttemptAt: 0,
   };
 
+  function cleanupLoadedRoots(loadedLayers = []) {
+    loadedLayers.forEach(({ root }) => {
+      if (!root) {
+        return;
+      }
+
+      backgroundRoots.delete(root);
+      if (root.parent) {
+        root.parent.remove(root);
+      }
+    });
+  }
+
   async function ensureFireVideoTexture() {
     if (fxState.videoTexture) {
       return fxState.videoTexture;
@@ -186,6 +199,7 @@ export function createSceneLayerLoader({
   }
 
   async function loadSceneLayers() {
+    const loadedLayers = [];
     try {
       await ensureReflectionEnvironment();
       const layers = resolveSceneLayers(viewerConfig.sceneLayers, searchParams, assetQuery);
@@ -194,8 +208,12 @@ export function createSceneLayerLoader({
         return;
       }
 
-      const loadedLayers = [];
-      for (const layer of layers) {
+      const prioritizedLayers = [
+        ...layers.filter((layer) => layer.required),
+        ...layers.filter((layer) => !layer.required),
+      ];
+
+      for (const layer of prioritizedLayers) {
         try {
           updateStatus(`Loading ${layer.label} layer from ${layer.url}...`);
           const gltf = await gltfLoader.loadAsync(layer.url);
@@ -255,6 +273,9 @@ export function createSceneLayerLoader({
       setLoadingScreenVisible(false);
     } catch (error) {
       console.error(error);
+      cleanupLoadedRoots(loadedLayers);
+      diagnosticsState.loadedLayers = [];
+      renderLayerControls();
       addFallbackScene();
       updateStatus("Scene load failed. Check browser console and your exported asset paths.");
       setLoadingScreenVisible(false);

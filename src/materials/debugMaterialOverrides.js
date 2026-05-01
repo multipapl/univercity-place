@@ -115,11 +115,8 @@ vec3 viewerDebugApplyColorCorrection(vec3 color) {
     }
 
     delete material.userData.viewerDebugColorOverride;
-    if (!material.userData.viewerDebugColorUniforms) {
-      return;
-    }
-
-    syncDebugColorUniforms(material);
+    delete material.userData.viewerDebugColorUniforms;
+    setMaterialCompileHook(material, "viewerDebugColorCorrection", null);
   }
 
   function applyDebugColorCorrection(material, override) {
@@ -128,10 +125,15 @@ vec3 viewerDebugApplyColorCorrection(vec3 color) {
     }
 
     const normalizedOverride = normalizeDebugColorOverride(override);
+    if (isDefaultDebugColorOverride(normalizedOverride)) {
+      clearDebugColorCorrection(material);
+      return false;
+    }
+
     material.userData.viewerDebugColorOverride = normalizedOverride;
     ensureDebugColorHook(material);
     syncDebugColorUniforms(material);
-    return !isDefaultDebugColorOverride(normalizedOverride);
+    return true;
   }
 
   return {

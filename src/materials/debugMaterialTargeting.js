@@ -6,14 +6,14 @@ export function buildMeshPath(mesh) {
   const segments = [];
   let current = mesh;
   while (current) {
+    if (current.userData?.viewerLayerId) {
+      break;
+    }
+
     const parent = current.parent;
     const siblingIndex = parent?.children?.indexOf(current) ?? 0;
     const label = current.name || current.type || "Object3D";
     segments.push(`${label}[${Math.max(siblingIndex, 0)}]`);
-
-    if (current.userData?.viewerLayerId) {
-      break;
-    }
 
     current = parent ?? null;
   }
