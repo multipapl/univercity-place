@@ -93,6 +93,7 @@ const {
   loadingStatusLine,
   loadingBarFill,
   menuToggleButton,
+  menuCloseButton,
   hudPanel,
   debugOnlySections,
   toneMappingSelect,
