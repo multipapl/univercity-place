@@ -1,62 +1,12 @@
 import * as THREE from "three";
-
-const DEFAULT_OVERRIDE_VALUES = Object.freeze({
-  hue: 0,
-  saturation: 1,
-  value: 1,
-  gamma: 1,
-});
-
-function createDefaultOverridesDocument() {
-  return {
-    version: 1,
-    targets: [],
-  };
-}
-
-function normalizeOverrideValue(value, fallback) {
-  return Number.isFinite(value) ? value : fallback;
-}
-
-function normalizeTargetOverride(target = {}) {
-  return {
-    layerId: `${target.layerId ?? ""}`.trim(),
-    meshName: `${target.meshName ?? ""}`.trim(),
-    materialName: `${target.materialName ?? ""}`.trim(),
-    hue: normalizeOverrideValue(target.hue, DEFAULT_OVERRIDE_VALUES.hue),
-    saturation: normalizeOverrideValue(target.saturation, DEFAULT_OVERRIDE_VALUES.saturation),
-    value: normalizeOverrideValue(target.value, DEFAULT_OVERRIDE_VALUES.value),
-    gamma: normalizeOverrideValue(target.gamma, DEFAULT_OVERRIDE_VALUES.gamma),
-  };
-}
-
-function normalizeOverridesDocument(documentValue) {
-  const nextDocument = createDefaultOverridesDocument();
-  if (!documentValue || typeof documentValue !== "object") {
-    return nextDocument;
-  }
-
-  if (Array.isArray(documentValue.targets)) {
-    nextDocument.targets = documentValue.targets.map(normalizeTargetOverride);
-  }
-
-  if (Number.isFinite(documentValue.version)) {
-    nextDocument.version = documentValue.version;
-  }
-
-  return nextDocument;
-}
-
-function createTargetKey(target) {
-  return [target.layerId, target.meshName, target.materialName].join("::");
-}
-
-function isDefaultOverride(target) {
-  return Math.abs(target.hue - DEFAULT_OVERRIDE_VALUES.hue) < 0.0001
-    && Math.abs(target.saturation - DEFAULT_OVERRIDE_VALUES.saturation) < 0.0001
-    && Math.abs(target.value - DEFAULT_OVERRIDE_VALUES.value) < 0.0001
-    && Math.abs(target.gamma - DEFAULT_OVERRIDE_VALUES.gamma) < 0.0001;
-}
+import {
+  createDefaultOverridesDocument,
+  createObjectOverrideStore,
+  createTargetKey,
+  DEFAULT_OBJECT_OVERRIDE_VALUES,
+  normalizeOverridesDocument,
+  normalizeTargetOverride,
+} from "./objectOverrideStore.js";
 
 export function createDebugObjectInspector({
   enabled = false,
@@ -85,7 +35,7 @@ export function createDebugObjectInspector({
     pickerArmed: false,
     hoveredMesh: null,
     loadedLayers: [],
-    overridesDocument: createDefaultOverridesDocument(),
+    overridesStore: createObjectOverrideStore(createDefaultOverridesDocument()),
     selectedEntry: null,
     selectedTargetKey: "",
     hasLoadedOverrides: false,
@@ -105,12 +55,12 @@ export function createDebugObjectInspector({
         }
 
         const materials = Array.isArray(child.material) ? child.material : [child.material];
-        materials.forEach((material) => {
+        materials.forEach((material, materialIndex) => {
           if (!material?.isMaterial) {
             return;
           }
 
-          const target = materialPipeline.describeMaterialTarget(child, material);
+          const target = materialPipeline.describeMaterialTarget(child, material, materialIndex);
           entries.push({
             layerEntry: entry,
             mesh: child,
@@ -126,11 +76,17 @@ export function createDebugObjectInspector({
   }
 
   function findOverrideByKey(targetKey) {
-    return state.overridesDocument.targets.find((target) => createTargetKey(target) === targetKey) ?? null;
+    return state.overridesStore.getOverrideByKey(targetKey);
   }
 
   function findMaterialEntryByKey(targetKey) {
     return getMaterialEntries().find((entry) => entry.key === targetKey) ?? null;
+  }
+
+  function isSameMaterialEntry(left, right) {
+    return Boolean(left && right)
+      && left.mesh === right.mesh
+      && left.material === right.material;
   }
 
   function getPointerIntersections(clientX, clientY) {
@@ -154,7 +110,11 @@ export function createDebugObjectInspector({
       return null;
     }
 
-    const nextEntry = findMaterialEntryByKey(state.selectedTargetKey) ?? state.selectedEntry;
+    const currentEntryStillLoaded = state.selectedEntry
+      && getMaterialEntries().some((entry) => isSameMaterialEntry(entry, state.selectedEntry));
+    const nextEntry = currentEntryStillLoaded
+      ? state.selectedEntry
+      : (findMaterialEntryByKey(state.selectedTargetKey) ?? state.selectedEntry);
     state.selectedEntry = nextEntry ?? null;
     return state.selectedEntry;
   }
@@ -204,8 +164,8 @@ export function createDebugObjectInspector({
 
   function setSelectionUi(entry) {
     const override = entry
-      ? (findOverrideByKey(entry.key) ?? { ...entry.target, ...DEFAULT_OVERRIDE_VALUES })
-      : { ...DEFAULT_OVERRIDE_VALUES };
+      ? (findOverrideByKey(entry.key) ?? { ...entry.target, ...DEFAULT_OBJECT_OVERRIDE_VALUES })
+      : { ...DEFAULT_OBJECT_OVERRIDE_VALUES };
 
     if (ui.selectionHint) {
       ui.selectionHint.textContent = entry
@@ -297,23 +257,7 @@ export function createDebugObjectInspector({
   }
 
   function upsertOverride(targetOverride) {
-    const nextTarget = normalizeTargetOverride(targetOverride);
-    const nextKey = createTargetKey(nextTarget);
-    const existingIndex = state.overridesDocument.targets.findIndex((target) => createTargetKey(target) === nextKey);
-
-    if (isDefaultOverride(nextTarget)) {
-      if (existingIndex >= 0) {
-        state.overridesDocument.targets.splice(existingIndex, 1);
-      }
-      return;
-    }
-
-    if (existingIndex >= 0) {
-      state.overridesDocument.targets[existingIndex] = nextTarget;
-      return;
-    }
-
-    state.overridesDocument.targets.push(nextTarget);
+    state.overridesStore.upsertOverride(targetOverride);
   }
 
   function updateSelectedOverride(mutator) {
@@ -324,7 +268,7 @@ export function createDebugObjectInspector({
 
     const currentOverride = normalizeTargetOverride(
       findOverrideByKey(selectedEntry.key)
-      ?? { ...selectedEntry.target, ...DEFAULT_OVERRIDE_VALUES },
+      ?? { ...selectedEntry.target, ...DEFAULT_OBJECT_OVERRIDE_VALUES },
     );
     const nextOverride = normalizeTargetOverride(mutator({ ...currentOverride }));
     upsertOverride(nextOverride);
@@ -332,7 +276,7 @@ export function createDebugObjectInspector({
   }
 
   async function copyOverrides() {
-    const payload = `${JSON.stringify(state.overridesDocument, null, 2)}\n`;
+    const payload = `${JSON.stringify(state.overridesStore.getDocument(), null, 2)}\n`;
 
     try {
       await navigator.clipboard.writeText(payload);
@@ -357,7 +301,7 @@ export function createDebugObjectInspector({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(state.overridesDocument),
+        body: JSON.stringify(state.overridesStore.getDocument()),
       });
 
       if (!response.ok) {
@@ -389,7 +333,7 @@ export function createDebugObjectInspector({
       return;
     }
 
-    upsertOverride({ ...selectedEntry.target, ...DEFAULT_OVERRIDE_VALUES });
+    state.overridesStore.resetOverride(selectedEntry.target);
     applyOverridesToLoadedLayers();
     updateSaveStatus(`Reset override for ${selectedEntry.target.meshName || selectedEntry.target.layerId}.`);
   }
@@ -410,7 +354,7 @@ export function createDebugObjectInspector({
     const hitMaterials = Array.isArray(hit.object.material) ? hit.object.material : [hit.object.material];
     const materialIndex = Number.isInteger(hit.face?.materialIndex) ? hit.face.materialIndex : 0;
     const hitMaterial = hitMaterials[materialIndex] ?? hitMaterials[0];
-    const target = materialPipeline.describeMaterialTarget(hit.object, hitMaterial);
+    const target = materialPipeline.describeMaterialTarget(hit.object, hitMaterial, materialIndex);
     const selectedEntry = {
       layerEntry: null,
       mesh: hit.object,
@@ -462,13 +406,13 @@ export function createDebugObjectInspector({
         throw new Error(`Override load failed with ${response.status}.`);
       }
 
-      state.overridesDocument = normalizeOverridesDocument(await response.json());
+      state.overridesStore.setDocument(normalizeOverridesDocument(await response.json()));
       state.hasLoadedOverrides = true;
       applyOverridesToLoadedLayers();
-      updateSaveStatus(`Loaded ${state.overridesDocument.targets.length} local override target(s).`);
+      updateSaveStatus(`Loaded ${state.overridesStore.getDocument().targets.length} local override target(s).`);
     } catch (error) {
       console.warn("Debug override file could not be loaded.", error);
-      state.overridesDocument = createDefaultOverridesDocument();
+      state.overridesStore.setDocument(createDefaultOverridesDocument());
       state.hasLoadedOverrides = true;
       applyOverridesToLoadedLayers();
       updateSaveStatus("No local overrides file loaded yet. Save will create one.");
