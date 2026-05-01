@@ -344,6 +344,12 @@ const reflectionState = {
   materials: new Set(),
 };
 const fallbackSceneRoots = [];
+const updateStatus = (message) => {
+  statusLine.textContent = message;
+  if (loadingStatusLine) {
+    loadingStatusLine.textContent = message;
+  }
+};
 const reflectionEnvironment = createReflectionEnvironmentManager({
   viewerConfig,
   searchParams,
@@ -429,13 +435,6 @@ if (baseLowMemoryToggle) {
 
 if (baseTextureCapSelect) {
   baseTextureCapSelect.value = `${runtimeOptimizationState.baseTextureMaxSize}`;
-}
-
-function updateStatus(message) {
-  statusLine.textContent = message;
-  if (loadingStatusLine) {
-    loadingStatusLine.textContent = message;
-  }
 }
 
 function updateDebugSessionNote() {
