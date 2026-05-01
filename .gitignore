@@ -3,4 +3,3 @@ dist/
 vite.stdout.log
 vite.stderr.log
 .env
-docs/
