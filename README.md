@@ -1,6 +1,8 @@
-# Three.js Baked Scene Viewer
+# University Place: Emberglass
 
-Lightweight browser viewer for baked Blender scenes exported as `glTF`, with optional layered passes for background, BG360, foliage, glass, reflections, and FX.
+Browser viewer for a layered baked architectural scene built on `three` + `vite`.
+
+This project is intentionally scene-specific. It is not trying to be a generic 3D engine or editor. The runtime assumes a fixed asset contract, a known layer structure, and a small set of specialized material paths.
 
 ## Quick Start
 
@@ -9,62 +11,73 @@ npm install
 npm run dev
 ```
 
-Open the local Vite URL in your browser.
-
-For a production build:
+Production build:
 
 ```bash
 npm run build
 ```
 
-The generated site is written to `dist/`.
+Preview the production bundle locally:
 
-## Asset Contract
-
-The viewer now uses a strict asset naming contract instead of probing multiple fallback filenames.
-
-Required base scene:
-
-```text
-public/assets/scene/scene.glb
+```bash
+npm run preview
 ```
 
-Optional layered assets:
+## Runtime Asset Contract
+
+Default asset directory:
 
 ```text
-public/assets/scene/bg.glb
-public/assets/scene/BG360.glb
-public/assets/scene/leaf.glb
-public/assets/scene/glass.glb
-public/assets/scene/reflect.glb
-public/assets/scene/fx.glb
-public/assets/scene/fire.mp4
-public/assets/scene/cubemap.png
+public/assets/scene/
 ```
 
-Layer mapping:
+Required:
+
+```text
+scene.glb
+```
+
+Optional scene layers:
+
+```text
+bg.glb
+BG360.glb
+leaf.glb
+glass.glb
+reflect.glb
+fx.glb
+```
+
+Optional runtime assets:
+
+```text
+fire.mp4
+cubemap.png
+```
+
+Current layer mapping:
 
 - `scene.glb`: required baked base scene
-- `bg.glb`: animated shader-driven background layer
-- `BG360.glb`: unlit alpha panorama-style layer
+- `bg.glb`: shader-driven background layer
+- `BG360.glb`: unlit alpha panorama layer
 - `leaf.glb`: alpha cutout foliage layer
 - `glass.glb`: glass material path
-- `reflect.glb`: reflective `MeshPhysicalMaterial` layer
+- `reflect.glb`: reflective material path
 - `fx.glb`: FX meshes, including fire-video targets
-- `fire.mp4`: runtime fire video source
+- `fire.mp4`: runtime fire source
 - `cubemap.png`: reflection environment source
 
-If the required base layer is missing or fails to load, the viewer falls back to the placeholder room state.
+If the required base layer is missing, the viewer falls back to a placeholder room.
 
-## Query Params
+## URL Overrides
 
-Any asset can be overridden explicitly from the URL:
+Any layer can be overridden directly from the query string:
 
 ```text
-http://localhost:5173/?scene=https://your-storage.example.com/scene.glb
+http://localhost:5173/?scene=https://example.com/scene.glb
 ```
 
-Supported runtime overrides:
+Supported asset override params:
 
 - `scene`
 - `background`
@@ -78,10 +91,10 @@ Supported runtime overrides:
 
 Useful runtime flags:
 
-- `debug=1`: enables debug mode for the current URL
-- `assetBust=...`: forces a fresh asset fetch token
-- `lowMemoryBase=1`: disables base-layer mipmaps
-- `baseTextureCap=2048`: caps baked base texture size at runtime
+- `debug=1`
+- `assetBust=...`
+- `lowMemoryBase=1`
+- `baseTextureCap=2048`
 
 ## Controls
 
@@ -90,86 +103,72 @@ Useful runtime flags:
 - `Shift` sprints in walk mode or boosts in fly mode.
 - `Space` moves up in fly mode.
 - `C` moves down in fly mode.
-- Mouse wheel changes fly speed.
+- Mouse wheel changes movement speed.
 - `Esc` releases pointer lock.
-- `M` opens the viewer menu.
+- `M` opens the menu.
 
-The current default locomotion mode is `walk`, configured in [src/config/cameraConfig.js](./src/config/cameraConfig.js).
+The current locomotion default is `walk`.
 
-## Viewer Features
+## Main Features
 
-Current viewer capabilities:
-
-- baked base scene rendering
-- optional layered scene loading with a fixed naming contract
-- alpha cutout foliage path
-- shader-patched glass path
-- selective reflection path with `MeshPhysicalMaterial`
-- animated fire video override for FX targets
-- animated background shader treatment
+- layered GLTF scene loading
+- specialized material pipeline for baked, alpha, glass, reflection, FX, and background layers
 - selective bloom for FX content
-- runtime viewport controls for tone mapping, exposure, bloom strength, `FOV`, camera height, and reflection tuning
-- lightweight performance diagnostics
-- low-memory baked texture mode and runtime base texture cap
+- runtime fire-video patching
+- mobile joystick + look-pad controls
 - debug object inspector with per-material HSV and gamma overrides
+- low-memory texture mode and runtime base texture cap
+- loading progress bar driven by `THREE.LoadingManager`
+- teardown-safe lifecycle for HMR / reloads / scene reloads
+
+## Configuration
+
+Config is split by domain under `src/config/`:
+
+- `assetsConfig.js`
+- `cameraConfig.js`
+- `diagnosticsConfig.js`
+- `interfaceConfig.js`
+- `materialsConfig.js`
+- `renderingConfig.js`
+- `viewerConfig.js`
+
+Runtime code should treat `VIEWER_CONFIG` as static defaults. Mutable live state now sits in dedicated runtime state objects inside `src/main.js`.
 
 ## Debug Workflow
 
-Debug mode is URL-driven and session-local. Enable it with `?debug=1`, or toggle it from the menu button using right click or middle click.
+Enable debug mode with `?debug=1`.
 
 Debug mode adds:
 
-- advanced viewport and material tuning controls
+- advanced viewport controls
 - layer visibility toggles
-- performance tuning controls
-- object inspector with pick-to-target workflow
-- copy/save flow for object override JSON
-- explicit asset reload action
+- texture/runtime tuning controls
+- object picking and per-material overrides
+- copy/save flow for debug override JSON
+- explicit asset reload
 
-Local object overrides are stored in:
+Local override file:
 
 ```text
 public/debug.scene-overrides.json
 ```
 
-During `npm run dev`, the local Vite server exposes a dev-only save endpoint at `/__debug/scene-overrides`, so the in-viewer Save action writes back to `public/debug.scene-overrides.json`. Outside the local dev server, save-to-file is disabled and copy-to-clipboard remains the portable export path.
+During `npm run dev`, `vite.config.js` exposes a dev-only POST endpoint at `/__debug/scene-overrides` so the in-viewer save action can write back to that file.
 
-## Configuration
+## Deployment Notes
 
-Viewer config is now split by domain under [`src/config/`](./src/config/):
+- Static app output goes to `dist/`
+- `vercel.json` is included for the current deployment flow
+- scene assets use revalidating cache headers instead of `immutable`
+- `public/robots.txt` currently blocks crawling because this viewer is treated as private/unlisted
 
-- [src/config/assetsConfig.js](./src/config/assetsConfig.js): asset base URL, layer contracts, fire video asset, reflection environment asset
-- [src/config/cameraConfig.js](./src/config/cameraConfig.js): camera and locomotion defaults
-- [src/config/interfaceConfig.js](./src/config/interfaceConfig.js): UI-facing toggles such as crosshair visibility
-- [src/config/diagnosticsConfig.js](./src/config/diagnosticsConfig.js): debug defaults and runtime optimization defaults
-- [src/config/materialsConfig.js](./src/config/materialsConfig.js): material presets and tweak rules
-- [src/config/renderingConfig.js](./src/config/renderingConfig.js): tone mapping and post-processing defaults
-- [src/config/viewerConfig.js](./src/config/viewerConfig.js): thin aggregator exported as `VIEWER_CONFIG`
+## Documentation Map
 
-To switch heavy runtime assets from local `public/assets/scene/` to object storage, set:
+Internal docs in `docs/` are intentionally local-only and ignored by git.
 
-```bash
-VITE_SCENE_ASSET_BASE_URL=https://assets.example.com/university-place
-```
+Recommended reading order for a fresh chat:
 
-See [.env.example](./.env.example) for the expected variable name.
-
-## Project Structure
-
-Recent refactors split the viewer into clearer runtime domains:
-
-- [`src/loaders/`](./src/loaders): asset URL resolution and scene layer loading
-- [`src/materials/`](./src/materials): material pipeline, factories, shader patches, texture helpers
-- [`src/ui/`](./src/ui): viewer shell creation, DOM refs, menu bindings
-- [`src/debug/`](./src/debug): object inspector and override store
-- [`src/camera/`](./src/camera): navigation and locomotion runtime
-
-## Deployment
-
-This project builds as a static app and can be served from `dist/`.
-
-`vercel.json` and `.vercelignore` are included for the current Vercel-based demo flow.
-
-## Documentation
-
-Deeper project notes, pipeline decisions, and architecture direction live in [docs/PROJECT_NOTES.md](./docs/PROJECT_NOTES.md).
+1. `docs/CURRENT_SYSTEM_OVERVIEW.md`
+2. `README.md`
+3. `docs/PROJECT_NOTES.md`
