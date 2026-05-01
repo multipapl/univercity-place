@@ -34,6 +34,7 @@ export function createDebugObjectInspector({
     pickerArmed: false,
     hoveredMesh: null,
     loadedLayers: [],
+    materialEntriesCache: null,
     overridesStore: createObjectOverrideStore(createDefaultOverridesDocument()),
     selectedEntry: null,
     selectedTargetKey: "",
@@ -47,6 +48,10 @@ export function createDebugObjectInspector({
   }
 
   function getMaterialEntries() {
+    if (state.materialEntriesCache) {
+      return state.materialEntriesCache;
+    }
+
     const entries = [];
     state.loadedLayers.forEach((entry) => {
       entry.root.traverse((child) => {
@@ -72,7 +77,12 @@ export function createDebugObjectInspector({
       });
     });
 
-    return entries;
+    state.materialEntriesCache = entries;
+    return state.materialEntriesCache;
+  }
+
+  function invalidateMaterialEntriesCache() {
+    state.materialEntriesCache = null;
   }
 
   function findOverrideByKey(targetKey) {
@@ -429,6 +439,7 @@ export function createDebugObjectInspector({
 
   function setLoadedLayers(loadedLayers = []) {
     state.loadedLayers = loadedLayers;
+    invalidateMaterialEntriesCache();
     resolveSelectedEntry();
     applyOverridesToLoadedLayers();
   }
