@@ -39,6 +39,7 @@ export function createDebugObjectInspector({
     selectedEntry: null,
     selectedTargetKey: "",
     hasLoadedOverrides: false,
+    uiCleanup: null,
   };
 
   function getOverridesUrl() {
@@ -426,34 +427,64 @@ export function createDebugObjectInspector({
   }
 
   function bindUi() {
-    ui.pickButton?.addEventListener("click", armPicker);
-    ui.resetButton?.addEventListener("click", resetSelectedOverride);
-    ui.copyButton?.addEventListener("click", copyOverrides);
-    ui.saveButton?.addEventListener("click", saveOverrides);
+    state.uiCleanup?.();
 
-    ui.hueSlider?.addEventListener("input", (event) => {
+    const cleanupCallbacks = [];
+    const bind = (target, type, handler, options) => {
+      target?.addEventListener(type, handler, options);
+      cleanupCallbacks.push(() => {
+        target?.removeEventListener(type, handler, options);
+      });
+    };
+
+    const handleHueInput = (event) => {
       updateSelectedOverride((override) => ({ ...override, hue: Number(event.target.value) }));
-    });
-    ui.saturationSlider?.addEventListener("input", (event) => {
+    };
+    const handleSaturationInput = (event) => {
       updateSelectedOverride((override) => ({ ...override, saturation: Number(event.target.value) }));
-    });
-    ui.valueSlider?.addEventListener("input", (event) => {
+    };
+    const handleValueInput = (event) => {
       updateSelectedOverride((override) => ({ ...override, value: Number(event.target.value) }));
-    });
-    ui.gammaSlider?.addEventListener("input", (event) => {
+    };
+    const handleGammaInput = (event) => {
       updateSelectedOverride((override) => ({ ...override, gamma: Number(event.target.value) }));
-    });
+    };
 
-    rendererDomElement.addEventListener("pointerdown", handleCanvasPointerDown, true);
-    rendererDomElement.addEventListener("pointermove", handleCanvasPointerMove, true);
+    bind(ui.pickButton, "click", armPicker);
+    bind(ui.resetButton, "click", resetSelectedOverride);
+    bind(ui.copyButton, "click", copyOverrides);
+    bind(ui.saveButton, "click", saveOverrides);
+    bind(ui.hueSlider, "input", handleHueInput);
+    bind(ui.saturationSlider, "input", handleSaturationInput);
+    bind(ui.valueSlider, "input", handleValueInput);
+    bind(ui.gammaSlider, "input", handleGammaInput);
+    bind(rendererDomElement, "pointerdown", handleCanvasPointerDown, true);
+    bind(rendererDomElement, "pointermove", handleCanvasPointerMove, true);
     setSelectionUi(null);
     updateSaveStatus(isDev
       ? "Local overrides are ready. Save writes to public/debug.scene-overrides.json."
       : "Save-to-file is disabled outside the local Vite dev server.");
+
+    state.uiCleanup = () => {
+      cleanupCallbacks.forEach((cleanup) => {
+        cleanup();
+      });
+      cleanupCallbacks.length = 0;
+      state.uiCleanup = null;
+    };
+
+    return state.uiCleanup;
   }
 
   return {
     bindUi,
+    dispose() {
+      state.uiCleanup?.();
+      hoverHelper.visible = false;
+      hoverHelper.parent?.remove(hoverHelper);
+      hoverHelper.geometry?.dispose?.();
+      hoverHelper.material?.dispose?.();
+    },
     loadOverrides,
     setLoadedLayers,
     setEnabled(nextEnabled) {

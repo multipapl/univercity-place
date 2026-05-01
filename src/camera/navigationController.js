@@ -373,7 +373,15 @@ export function createNavigationController({
     onCloseMenu,
     onResumeFireVideo,
   }) {
-    window.addEventListener("keydown", (event) => {
+    const cleanupCallbacks = [];
+    const bind = (target, type, handler, options) => {
+      target?.addEventListener(type, handler, options);
+      cleanupCallbacks.push(() => {
+        target?.removeEventListener(type, handler, options);
+      });
+    };
+
+    const handleKeyDown = (event) => {
       onResumeFireVideo();
 
       if (event.code === "KeyM") {
@@ -393,20 +401,24 @@ export function createNavigationController({
       }
 
       keys.add(event.code);
-    });
+    };
 
-    window.addEventListener("keyup", (event) => {
+    const handleKeyUp = (event) => {
       keys.delete(event.code);
-    });
+    };
 
-    document.addEventListener("pointerlockchange", () => {
+    const handlePointerLockChange = () => {
       if (!controls.isLocked) {
         pointerLockState.lastUnlockAt = performance.now();
       }
-    });
+    };
+
+    bind(window, "keydown", handleKeyDown);
+    bind(window, "keyup", handleKeyUp);
+    bind(document, "pointerlockchange", handlePointerLockChange);
 
     if (!isTouchDevice) {
-      viewport.addEventListener("click", (event) => {
+      const handleViewportClick = (event) => {
         if (getMenuOpen()) {
           return;
         }
@@ -417,35 +429,42 @@ export function createNavigationController({
 
         onResumeFireVideo();
         controls.lock();
-      });
+      };
+
+      bind(viewport, "click", handleViewportClick);
     }
 
-    window.addEventListener("mousemove", (event) => {
+    const handleMouseMove = (event) => {
       if (!controls.isLocked || getMenuOpen()) {
         return;
       }
 
       applyLookDelta(event.movementX, event.movementY);
-    });
+    };
 
-    window.addEventListener("focus", () => {
+    const handleFocus = () => {
       onResumeFireVideo();
-    });
+    };
 
-    window.addEventListener("blur", () => {
+    const handleBlur = () => {
       resetMovementInputs();
-    });
+    };
 
-    document.addEventListener("visibilitychange", () => {
+    const handleVisibilityChange = () => {
       if (!document.hidden) {
         onResumeFireVideo();
       }
-    });
+    };
+
+    bind(window, "mousemove", handleMouseMove);
+    bind(window, "focus", handleFocus);
+    bind(window, "blur", handleBlur);
+    bind(document, "visibilitychange", handleVisibilityChange);
 
     if (isTouchDevice) {
       viewport.classList.add("is-touch");
 
-      joystickBase?.addEventListener("touchstart", (event) => {
+      const handleJoystickTouchStart = (event) => {
         const [touch] = event.changedTouches;
         if (!touch || touchInput.joystickTouchId !== null) {
           return;
@@ -454,9 +473,9 @@ export function createNavigationController({
         touchInput.joystickTouchId = touch.identifier;
         updateJoystickFromTouch(touch);
         event.preventDefault();
-      }, { passive: false });
+      };
 
-      joystickBase?.addEventListener("touchmove", (event) => {
+      const handleJoystickTouchMove = (event) => {
         const touch = [...event.changedTouches].find((item) => item.identifier === touchInput.joystickTouchId);
         if (!touch) {
           return;
@@ -464,7 +483,7 @@ export function createNavigationController({
 
         updateJoystickFromTouch(touch);
         event.preventDefault();
-      }, { passive: false });
+      };
 
       const releaseJoystick = (event) => {
         const touch = [...event.changedTouches].find((item) => item.identifier === touchInput.joystickTouchId);
@@ -476,10 +495,12 @@ export function createNavigationController({
         event.preventDefault();
       };
 
-      joystickBase?.addEventListener("touchend", releaseJoystick, { passive: false });
-      joystickBase?.addEventListener("touchcancel", releaseJoystick, { passive: false });
+      bind(joystickBase, "touchstart", handleJoystickTouchStart, { passive: false });
+      bind(joystickBase, "touchmove", handleJoystickTouchMove, { passive: false });
+      bind(joystickBase, "touchend", releaseJoystick, { passive: false });
+      bind(joystickBase, "touchcancel", releaseJoystick, { passive: false });
 
-      lookPad?.addEventListener("touchstart", (event) => {
+      const handleLookTouchStart = (event) => {
         const [touch] = event.changedTouches;
         if (!touch || touchInput.lookTouchId !== null) {
           return;
@@ -489,9 +510,9 @@ export function createNavigationController({
         touchInput.lastLookX = touch.clientX;
         touchInput.lastLookY = touch.clientY;
         event.preventDefault();
-      }, { passive: false });
+      };
 
-      lookPad?.addEventListener("touchmove", (event) => {
+      const handleLookTouchMove = (event) => {
         const touch = [...event.changedTouches].find((item) => item.identifier === touchInput.lookTouchId);
         if (!touch) {
           return;
@@ -503,7 +524,7 @@ export function createNavigationController({
         touchInput.lastLookY = touch.clientY;
         applyLookDelta(deltaX, deltaY);
         event.preventDefault();
-      }, { passive: false });
+      };
 
       const releaseLook = (event) => {
         const touch = [...event.changedTouches].find((item) => item.identifier === touchInput.lookTouchId);
@@ -517,8 +538,10 @@ export function createNavigationController({
         event.preventDefault();
       };
 
-      lookPad?.addEventListener("touchend", releaseLook, { passive: false });
-      lookPad?.addEventListener("touchcancel", releaseLook, { passive: false });
+      bind(lookPad, "touchstart", handleLookTouchStart, { passive: false });
+      bind(lookPad, "touchmove", handleLookTouchMove, { passive: false });
+      bind(lookPad, "touchend", releaseLook, { passive: false });
+      bind(lookPad, "touchcancel", releaseLook, { passive: false });
 
       const bindHoldButton = (element, onStart, onEnd) => {
         if (!element) {
@@ -536,9 +559,9 @@ export function createNavigationController({
           event.preventDefault();
         };
 
-        element.addEventListener("touchstart", start, { passive: false });
-        element.addEventListener("touchend", end, { passive: false });
-        element.addEventListener("touchcancel", end, { passive: false });
+        bind(element, "touchstart", start, { passive: false });
+        bind(element, "touchend", end, { passive: false });
+        bind(element, "touchcancel", end, { passive: false });
       };
 
       bindHoldButton(flyUpButton, () => setTouchMoveY(1), () => setTouchMoveY(0));
@@ -546,20 +569,25 @@ export function createNavigationController({
       bindHoldButton(boostButton, () => setTouchBoost(true), () => setTouchBoost(false));
     }
 
-    window.addEventListener(
-      "wheel",
-      (event) => {
-        if (getMenuOpen()) {
-          return;
-        }
+    const handleWheel = (event) => {
+      if (getMenuOpen()) {
+        return;
+      }
 
-        const delta = event.deltaY > 0 ? -0.75 : 0.75;
-        clampSpeed(movement.baseSpeed + delta);
-      },
-      { passive: true },
-    );
+      const delta = event.deltaY > 0 ? -0.75 : 0.75;
+      clampSpeed(movement.baseSpeed + delta);
+    };
 
-    window.addEventListener("resize", handleResize);
+    bind(window, "wheel", handleWheel, { passive: true });
+    bind(window, "resize", handleResize);
+
+    return () => {
+      cleanupCallbacks.forEach((cleanup) => {
+        cleanup();
+      });
+      cleanupCallbacks.length = 0;
+      resetMovementInputs();
+    };
   }
 
   return {

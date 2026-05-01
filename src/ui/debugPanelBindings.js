@@ -25,109 +25,150 @@ export function bindViewerUiEvents({
   onReloadAssets,
   onExitDebug,
 }) {
-  refs.toneMappingSelect?.addEventListener("change", (event) => {
+  const cleanupCallbacks = [];
+  const bind = (target, type, handler, options) => {
+    target?.addEventListener(type, handler, options);
+    cleanupCallbacks.push(() => {
+      target?.removeEventListener(type, handler, options);
+    });
+  };
+
+  const handleToneMappingChange = (event) => {
     onToneMappingChange(event.target.value);
-  });
+  };
 
-  refs.exposureSlider?.addEventListener("input", (event) => {
+  const handleExposureInput = (event) => {
     onExposureChange(Number(event.target.value));
-  });
+  };
 
-  refs.selectiveBloomStrengthSlider?.addEventListener("input", (event) => {
+  const handleSelectiveBloomStrengthInput = (event) => {
     onSelectiveBloomStrengthChange(Number(event.target.value));
-  });
+  };
 
-  refs.cameraFovSlider?.addEventListener("input", (event) => {
+  const handleCameraFovInput = (event) => {
     onCameraFovChange(Number(event.target.value));
-  });
+  };
 
-  refs.cameraHeightSlider?.addEventListener("input", (event) => {
+  const handleCameraHeightInput = (event) => {
     onCameraHeightChange(Number(event.target.value));
-  });
+  };
 
-  refs.showCrosshairToggle?.addEventListener("change", (event) => {
+  const handleShowCrosshairChange = (event) => {
     onShowCrosshairChange(Boolean(event.target.checked));
-  });
+  };
 
-  refs.cameraShakeToggle?.addEventListener("change", (event) => {
+  const handleCameraShakeChange = (event) => {
     onCameraShakeChange(Boolean(event.target.checked));
-  });
+  };
 
-  refs.backgroundHueSlider?.addEventListener("input", (event) => {
+  const handleBackgroundHueInput = (event) => {
     onBackgroundHueChange(Number(event.target.value));
-  });
+  };
 
-  refs.backgroundSaturationSlider?.addEventListener("input", (event) => {
+  const handleBackgroundSaturationInput = (event) => {
     onBackgroundSaturationChange(Number(event.target.value));
-  });
+  };
 
-  refs.backgroundValueSlider?.addEventListener("input", (event) => {
+  const handleBackgroundValueInput = (event) => {
     onBackgroundValueChange(Number(event.target.value));
-  });
+  };
 
-  refs.fireHueSlider?.addEventListener("input", (event) => {
+  const handleFireHueInput = (event) => {
     onFireHueChange(Number(event.target.value));
-  });
+  };
 
-  refs.fireSaturationSlider?.addEventListener("input", (event) => {
+  const handleFireSaturationInput = (event) => {
     onFireSaturationChange(Number(event.target.value));
-  });
+  };
 
-  refs.fireValueSlider?.addEventListener("input", (event) => {
+  const handleFireValueInput = (event) => {
     onFireValueChange(Number(event.target.value));
-  });
+  };
 
-  refs.reflectEnvIntensitySlider?.addEventListener("input", (event) => {
+  const handleReflectEnvIntensityInput = (event) => {
     onReflectEnvIntensityChange(Number(event.target.value));
-  });
+  };
 
-  refs.reflectIorSlider?.addEventListener("input", (event) => {
+  const handleReflectIorInput = (event) => {
     onReflectIorChange(Number(event.target.value));
-  });
+  };
 
-  refs.reflectSpecularSlider?.addEventListener("input", (event) => {
+  const handleReflectSpecularInput = (event) => {
     onReflectSpecularChange(Number(event.target.value));
-  });
+  };
 
-  refs.reflectMetalnessSlider?.addEventListener("input", (event) => {
+  const handleReflectMetalnessInput = (event) => {
     onReflectMetalnessChange(Number(event.target.value));
-  });
+  };
 
-  refs.baseLowMemoryToggle?.addEventListener("change", (event) => {
+  const handleBaseLowMemoryChange = (event) => {
     onBaseLowMemoryToggle(Boolean(event.target.checked));
-  });
+  };
 
-  refs.baseTextureCapSelect?.addEventListener("change", (event) => {
+  const handleBaseTextureCapChange = (event) => {
     onBaseTextureCapChange(event.target.value);
-  });
+  };
 
-  refs.menuToggleButton?.addEventListener("click", () => {
+  const handleMenuToggleClick = () => {
     onMenuToggle();
-  });
+  };
 
-  refs.menuToggleButton?.addEventListener("contextmenu", (event) => {
+  const handleMenuToggleContextMenu = (event) => {
     event.preventDefault();
     onToggleDebugMode();
-  });
+  };
 
-  refs.menuToggleButton?.addEventListener("auxclick", (event) => {
+  const handleMenuToggleAuxClick = (event) => {
     if (event.button !== 1) {
       return;
     }
 
     event.preventDefault();
     onToggleDebugMode();
-  });
+  };
 
-  refs.menuCloseButton?.addEventListener("click", () => {
+  const handleMenuCloseClick = () => {
     onMenuClose();
-  });
+  };
 
-  refs.reloadAssetsButton?.addEventListener("click", () => {
+  const handleReloadAssetsClick = () => {
     onReloadAssets();
-  });
+  };
 
-  refs.exitDebugButton?.addEventListener("click", () => {
+  const handleExitDebugClick = () => {
     onExitDebug();
-  });
+  };
+
+  bind(refs.toneMappingSelect, "change", handleToneMappingChange);
+  bind(refs.exposureSlider, "input", handleExposureInput);
+  bind(refs.selectiveBloomStrengthSlider, "input", handleSelectiveBloomStrengthInput);
+  bind(refs.cameraFovSlider, "input", handleCameraFovInput);
+  bind(refs.cameraHeightSlider, "input", handleCameraHeightInput);
+  bind(refs.showCrosshairToggle, "change", handleShowCrosshairChange);
+  bind(refs.cameraShakeToggle, "change", handleCameraShakeChange);
+  bind(refs.backgroundHueSlider, "input", handleBackgroundHueInput);
+  bind(refs.backgroundSaturationSlider, "input", handleBackgroundSaturationInput);
+  bind(refs.backgroundValueSlider, "input", handleBackgroundValueInput);
+  bind(refs.fireHueSlider, "input", handleFireHueInput);
+  bind(refs.fireSaturationSlider, "input", handleFireSaturationInput);
+  bind(refs.fireValueSlider, "input", handleFireValueInput);
+  bind(refs.reflectEnvIntensitySlider, "input", handleReflectEnvIntensityInput);
+  bind(refs.reflectIorSlider, "input", handleReflectIorInput);
+  bind(refs.reflectSpecularSlider, "input", handleReflectSpecularInput);
+  bind(refs.reflectMetalnessSlider, "input", handleReflectMetalnessInput);
+  bind(refs.baseLowMemoryToggle, "change", handleBaseLowMemoryChange);
+  bind(refs.baseTextureCapSelect, "change", handleBaseTextureCapChange);
+  bind(refs.menuToggleButton, "click", handleMenuToggleClick);
+  bind(refs.menuToggleButton, "contextmenu", handleMenuToggleContextMenu);
+  bind(refs.menuToggleButton, "auxclick", handleMenuToggleAuxClick);
+  bind(refs.menuCloseButton, "click", handleMenuCloseClick);
+  bind(refs.reloadAssetsButton, "click", handleReloadAssetsClick);
+  bind(refs.exitDebugButton, "click", handleExitDebugClick);
+
+  return () => {
+    cleanupCallbacks.forEach((cleanup) => {
+      cleanup();
+    });
+    cleanupCallbacks.length = 0;
+  };
 }

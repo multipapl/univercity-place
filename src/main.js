@@ -1006,56 +1006,18 @@ const sceneLayerLoader = createSceneLayerLoader({
     reflectionState.materials,
   ],
 });
-
-function disposeViewerResources() {
-  if (viewerLifecycle.disposed) {
-    return;
-  }
-
-  viewerLifecycle.disposed = true;
-  if (viewerLifecycle.animationFrameId !== null) {
-    window.cancelAnimationFrame(viewerLifecycle.animationFrameId);
-    viewerLifecycle.animationFrameId = null;
-  }
-
-  sceneLayerLoader.dispose();
-  clearFallbackScene();
-  restoreDarkenedBloomObjects();
-  darkenedBloomMaterials.clear();
-  reflectionEnvironment.dispose();
-  bloomComposer.dispose();
-  finalComposer.dispose();
-  bloomPass.dispose?.();
-  bloomCompositePass.material?.dispose?.();
-  outputPass.dispose?.();
-  finalRenderPass.dispose?.();
-  bloomRenderPass.dispose?.();
-  bloomOcclusionMaterial.dispose();
-  reflectionPmremGenerator.dispose();
-  renderer.renderLists.dispose();
-  renderer.dispose();
-}
-
-disposeOnInitFailure = disposeViewerResources;
-
-window.addEventListener("beforeunload", disposeViewerResources, { once: true });
-if (import.meta.hot) {
-  import.meta.hot.dispose(() => {
-    disposeViewerResources();
-  });
-}
-
-navigationController.bindInputEvents({
+const handlePostProcessingResize = () => {
+  syncPostProcessingSize();
+};
+const unbindNavigationEvents = navigationController.bindInputEvents({
   getMenuOpen: () => menuController.isOpen(),
   onToggleMenu: () => menuController.setOpen(!menuController.isOpen()),
   onCloseMenu: () => menuController.setOpen(false),
   onResumeFireVideo: () => sceneLayerLoader.resumeFireVideoPlayback(),
 });
-window.addEventListener("resize", syncPostProcessingSize);
-debugObjectInspector.bindUi();
-debugObjectInspector.setEnabled(debugMode);
-
-bindViewerUiEvents({
+window.addEventListener("resize", handlePostProcessingResize);
+const unbindDebugUi = debugObjectInspector.bindUi();
+const unbindViewerUi = bindViewerUiEvents({
   refs,
   onToneMappingChange: (value) => {
     VIEWER_CONFIG.colorPipeline.toneMapping = value;
@@ -1154,6 +1116,51 @@ bindViewerUiEvents({
     setDebugMode(false);
   },
 });
+
+function disposeViewerResources() {
+  if (viewerLifecycle.disposed) {
+    return;
+  }
+
+  viewerLifecycle.disposed = true;
+  if (viewerLifecycle.animationFrameId !== null) {
+    window.cancelAnimationFrame(viewerLifecycle.animationFrameId);
+    viewerLifecycle.animationFrameId = null;
+  }
+
+  unbindViewerUi?.();
+  unbindDebugUi?.();
+  unbindNavigationEvents?.();
+  window.removeEventListener("resize", handlePostProcessingResize);
+  debugObjectInspector.dispose?.();
+  sceneLayerLoader.dispose();
+  clearFallbackScene();
+  restoreDarkenedBloomObjects();
+  darkenedBloomMaterials.clear();
+  reflectionEnvironment.dispose();
+  bloomComposer.dispose();
+  finalComposer.dispose();
+  bloomPass.dispose?.();
+  bloomCompositePass.material?.dispose?.();
+  outputPass.dispose?.();
+  finalRenderPass.dispose?.();
+  bloomRenderPass.dispose?.();
+  bloomOcclusionMaterial.dispose();
+  reflectionPmremGenerator.dispose();
+  renderer.renderLists.dispose();
+  renderer.dispose();
+}
+
+disposeOnInitFailure = disposeViewerResources;
+
+window.addEventListener("beforeunload", disposeViewerResources, { once: true });
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    disposeViewerResources();
+  });
+}
+
+debugObjectInspector.setEnabled(debugMode);
 
 function animate() {
   if (viewerLifecycle.disposed) {
