@@ -22,6 +22,8 @@ import { createViewerShell } from "./ui/createViewerShell.js";
 import { createDebugInspectorUi } from "./ui/viewerDomRefs.js";
 import { disposeObjectTree } from "./utils/threeDisposal.js";
 import { createLayerControls } from "./viewer/createLayerControls.js";
+import { createViewerLifecycle } from "./viewer/createViewerLifecycle.js";
+import { createViewerState } from "./viewer/createViewerState.js";
 import { createViewerUiController } from "./viewer/createViewerUiController.js";
 
 function renderInitializationError(error) {
@@ -189,10 +191,6 @@ const BLOOM_SCENE_LAYER = VIEWER_CONFIG.postProcessing.selectiveBloom.layer;
 const selectiveBloomConfig = {
   ...VIEWER_CONFIG.postProcessing.selectiveBloom,
 };
-const viewerLifecycle = {
-  animationFrameId: null,
-  disposed: false,
-};
 const selectiveBloomPipeline = createSelectiveBloomPipeline({
   renderer,
   scene,
@@ -247,43 +245,31 @@ function getStoredBaseTextureCap() {
     return null;
   }
 }
-
-const runtimeOptimizationState = {
-  lowMemoryBaseMipmaps: parseBooleanFlag(searchParams.get("lowMemoryBase"))
-    ?? getStoredLowMemoryBaseMode()
-    ?? VIEWER_CONFIG.runtimeOptimization.lowMemoryBaseMipmaps,
-  baseTextureMaxSize: parseNonNegativeInteger(searchParams.get("baseTextureCap"))
-    ?? getStoredBaseTextureCap()
-    ?? VIEWER_CONFIG.runtimeOptimization.baseTextureMaxSize,
-};
-const colorPipelineState = {
-  toneMapping: VIEWER_CONFIG.colorPipeline.toneMapping,
-  exposure: VIEWER_CONFIG.colorPipeline.exposure,
-};
-const interfaceState = {
-  showCrosshair: VIEWER_CONFIG.interface.showCrosshair,
-};
-const cameraMotionState = {
-  enabled: VIEWER_CONFIG.camera.ambientMotion.enabled,
-};
-const viewerConfig = {
-  ...VIEWER_CONFIG,
-  camera: {
-    ...VIEWER_CONFIG.camera,
-    ambientMotion: {
-      ...VIEWER_CONFIG.camera.ambientMotion,
-    },
+const state = createViewerState({
+  baseViewerConfig: VIEWER_CONFIG,
+  initialRuntimeOptimizationState: {
+    lowMemoryBaseMipmaps: parseBooleanFlag(searchParams.get("lowMemoryBase"))
+      ?? getStoredLowMemoryBaseMode()
+      ?? VIEWER_CONFIG.runtimeOptimization.lowMemoryBaseMipmaps,
+    baseTextureMaxSize: parseNonNegativeInteger(searchParams.get("baseTextureCap"))
+      ?? getStoredBaseTextureCap()
+      ?? VIEWER_CONFIG.runtimeOptimization.baseTextureMaxSize,
   },
-  colorPipeline: colorPipelineState,
-  interface: interfaceState,
-  locomotion: {
-    ...VIEWER_CONFIG.locomotion,
-  },
-  postProcessing: {
-    ...VIEWER_CONFIG.postProcessing,
-  },
-  runtimeOptimization: runtimeOptimizationState,
-};
+});
+const {
+  runtimeOptimizationState,
+  colorPipelineState,
+  interfaceState,
+  cameraMotionState,
+  viewerConfig,
+  diagnosticsState,
+  backgroundState,
+  fireState,
+  reflectionState,
+  viewerLifecycle,
+  helpOverlayState,
+  controlDockState,
+} = state;
 const assetBustValue = searchParams.get("assetBust");
 const isLocalAssetDevelopment = import.meta.env.DEV
   || ["localhost", "127.0.0.1", "0.0.0.0"].includes(window.location.hostname);
@@ -355,38 +341,6 @@ dracoLoader.setDecoderPath("/draco/");
 const loader = new GLTFLoader(loadingManager);
 loader.setDRACOLoader(dracoLoader);
 const textureLoader = new THREE.TextureLoader(loadingManager);
-
-const diagnosticsState = {
-  loadedLayers: [],
-  frameAccumulator: 0,
-  frameCounter: 0,
-  fps: 0,
-  frameMs: 0,
-  lastUpdateAt: 0,
-};
-const backgroundState = {
-  hueDegrees: VIEWER_CONFIG.materialPresets.background.hueDegrees,
-  saturation: VIEWER_CONFIG.materialPresets.background.saturation,
-  value: VIEWER_CONFIG.materialPresets.background.value,
-  materials: new Set(),
-  roots: new Set(),
-  motionTime: 0,
-  rotationRadiansPerSecond:
-    THREE.MathUtils.degToRad(VIEWER_CONFIG.materialPresets.background.rotationDegreesPerMinute) / 60,
-};
-const fireState = {
-  hueDegrees: VIEWER_CONFIG.materialPresets.fireVideo.hueDegrees,
-  saturation: VIEWER_CONFIG.materialPresets.fireVideo.saturation,
-  value: VIEWER_CONFIG.materialPresets.fireVideo.value,
-  materials: new Set(),
-};
-const reflectionState = {
-  envMapIntensity: VIEWER_CONFIG.materialPresets.reflectMaterial.envMapIntensity,
-  ior: VIEWER_CONFIG.materialPresets.reflectMaterial.ior,
-  specularIntensity: VIEWER_CONFIG.materialPresets.reflectMaterial.specularIntensity,
-  metalness: VIEWER_CONFIG.materialPresets.reflectMaterial.defaultMetalness,
-  materials: new Set(),
-};
 const fallbackSceneRoots = [];
 const updateStatus = (message) => {
   statusLine.textContent = message;
@@ -477,13 +431,6 @@ const menuController = createMenuController({
     setDebugMode(!debugMode);
   },
 });
-const helpOverlayState = {
-  isOpen: false,
-  relockAfterClose: false,
-};
-const controlDockState = {
-  hideTimeout: null,
-};
 const layerControlsRenderer = createLayerControls({
   container: layerControls,
   diagnosticsState,
@@ -789,9 +736,6 @@ const sceneLayerLoader = createSceneLayerLoader({
     reflectionState.materials,
   ],
 });
-const handlePostProcessingResize = () => {
-  uiController.syncPostProcessingSize();
-};
 const unbindNavigationEvents = navigationController.bindInputEvents({
   getMenuOpen: () => menuController.isOpen() || helpOverlayState.isOpen,
   onToggleMenu: () => {
@@ -829,7 +773,6 @@ const unbindNavigationEvents = navigationController.bindInputEvents({
     }
   },
 });
-window.addEventListener("resize", handlePostProcessingResize);
 const unbindDebugUi = debugObjectInspector.bindUi();
 const unbindViewerUi = bindViewerUiEvents({
   refs,
@@ -938,69 +881,42 @@ const unbindViewerUi = bindViewerUiEvents({
     setDebugMode(false);
   },
 });
+const viewerLifecycleController = createViewerLifecycle({
+  clock,
+  state,
+  uiController,
+  navigationController,
+  menuController,
+  sceneLayerLoader,
+  renderSceneFrame,
+  updatePerformanceDiagnostics,
+  disposeRuntimeResources: () => {
+    unbindViewerUi?.();
+    unbindDebugUi?.();
+    unbindNavigationEvents?.();
+    menuController.dispose?.();
+    setHelpOverlayOpen(false);
+    debugObjectInspector.dispose?.();
+    sceneLayerLoader.dispose();
+    clearFallbackScene();
+    reflectionEnvironment.dispose();
+    selectiveBloomPipeline.dispose();
+    reflectionPmremGenerator.dispose();
+    renderer.renderLists.dispose();
+    renderer.dispose();
+  },
+});
 
-function disposeViewerResources() {
-  if (viewerLifecycle.disposed) {
-    return;
-  }
+disposeOnInitFailure = () => viewerLifecycleController.dispose();
 
-  viewerLifecycle.disposed = true;
-  if (viewerLifecycle.animationFrameId !== null) {
-    window.cancelAnimationFrame(viewerLifecycle.animationFrameId);
-    viewerLifecycle.animationFrameId = null;
-  }
-
-  unbindViewerUi?.();
-  unbindDebugUi?.();
-  unbindNavigationEvents?.();
-  menuController.dispose?.();
-  setHelpOverlayOpen(false);
-  window.removeEventListener("resize", handlePostProcessingResize);
-  debugObjectInspector.dispose?.();
-  sceneLayerLoader.dispose();
-  clearFallbackScene();
-  reflectionEnvironment.dispose();
-  selectiveBloomPipeline.dispose();
-  reflectionPmremGenerator.dispose();
-  renderer.renderLists.dispose();
-  renderer.dispose();
-}
-
-disposeOnInitFailure = disposeViewerResources;
-
-window.addEventListener("beforeunload", disposeViewerResources, { once: true });
+window.addEventListener("beforeunload", disposeOnInitFailure, { once: true });
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
-    disposeViewerResources();
+    viewerLifecycleController.dispose();
   });
 }
 
 debugObjectInspector.setEnabled(debugMode);
-
-function animate() {
-  if (viewerLifecycle.disposed) {
-    return;
-  }
-
-  const delta = clock.getDelta();
-  uiController.clearCameraAmbientMotion();
-  sceneLayerLoader.syncFireVideoPlayback();
-  uiController.updateBackgroundMotion(delta);
-  navigationController.updateMovement(delta, menuController.isOpen());
-  navigationController.updateSmoothAdjustments(delta);  // Плавне регулювання FOV та висоти
-  uiController.applyCameraAmbientMotion(delta);
-  renderSceneFrame(delta);
-  diagnosticsState.frameAccumulator += delta;
-  diagnosticsState.frameCounter += 1;
-  if (diagnosticsState.frameAccumulator >= 0.25) {
-    diagnosticsState.fps = diagnosticsState.frameCounter / diagnosticsState.frameAccumulator;
-    diagnosticsState.frameMs = (diagnosticsState.frameAccumulator / diagnosticsState.frameCounter) * 1000;
-    diagnosticsState.frameAccumulator = 0;
-    diagnosticsState.frameCounter = 0;
-    updatePerformanceDiagnostics();
-  }
-  viewerLifecycle.animationFrameId = window.requestAnimationFrame(animate);
-}
 
 navigationController.syncLookStateFromCamera();
 uiController.applyViewportColorSettings();
@@ -1014,7 +930,7 @@ uiController.applyBackgroundColorSettings();
 uiController.applyFireColorSettings();
 uiController.applyReflectMaterialSettings();
 sceneLayerLoader.loadSceneLayers();
-viewerLifecycle.animationFrameId = window.requestAnimationFrame(animate);
+viewerLifecycleController.start();
 } catch (error) {
   disposeOnInitFailure?.();
   renderInitializationError(error);

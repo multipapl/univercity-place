@@ -691,7 +691,6 @@ export function createNavigationController({
     };
 
     bind(window, "wheel", handleWheel, { passive: true });
-    bind(window, "resize", handleResize);
 
     return () => {
       cleanupCallbacks.forEach((cleanup) => {
