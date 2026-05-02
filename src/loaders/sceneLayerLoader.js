@@ -63,6 +63,7 @@ export function createSceneLayerLoader({
     videoTexture: null,
     videoTexturePromise: null,
     lastResumeAttemptAt: 0,
+    resumePlayPromise: null,
   };
 
   function cleanupLoadedRoots(loadedLayers = []) {
@@ -100,6 +101,7 @@ export function createSceneLayerLoader({
     fxState.videoTexture = null;
     fxState.videoTexturePromise = null;
     fxState.lastResumeAttemptAt = 0;
+    fxState.resumePlayPromise = null;
   }
 
   async function ensureFireVideoTexture() {
@@ -260,14 +262,20 @@ export function createSceneLayerLoader({
   }
 
   function resumeFireVideoPlayback() {
-    if (!fxState.videoElement || !fxState.videoElement.paused) {
-      return;
+    if (!fxState.videoElement || !fxState.videoElement.paused || fxState.resumePlayPromise) {
+      return fxState.resumePlayPromise ?? null;
     }
 
     fxState.lastResumeAttemptAt = performance.now();
-    fxState.videoElement.play().catch(() => {
-      // Ignore user-gesture playback failures.
-    });
+    fxState.resumePlayPromise = fxState.videoElement.play()
+      .catch(() => {
+        // Ignore user-gesture playback failures.
+      })
+      .finally(() => {
+        fxState.resumePlayPromise = null;
+      });
+
+    return fxState.resumePlayPromise;
   }
 
   function syncFireVideoPlayback() {

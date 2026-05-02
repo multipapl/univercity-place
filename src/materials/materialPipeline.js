@@ -21,7 +21,7 @@ export function createMaterialPipeline({
   reflectionState,
   reflectionEnvironment,
 }) {
-  const disposedSourceMaterials = new Set();
+  const disposedSourceMaterials = new WeakSet();
 
   function matchesNameIncludes(name, includes = []) {
     const normalized = `${name ?? ""}`.toLowerCase();

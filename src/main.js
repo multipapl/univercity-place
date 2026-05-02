@@ -680,11 +680,15 @@ function applyInterfaceSettings() {
   }
 
   if (isTouchDevice) {
-    crosshair.style.display = "none";
+    if (crosshair) {
+      crosshair.style.display = "none";
+    }
     return;
   }
 
-  crosshair.style.display = interfaceState.showCrosshair ? "" : "none";
+  if (crosshair) {
+    crosshair.style.display = interfaceState.showCrosshair ? "" : "none";
+  }
 }
 
 function applyDebugModeSettings() {
@@ -855,18 +859,19 @@ function renderLayerControls() {
   }
 
   if (!debugMode) {
-    layerControls.innerHTML = "";
+    layerControls.replaceChildren();
     return;
   }
 
   if (!diagnosticsState.loadedLayers.length) {
-    layerControls.innerHTML = `<p class="empty-state">Layers will appear here after scene load.</p>`;
+    const emptyState = document.createElement("p");
+    emptyState.className = "empty-state";
+    emptyState.textContent = "Layers will appear here after scene load.";
+    layerControls.replaceChildren(emptyState);
     return;
   }
 
-  layerControls.innerHTML = "";
-
-  diagnosticsState.loadedLayers.forEach((entry) => {
+  const nextControls = diagnosticsState.loadedLayers.map((entry) => {
     const label = document.createElement("label");
     label.className = "layer-toggle";
 
@@ -881,13 +886,21 @@ function renderLayerControls() {
 
     const textWrap = document.createElement("span");
     textWrap.className = "layer-toggle-copy";
-    textWrap.innerHTML = debugMode
-      ? `<strong>${entry.layer.label}</strong><small>${entry.layer.id} · ${entry.layer.url}</small>`
-      : `<strong>${entry.layer.label}</strong><small>${entry.layer.id}</small>`;
 
+    const title = document.createElement("strong");
+    title.textContent = entry.layer.label;
+
+    const details = document.createElement("small");
+    details.textContent = debugMode
+      ? `${entry.layer.id} · ${entry.layer.url}`
+      : entry.layer.id;
+
+    textWrap.append(title, details);
     label.append(checkbox, textWrap);
-    layerControls.append(label);
+    return label;
   });
+
+  layerControls.replaceChildren(...nextControls);
 }
 
 function reloadWithUpdatedSearchParams(mutator) {
