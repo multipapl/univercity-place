@@ -64,6 +64,22 @@ export function createNavigationController({
     lastUnlockAt: 0,
   };
 
+  // Плавне регулювання камери
+  const smoothAdjustState = {
+    heightDirection: 0,  // -1: вниз, 0: нема, 1: вгору
+    heightSpeed: 1.5,    // одиниці висоти в секунду
+    minHeight: 0.5,
+    maxHeight: 2.5,
+    minFov: 30,         // градусів
+    maxFov: 110,        // градусів
+    fovWheelSensitivity: 3,  // градусів за один "клік" колеса
+    targetFov: cameraState.fov,  // цільове значення FOV для плавного переходу
+    fovLerpFactor: 8,   // швидкість плавного переходу FOV (більше = швидше)
+    onHeightChanged: null,
+    onFovChanged: null,
+    onShowDock: null,
+  };
+
   function getViewportDimensions() {
     return {
       width: viewport.clientWidth || window.innerWidth,
@@ -108,6 +124,40 @@ export function createNavigationController({
     const delta = cameraState.height - cameraState.lastAppliedHeight;
     camera.position.y += delta;
     cameraState.lastAppliedHeight = cameraState.height;
+  }
+
+  function updateSmoothAdjustments(deltaTime) {
+    const { heightDirection, heightSpeed, minHeight, maxHeight, targetFov, fovLerpFactor } = smoothAdjustState;
+
+    // Плавне регулювання висоти
+    if (heightDirection !== 0) {
+      const heightDelta = heightDirection * heightSpeed * deltaTime;
+      const newHeight = THREE.MathUtils.clamp(
+        cameraState.height + heightDelta,
+        minHeight,
+        maxHeight,
+      );
+
+      if (newHeight !== cameraState.height) {
+        cameraState.height = newHeight;
+        smoothAdjustState.onHeightChanged?.(cameraState.height);
+        applyCameraSettings();
+      }
+    }
+
+    // Плавний перехід FOV до цільового значення (lerp)
+    const fovDiff = Math.abs(targetFov - cameraState.fov);
+    if (fovDiff > 0.01) {
+      const lerpAmount = fovLerpFactor * deltaTime;  // нормалізуємо по часу
+      const lerpedFov = THREE.MathUtils.lerp(cameraState.fov, targetFov, lerpAmount);
+      const clampedFov = THREE.MathUtils.clamp(lerpedFov, smoothAdjustState.minFov, smoothAdjustState.maxFov);
+
+      if (clampedFov !== cameraState.fov) {
+        cameraState.fov = clampedFov;
+        smoothAdjustState.onFovChanged?.(cameraState.fov);
+        applyCameraSettings();
+      }
+    }
   }
 
   function clearCameraAmbientMotion() {
@@ -377,11 +427,16 @@ export function createNavigationController({
     onToggleMenu,
     onToggleHelp,
     onCloseMenu,
-    onAdjustCameraHeight,
-    onAdjustCameraFov,
     onResumeFireVideo,
     onMoveStart,
+    onCameraHeightChanged,
+    onCameraFovChanged,
+    onShowDock,
   }) {
+    // Зберігаємо callback-функції для плавного регулювання
+    smoothAdjustState.onHeightChanged = onCameraHeightChanged;
+    smoothAdjustState.onFovChanged = onCameraFovChanged;
+    smoothAdjustState.onShowDock = onShowDock;
     const cleanupCallbacks = [];
     const bind = (target, type, handler, options) => {
       target?.addEventListener(type, handler, options);
@@ -415,15 +470,16 @@ export function createNavigationController({
         return;
       }
 
+      // Плавне регулювання висоти камери
       if (event.code === "KeyQ") {
         event.preventDefault();
-        onAdjustCameraHeight(-0.05);
+        smoothAdjustState.heightDirection = -1;
         return;
       }
 
       if (event.code === "KeyE") {
         event.preventDefault();
-        onAdjustCameraHeight(0.05);
+        smoothAdjustState.heightDirection = 1;
         return;
       }
 
@@ -437,6 +493,12 @@ export function createNavigationController({
     };
 
     const handleKeyUp = (event) => {
+      // Зупиняємо плавне регулювання при відпусканні клавіш
+      if (event.code === "KeyQ" || event.code === "KeyE") {
+        smoothAdjustState.heightDirection = 0;
+        return;
+      }
+
       keys.delete(event.code);
     };
 
@@ -608,8 +670,19 @@ export function createNavigationController({
       }
 
       if (event.shiftKey) {
-        const fovDelta = event.deltaY > 0 ? 2 : -2;
-        onAdjustCameraFov(fovDelta);
+        // FOV регулювання: прокрутка вниз (deltaY > 0) -> менше FOV, вгору -> більше FOV
+        // Змінюємо ЦІЛЬОВЕ значення, а не поточне — поточне плавно підтягнеться
+        const fovChange = event.deltaY > 0 ? -smoothAdjustState.fovWheelSensitivity : smoothAdjustState.fovWheelSensitivity;
+        const newTargetFov = THREE.MathUtils.clamp(
+          smoothAdjustState.targetFov + fovChange,
+          smoothAdjustState.minFov,
+          smoothAdjustState.maxFov,
+        );
+
+        if (newTargetFov !== smoothAdjustState.targetFov) {
+          smoothAdjustState.targetFov = newTargetFov;
+          smoothAdjustState.onShowDock?.();  // показуємо dock при зміні
+        }
         return;
       }
 
@@ -642,5 +715,6 @@ export function createNavigationController({
     resetMovementInputs,
     syncLookStateFromCamera,
     updateMovement,
+    updateSmoothAdjustments,
   };
 }

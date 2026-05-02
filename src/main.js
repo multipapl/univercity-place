@@ -1110,11 +1110,36 @@ const unbindNavigationEvents = navigationController.bindInputEvents({
 
     menuController.setOpen(false);
   },
-  onAdjustCameraHeight: (delta) => {
-    nudgeCameraHeight(delta);
+  onCameraHeightChanged: (height) => {
+    // Оновлюємо UI та показуємо dock при зміні висоти
+    if (cameraHeightValue) {
+      cameraHeightValue.value = height.toFixed(2);
+      cameraHeightValue.textContent = height.toFixed(2);
+    }
+    if (cameraHeightSlider) {
+      cameraHeightSlider.value = height.toFixed(2);
+    }
+    if (quickCameraHeightValue) {
+      quickCameraHeightValue.textContent = height.toFixed(2);
+    }
+    showDock();
   },
-  onAdjustCameraFov: (delta) => {
-    nudgeCameraFov(delta);
+  onCameraFovChanged: (fov) => {
+    // Оновлюємо UI при плавній зміні FOV
+    if (cameraFovValue) {
+      cameraFovValue.value = `${fov.toFixed(0)}°`;
+      cameraFovValue.textContent = `${fov.toFixed(0)}°`;
+    }
+    if (cameraFovSlider) {
+      cameraFovSlider.value = fov.toFixed(0);
+    }
+    if (quickCameraFovValue) {
+      quickCameraFovValue.textContent = `${fov.toFixed(0)} deg`;
+    }
+  },
+  onShowDock: () => {
+    // Показуємо dock при початку регулювання FOV колесом
+    showDock();
   },
   onResumeFireVideo: () => sceneLayerLoader.resumeFireVideoPlayback(),
   onMoveStart: () => {
@@ -1287,6 +1312,7 @@ function animate() {
   sceneLayerLoader.syncFireVideoPlayback();
   updateBackgroundMotion(delta);
   navigationController.updateMovement(delta, menuController.isOpen());
+  navigationController.updateSmoothAdjustments(delta);  // Плавне регулювання FOV та висоти
   applyCameraAmbientMotion(delta);
   renderSceneFrame(delta);
   diagnosticsState.frameAccumulator += delta;
