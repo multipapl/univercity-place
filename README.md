@@ -1,8 +1,15 @@
 # University Place: Emberglass
 
-Browser viewer for a layered baked architectural scene built on `three` + `vite`.
+Scene-specific architectural viewer built with `three` + `vite`.
 
-This project is intentionally scene-specific. It is not trying to be a generic 3D engine or editor. The runtime assumes a fixed asset contract, a known layer structure, and a small set of specialized material paths.
+This project is intentionally narrow. It assumes a known asset contract, a layered scene export, and a few specialized runtime material paths.
+
+## What Matters
+
+- This is a delivery viewer, not a generic editor or engine.
+- The required base layer is `scene.glb`; everything else is optional.
+- Runtime behavior depends on stable layer, mesh, and material naming.
+- Internal docs in `docs/` are local-only and ignored by git.
 
 ## Quick Start
 
@@ -11,21 +18,16 @@ npm install
 npm run dev
 ```
 
-Production build:
+Other useful commands:
 
 ```bash
 npm run build
-```
-
-Preview the production bundle locally:
-
-```bash
 npm run preview
 ```
 
-## Runtime Asset Contract
+## Asset Contract
 
-Default asset directory:
+Default asset root:
 
 ```text
 public/assets/scene/
@@ -37,7 +39,7 @@ Required:
 scene.glb
 ```
 
-Optional scene layers:
+Optional:
 
 ```text
 bg.glb
@@ -46,38 +48,43 @@ leaf.glb
 glass.glb
 reflect.glb
 fx.glb
-```
-
-Optional runtime assets:
-
-```text
 fire.mp4
 cubemap.png
 ```
 
-Current layer mapping:
+Layer mapping:
 
-- `scene.glb`: required baked base scene
-- `bg.glb`: shader-driven background layer
-- `BG360.glb`: unlit alpha panorama layer
-- `leaf.glb`: alpha cutout foliage layer
-- `glass.glb`: glass material path
-- `reflect.glb`: reflective material path
-- `fx.glb`: FX meshes, including fire-video targets
-- `fire.mp4`: runtime fire source
-- `cubemap.png`: reflection environment source
+- `scene.glb` -> baked base scene
+- `bg.glb` -> animated background path
+- `BG360.glb` -> unlit alpha panorama path
+- `leaf.glb` -> alpha-cutout foliage path
+- `glass.glb` -> glass material path
+- `reflect.glb` -> reflective hero-material path
+- `fx.glb` -> FX meshes, including fire-video targets
+- `fire.mp4` -> runtime fire source
+- `cubemap.png` -> reflection environment source
 
-If the required base layer is missing, the viewer falls back to a placeholder room.
+If the required base scene is missing, the app loads a placeholder room instead of crashing.
 
-## URL Overrides
+## Runtime Shape
 
-Any layer can be overridden directly from the query string:
+- `src/main.js` only bootstraps the app and renders a startup error shell if init fails.
+- `src/viewer/createViewerApp.js` composes the runtime.
+- `src/viewer/createViewerState.js` owns mutable runtime state.
+- `src/viewer/createViewerLifecycle.js` owns the render loop, resize handling, and teardown.
+- `src/loaders/sceneLayerLoader.js` loads required and optional layers, applies runtime assets, and handles fallback transitions.
+- `src/materials/` contains the specialized material pipeline.
+- `src/ui/` contains the shell, menu structure, help overlay, and debug/viewer bindings.
+
+## Query Overrides
+
+Each layer can be overridden from the URL, for example:
 
 ```text
-http://localhost:5173/?scene=https://example.com/scene.glb
+/?scene=https://example.com/scene.glb
 ```
 
-Supported asset override params:
+Supported asset params:
 
 - `scene`
 - `background`
@@ -96,61 +103,27 @@ Useful runtime flags:
 - `lowMemoryBase=1`
 - `baseTextureCap=2048`
 
-## Controls
+## Interaction
 
-- Click the viewport to capture the mouse.
-- `W`, `A`, `S`, `D` move.
-- `Shift` sprints in walk mode or boosts in fly mode.
-- `Space` moves up in fly mode.
-- `C` moves down in fly mode.
-- Mouse wheel changes movement speed.
-- `Shift` + mouse wheel adjusts camera FOV.
-- `Q` / `E` lower or raise camera height.
-- `Esc` releases pointer lock.
-- `M` opens the bottom control drawer.
-- `H` opens the help overlay.
+- Desktop: click to lock pointer, `WASD` to move, `Shift` to sprint/boost, wheel for speed, `Shift` + wheel for FOV, `Q` / `E` for camera height.
+- Mobile: left joystick moves, right pad looks, boost button accelerates, fly up/down buttons appear in fly mode.
+- `M` toggles the control drawer.
+- `H` toggles help.
+- `Esc` closes overlays or releases pointer lock.
 
-The current locomotion default is `walk`.
+Default locomotion mode is `walk`. There is no collision system.
 
-## Main Features
-
-- layered GLTF scene loading
-- specialized material pipeline for baked, alpha, glass, reflection, FX, and background layers
-- selective bloom for FX content
-- runtime fire-video patching
-- mobile joystick + look-pad controls
-- debug object inspector with per-material HSV and gamma overrides
-- low-memory texture mode and runtime base texture cap
-- loading progress bar driven by `THREE.LoadingManager`
-- teardown-safe lifecycle for HMR / reloads / scene reloads
-
-## Configuration
-
-Config is split by domain under `src/config/`:
-
-- `assetsConfig.js`
-- `cameraConfig.js`
-- `diagnosticsConfig.js`
-- `interfaceConfig.js`
-- `materialsConfig.js`
-- `renderingConfig.js`
-- `viewerConfig.js`
-
-Runtime code should treat `VIEWER_CONFIG` as static defaults. Mutable live state now sits in dedicated runtime state objects inside `src/main.js`.
-
-## Debug Workflow
+## Debug Notes
 
 Enable debug mode with `?debug=1`.
 
 Debug mode adds:
 
-- advanced viewport controls
-- layer visibility toggles
-- object inspector overrides
-- performance and texture diagnostics
-- texture/runtime tuning controls
-- object picking and per-material overrides
-- copy/save flow for debug override JSON
+- live layer toggles
+- object picking
+- per-target HSV and gamma overrides
+- texture and performance diagnostics
+- local override copy/save flow
 - explicit asset reload
 
 Local override file:
@@ -159,21 +132,10 @@ Local override file:
 public/debug.scene-overrides.json
 ```
 
-During `npm run dev`, `vite.config.js` exposes a dev-only POST endpoint at `/__debug/scene-overrides` so the in-viewer save action can write back to that file.
+During `npm run dev`, `vite.config.js` exposes a dev-only POST endpoint at `/__debug/scene-overrides`.
 
-## Deployment Notes
+## Reading Order
 
-- Static app output goes to `dist/`
-- `vercel.json` is included for the current deployment flow
-- scene assets use revalidating cache headers instead of `immutable`
-- `public/robots.txt` currently blocks crawling because this viewer is treated as private/unlisted
-
-## Documentation Map
-
-Internal docs in `docs/` are intentionally local-only and ignored by git.
-
-Recommended reading order for a fresh chat:
-
-1. `docs/CURRENT_SYSTEM_OVERVIEW.md`
-2. `README.md`
+1. `README.md`
+2. `docs/CURRENT_SYSTEM_OVERVIEW.md`
 3. `docs/PROJECT_NOTES.md`
