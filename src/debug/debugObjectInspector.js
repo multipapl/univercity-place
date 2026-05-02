@@ -1,4 +1,4 @@
-import * as THREE from "three";
+﻿import * as THREE from "three";
 import {
   createDefaultOverridesDocument,
   createObjectOverrideStore,
@@ -188,9 +188,9 @@ export function createDebugObjectInspector({
     if (ui.selectionHint) {
       ui.selectionHint.textContent = entry
         ? (state.pickerArmed
-            ? "Object selected. Click Pick Object again to choose another one."
-            : "Object selected. Adjust values below or reset this target.")
-        : "No object selected yet. Open the menu, click Pick Object, then click the scene.";
+            ? "Pick another object."
+            : "Object selected.")
+        : "No object selected.";
     }
 
     if (ui.selectionLayer) {
@@ -301,15 +301,15 @@ export function createDebugObjectInspector({
       updateSaveStatus("Overrides JSON copied to clipboard.");
       updateStatus("Overrides JSON copied to clipboard.");
     } catch {
-      updateSaveStatus("Clipboard copy failed in this browser context.");
-      updateStatus("Clipboard copy failed. Open the browser console if you need the JSON manually.");
+      updateSaveStatus("Clipboard copy failed.");
+      updateStatus("Clipboard copy failed.");
       console.log(payload);
     }
   }
 
   async function saveOverrides() {
     if (!isDev) {
-      updateSaveStatus("Save is available only in the local Vite dev server.");
+      updateSaveStatus("Save works only in local dev.");
       return;
     }
 
@@ -326,12 +326,12 @@ export function createDebugObjectInspector({
         throw new Error(`Save request failed with ${response.status}.`);
       }
 
-      updateSaveStatus("Overrides saved to public/debug.scene-overrides.json.");
-      updateStatus("Overrides saved to public/debug.scene-overrides.json.");
+      updateSaveStatus("Overrides saved.");
+      updateStatus("Overrides saved.");
     } catch (error) {
       console.error(error);
-      updateSaveStatus("Save failed. Check the dev server console.");
-      updateStatus("Override save failed. Check the dev server console.");
+      updateSaveStatus("Save failed.");
+      updateStatus("Save failed.");
     }
   }
 
@@ -341,7 +341,7 @@ export function createDebugObjectInspector({
     }
 
     setPickerArmed(true);
-    updateStatus("Picker armed. Click an object in the scene while the debug menu is open.");
+    updateStatus("Pick an object in the scene.");
     setSelectionUi(resolveSelectedEntry());
   }
 
@@ -364,7 +364,7 @@ export function createDebugObjectInspector({
     const intersections = getPointerIntersections(event.clientX, event.clientY);
 
     if (!intersections.length) {
-      updateStatus("Picker missed. Click a visible mesh in the scene.");
+      updateStatus("No object hit.");
       return;
     }
 
@@ -383,7 +383,7 @@ export function createDebugObjectInspector({
 
     selectEntry(selectedEntry);
     setPickerArmed(false);
-    updateStatus(`Picked ${target.meshName || "(unnamed mesh)"} · ${target.materialName || "(unnamed material)"}.`);
+    updateStatus(`Picked ${target.meshName || "mesh"}.`);
   }
 
   function handleCanvasPointerMove(event) {
@@ -427,13 +427,13 @@ export function createDebugObjectInspector({
       state.overridesStore.setDocument(normalizeOverridesDocument(await response.json()));
       state.hasLoadedOverrides = true;
       applyOverridesToLoadedLayers();
-      updateSaveStatus(`Loaded ${state.overridesStore.getDocument().targets.length} local override target(s).`);
+      updateSaveStatus(`Loaded ${state.overridesStore.getDocument().targets.length} overrides.`);
     } catch (error) {
       console.warn("Debug override file could not be loaded.", error);
       state.overridesStore.setDocument(createDefaultOverridesDocument());
       state.hasLoadedOverrides = true;
       applyOverridesToLoadedLayers();
-      updateSaveStatus("No local overrides file loaded yet. Save will create one.");
+      updateSaveStatus("No saved overrides.");
     }
   }
 
@@ -480,8 +480,8 @@ export function createDebugObjectInspector({
     bind(rendererDomElement, "pointermove", handleCanvasPointerMove, true);
     setSelectionUi(null);
     updateSaveStatus(isDev
-      ? "Local overrides are ready. Save writes to public/debug.scene-overrides.json."
-      : "Save-to-file is disabled outside the local Vite dev server.");
+      ? "Overrides ready."
+      : "Save disabled outside local dev.");
 
     state.uiCleanup = () => {
       cleanupCallbacks.forEach((cleanup) => {
@@ -523,3 +523,4 @@ export function createDebugObjectInspector({
     },
   };
 }
+

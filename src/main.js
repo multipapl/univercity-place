@@ -1,4 +1,4 @@
-import "./style.css";
+﻿import "./style.css";
 
 import * as THREE from "three";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
@@ -62,16 +62,14 @@ const isTouchDevice = window.matchMedia("(pointer: coarse)").matches || "ontouch
 const isWalkMode = VIEWER_CONFIG.locomotion.mode === "walk";
 const searchParams = new URLSearchParams(window.location.search);
 let debugMode = parseBooleanFlag(searchParams.get("debug")) ?? false;
-const desktopControlText = isWalkMode
-  ? "<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> walk, <kbd>Shift</kbd> sprint, mouse looks around, <kbd>Esc</kbd> unlocks cursor."
-  : "<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move, <kbd>Space</kbd> up, <kbd>C</kbd> down, <kbd>Shift</kbd> boost, mouse wheel changes speed, <kbd>Esc</kbd> unlocks cursor.";
-const touchControlText = isWalkMode
-  ? "Left thumb walks, right side looks around, boost button sprints."
-  : "Left thumb moves, right side looks around, buttons on the right control up, down and boost.";
 
 const {
   viewport,
   hud,
+  bottomDock,
+  bottomDockCategories,
+  leftSidebar,
+  sidebarTitle,
   loadingScreen,
   crosshair,
   mobileControls,
@@ -82,8 +80,6 @@ const {
   menuMode: debugMode ? "debug" : "viewer",
   viewerConfig: VIEWER_CONFIG,
   sceneLoadStatusHtml: SCENE_LOAD_STATUS_HTML,
-  desktopControlText,
-  touchControlText,
 });
 
 // Set dock animation durations from config
@@ -103,15 +99,21 @@ const {
   helpFab,
   controlDock,
   menuToggleButton,
-  menuToggleLabel,
   helpToggleButton,
   helpOverlay,
   helpCloseButton,
-  menuCloseButton,
-  hudPanel,
-  quickExposureValue,
+  bottomDock: bottomDockRef,
+  bottomDockCategories: bottomDockCategoriesRef,
+  bottomDockDebugIndicator,
+  bottomHelpToggleButton,
+  leftSidebar: leftSidebarRef,
+  sidebarTitle: sidebarTitleRef,
+  quickFpsValue,
   quickCameraFovValue,
   quickCameraHeightValue,
+  bottomQuickFpsValue,
+  bottomQuickCameraFovValue,
+  bottomQuickCameraHeightValue,
   toneMappingSelect,
   exposureSlider,
   exposureValue,
@@ -150,10 +152,8 @@ const {
   statTriangles,
   statTextures,
   statTextureMemory,
-  performanceNote,
   baseLowMemoryToggle,
   baseTextureCapSelect,
-  debugSessionNote,
   joystickBase,
   joystickThumb,
   lookPad,
@@ -417,18 +417,16 @@ const materialPipeline = createMaterialPipeline({
 });
 const performanceDiagnostics = createPerformanceDiagnostics({
   enabled: true,
-  detailedStatsEnabled: debugMode,
-  renderer,
   diagnosticsState,
-  runtimeOptimization: runtimeOptimizationState,
   statsElements: {
+    quickFpsValue,
+    bottomQuickFpsValue,
     statFps,
     statFrameMs,
     statDrawCalls,
     statTriangles,
     statTextures,
     statTextureMemory,
-    performanceNote,
   },
   getTextureDimensions: materialPipeline.getTextureDimensions,
 });
@@ -470,12 +468,18 @@ const toneMappingModes = {
 const menuController = createMenuController({
   viewport,
   hud,
-  hudPanel,
   menuToggleButton,
+  bottomDock: bottomDockRef ?? bottomDock,
+  bottomDockCategories: bottomDockCategoriesRef ?? bottomDockCategories,
+  leftSidebar: leftSidebarRef ?? leftSidebar,
+  sidebarTitle: sidebarTitleRef ?? sidebarTitle,
   initialMode: debugMode ? "debug" : "viewer",
   isTouchDevice,
   navigationController,
   updateStatus,
+  onDebugToggleRequest: () => {
+    setDebugMode(!debugMode);
+  },
 });
 const helpOverlayState = {
   isOpen: false,
@@ -490,23 +494,24 @@ function showDock() {
   if (!controlDock) return;
   controlDock.classList.add("is-visible");
 
-  // Clear existing timeout
   if (controlDockState.hideTimeout) {
     clearTimeout(controlDockState.hideTimeout);
   }
 
-  // Schedule hide after config delay
   const hideDelay = VIEWER_CONFIG.interface.dock.autoHideDelay;
   controlDockState.hideTimeout = setTimeout(() => {
-    if (controlDock) {
+    if (controlDock && !menuController.isOpen() && !helpOverlayState.isOpen) {
       controlDock.classList.remove("is-visible");
     }
   }, hideDelay);
 }
 
-// Hide control dock immediately
 function hideDock() {
   if (!controlDock) return;
+  if (menuController.isOpen() || helpOverlayState.isOpen) {
+    controlDock.classList.add("is-visible");
+    return;
+  }
   if (controlDockState.hideTimeout) {
     clearTimeout(controlDockState.hideTimeout);
     controlDockState.hideTimeout = null;
@@ -522,19 +527,6 @@ if (baseTextureCapSelect) {
   baseTextureCapSelect.value = `${runtimeOptimizationState.baseTextureMaxSize}`;
 }
 
-function updateDebugSessionNote() {
-  if (!debugSessionNote) {
-    return;
-  }
-
-  if (!debugMode) {
-    debugSessionNote.textContent = "Debug tools are disabled for this URL.";
-    return;
-  }
-
-  debugSessionNote.textContent = `Debug tools are active. Asset token: ${assetQuery || "none"}. Reload Assets forces a fresh scene fetch.`;
-}
-
 function setHelpOverlayOpen(nextOpen) {
   const normalizedOpen = Boolean(nextOpen);
   if (helpOverlayState.isOpen === normalizedOpen) {
@@ -543,6 +535,7 @@ function setHelpOverlayOpen(nextOpen) {
 
   helpOverlayState.isOpen = normalizedOpen;
   helpToggleButton?.setAttribute("aria-expanded", `${normalizedOpen}`);
+  bottomHelpToggleButton?.setAttribute("aria-expanded", `${normalizedOpen}`);
 
   if (helpOverlay) {
     helpOverlay.hidden = !normalizedOpen;
@@ -603,10 +596,6 @@ function applyViewportColorSettings() {
     exposureValue.value = colorPipelineState.exposure.toFixed(2);
     exposureValue.textContent = colorPipelineState.exposure.toFixed(2);
   }
-
-  if (quickExposureValue) {
-    quickExposureValue.textContent = colorPipelineState.exposure.toFixed(2);
-  }
 }
 
 function applySelectiveBloomSettings() {
@@ -655,11 +644,19 @@ function applyCameraSettings() {
   }
 
   if (quickCameraFovValue) {
-    quickCameraFovValue.textContent = `${navigationController.cameraState.fov.toFixed(0)} deg`;
+    quickCameraFovValue.textContent = `${navigationController.cameraState.fov.toFixed(0)}°`;
   }
 
   if (quickCameraHeightValue) {
     quickCameraHeightValue.textContent = navigationController.cameraState.height.toFixed(2);
+  }
+
+  if (bottomQuickCameraFovValue) {
+    bottomQuickCameraFovValue.textContent = `${navigationController.cameraState.fov.toFixed(0)}°`;
+  }
+
+  if (bottomQuickCameraHeightValue) {
+    bottomQuickCameraHeightValue.textContent = navigationController.cameraState.height.toFixed(2);
   }
 }
 
@@ -695,23 +692,9 @@ function applyDebugModeSettings() {
   hud.classList.toggle("is-debug-mode", debugMode);
   menuController.setMode(menuMode);
 
-  if (menuToggleLabel) {
-    menuToggleLabel.textContent = debugMode ? "Debug Menu" : "Controls";
+  if (bottomDockDebugIndicator) {
+    bottomDockDebugIndicator.hidden = !debugMode;
   }
-
-  const menuKicker = hudPanel?.querySelector(".panel-kicker");
-  if (menuKicker) {
-    menuKicker.textContent = debugMode ? "Debug Controls" : "Viewer Controls";
-  }
-
-  const menuTitle = hudPanel?.querySelector("h1");
-  if (menuTitle) {
-    menuTitle.textContent = debugMode
-      ? "Tune the scene without losing flow"
-      : "Keep the scene readable and easy to tune";
-  }
-
-  updateDebugSessionNote();
 }
 
 function applyBackgroundColorSettings() {
@@ -928,7 +911,6 @@ function setDebugMode(nextEnabled) {
   }
   window.history.replaceState({}, "", nextUrl.toString());
 
-  performanceDiagnostics.setDetailedStatsEnabled(debugMode);
   debugObjectInspector.setEnabled(debugMode);
   applyDebugModeSettings();
   renderLayerControls();
@@ -969,7 +951,7 @@ function nudgeCameraFov(delta) {
   navigationController.cameraState.fov = nextFov;
   applyCameraSettings();
   showDock();
-  updateStatus(`Camera FOV set to ${nextFov.toFixed(0)} deg.`);
+  updateStatus(`Camera FOV set to ${nextFov.toFixed(0)}°.`);
 }
 
 function applyRuntimeTextureOptimizations() {
@@ -1099,6 +1081,7 @@ const unbindNavigationEvents = navigationController.bindInputEvents({
       setHelpOverlayOpen(false);
     }
 
+    showDock();
     menuController.setOpen(!menuController.isOpen());
   },
   onToggleHelp: () => setHelpOverlayOpen(!helpOverlayState.isOpen),
@@ -1122,6 +1105,9 @@ const unbindNavigationEvents = navigationController.bindInputEvents({
     if (quickCameraHeightValue) {
       quickCameraHeightValue.textContent = height.toFixed(2);
     }
+    if (bottomQuickCameraHeightValue) {
+      bottomQuickCameraHeightValue.textContent = height.toFixed(2);
+    }
     showDock();
   },
   onCameraFovChanged: (fov) => {
@@ -1134,7 +1120,10 @@ const unbindNavigationEvents = navigationController.bindInputEvents({
       cameraFovSlider.value = fov.toFixed(0);
     }
     if (quickCameraFovValue) {
-      quickCameraFovValue.textContent = `${fov.toFixed(0)} deg`;
+      quickCameraFovValue.textContent = `${fov.toFixed(0)}°`;
+    }
+    if (bottomQuickCameraFovValue) {
+      bottomQuickCameraFovValue.textContent = `${fov.toFixed(0)}°`;
     }
   },
   onShowDock: () => {
@@ -1245,12 +1234,6 @@ const unbindViewerUi = bindViewerUiEvents({
   onHelpClose: () => {
     setHelpOverlayOpen(false);
   },
-  onToggleDebugMode: () => {
-    setDebugMode(!debugMode);
-  },
-  onMenuClose: () => {
-    menuController.setOpen(false);
-  },
   onReloadAssets: () => {
     reloadWithUpdatedSearchParams((nextSearchParams) => {
       nextSearchParams.set("assetBust", `${Date.now()}`);
@@ -1344,3 +1327,4 @@ viewerLifecycle.animationFrameId = window.requestAnimationFrame(animate);
   disposeOnInitFailure?.();
   renderInitializationError(error);
 }
+

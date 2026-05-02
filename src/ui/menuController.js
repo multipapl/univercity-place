@@ -1,70 +1,80 @@
+import {
+  isDockCategoryVisible,
+} from "./dockConfig.js";
+import {
+  renderBottomDockCategories,
+  updateBottomDockActiveCategory,
+} from "./bottomDock.js";
+import {
+  setSidebarOpen,
+  showSidebarCategory,
+} from "./leftSidebar.js";
+
+function getFallbackCategoryForMode() {
+  return "viewport";
+}
+
 export function createMenuController({
   viewport,
   hud,
-  hudPanel,
   menuToggleButton,
+  bottomDock,
+  bottomDockCategories,
+  leftSidebar,
+  sidebarTitle,
   initialMode = "viewer",
   isTouchDevice,
   navigationController,
   updateStatus,
+  onDebugToggleRequest,
 }) {
   const state = {
     isOpen: false,
     mode: initialMode,
-    openSectionId: null,
+    activeCategoryId: null,
     relockAfterClose: false,
   };
-  const cleanupCallbacks = [];
 
-  function getSectionEntries() {
-    if (!hudPanel) {
-      return [];
-    }
-
-    return [...hudPanel.querySelectorAll("[data-menu-section]")].map((section) => ({
-      section,
-      id: section.dataset.menuSection || "",
-      modes: (section.dataset.menuSectionModes || "")
-        .split(/\s+/)
-        .filter(Boolean),
-      toggle: section.querySelector("[data-menu-section-toggle]"),
-      panel: section.querySelector("[data-menu-section-panel]"),
-    }));
+  function syncDockButtons() {
+    renderBottomDockCategories(bottomDockCategories, state.mode);
   }
 
-  function getVisibleSectionEntries() {
-    return getSectionEntries().filter((entry) => entry.modes.includes(state.mode));
-  }
-
-  function applySectionOpenState(entry, isOpen) {
-    if (!entry.toggle || !entry.panel) {
+  function syncSidebarContent() {
+    if (!state.activeCategoryId) {
       return;
     }
 
-    entry.section.classList.toggle("is-open", isOpen);
-    entry.toggle.setAttribute("aria-expanded", `${isOpen}`);
-    entry.panel.hidden = !isOpen;
-  }
-
-  function setOpenSection(nextSectionId) {
-    const visibleEntries = getVisibleSectionEntries();
-    const resolvedSectionId = visibleEntries.some((entry) => entry.id === nextSectionId)
-      ? nextSectionId
-      : (visibleEntries[0]?.id ?? null);
-
-    state.openSectionId = resolvedSectionId;
-    getSectionEntries().forEach((entry) => {
-      applySectionOpenState(entry, entry.id === resolvedSectionId && !entry.section.hidden);
+    showSidebarCategory({
+      sidebarElement: leftSidebar,
+      titleElement: sidebarTitle,
+      categoryId: state.activeCategoryId,
+      mode: state.mode,
     });
   }
 
-  function applyMode() {
-    const sectionEntries = getSectionEntries();
-    sectionEntries.forEach((entry) => {
-      entry.section.hidden = !entry.modes.includes(state.mode);
-    });
+  function syncVisualState() {
+    const highlightCategoryId = state.isOpen && leftSidebar?.classList.contains("is-open")
+      ? state.activeCategoryId
+      : null;
+    updateBottomDockActiveCategory(bottomDock, highlightCategoryId);
+  }
 
-    setOpenSection(state.openSectionId);
+  function setCategory(nextCategoryId) {
+    if (!nextCategoryId || !isDockCategoryVisible(nextCategoryId, state.mode)) {
+      return;
+    }
+
+    const sidebarIsOpen = leftSidebar?.classList.contains("is-open");
+    if (state.activeCategoryId === nextCategoryId && sidebarIsOpen) {
+      setSidebarOpen(leftSidebar, false);
+      syncVisualState();
+      return;
+    }
+
+    state.activeCategoryId = nextCategoryId;
+    syncSidebarContent();
+    setSidebarOpen(leftSidebar, true);
+    syncVisualState();
   }
 
   function setOpen(nextOpen) {
@@ -77,17 +87,24 @@ export function createMenuController({
     hud.classList.toggle("is-open", nextOpen);
     viewport.classList.toggle("has-menu-open", nextOpen);
 
-    if (hudPanel) {
-      hudPanel.hidden = !nextOpen;
+    if (bottomDock) {
+      bottomDock.hidden = !nextOpen;
+      bottomDock.classList.toggle("is-open", nextOpen);
     }
 
     if (nextOpen) {
+      syncDockButtons();
+      setSidebarOpen(leftSidebar, false);
+      syncVisualState();
       state.relockAfterClose = navigationController.controls.isLocked && !isTouchDevice;
       navigationController.controls.unlock();
       navigationController.resetMovementInputs();
       updateStatus("Menu open. Scene controls are paused.");
       return;
     }
+
+    setSidebarOpen(leftSidebar, false);
+    syncVisualState();
 
     if (state.relockAfterClose && !isTouchDevice) {
       requestAnimationFrame(() => {
@@ -97,38 +114,59 @@ export function createMenuController({
   }
 
   function setMode(nextMode) {
-    const normalizedMode = nextMode === "debug" ? "debug" : "viewer";
-    if (state.mode === normalizedMode) {
-      return;
+    state.mode = nextMode === "debug" ? "debug" : "viewer";
+
+    if (!isDockCategoryVisible(state.activeCategoryId, state.mode)) {
+      state.activeCategoryId = leftSidebar?.classList.contains("is-open")
+        ? getFallbackCategoryForMode(state.mode)
+        : null;
     }
 
-    state.mode = normalizedMode;
-    applyMode();
+    syncDockButtons();
+
+    if (leftSidebar?.classList.contains("is-open") && state.activeCategoryId) {
+      syncSidebarContent();
+    } else {
+      setSidebarOpen(leftSidebar, false);
+    }
+
+    syncVisualState();
   }
 
-  getSectionEntries().forEach((entry) => {
-    if (!entry.toggle || !entry.id) {
+  function handleDockClick(event) {
+    const button = event.target.closest("[data-dock-category]");
+    if (!button || !bottomDock?.contains(button)) {
       return;
     }
 
-    const handleToggleClick = () => {
-      setOpenSection(entry.id);
-    };
+    button.blur?.();
+    setCategory(button.dataset.dockCategory || "");
+  }
 
-    entry.toggle.addEventListener("click", handleToggleClick);
-    cleanupCallbacks.push(() => {
-      entry.toggle?.removeEventListener("click", handleToggleClick);
-    });
-  });
+  function handleDockAuxClick(event) {
+    const button = event.target.closest("[data-dock-category]");
+    if (!button || !bottomDock?.contains(button)) {
+      return;
+    }
 
-  applyMode();
+    if (event.button !== 1 || button.dataset.dockCategory !== "system") {
+      return;
+    }
+
+    event.preventDefault();
+    button.blur?.();
+    onDebugToggleRequest?.();
+  }
+
+  bottomDock?.addEventListener("click", handleDockClick);
+  bottomDock?.addEventListener("auxclick", handleDockAuxClick);
+  syncDockButtons();
+  syncVisualState();
 
   return {
     dispose() {
-      cleanupCallbacks.forEach((cleanup) => {
-        cleanup();
-      });
-      cleanupCallbacks.length = 0;
+      bottomDock?.removeEventListener("click", handleDockClick);
+      bottomDock?.removeEventListener("auxclick", handleDockAuxClick);
     },
     isOpen: () => state.isOpen,
     setOpen,

@@ -1,16 +1,9 @@
 export function createPerformanceDiagnostics({
   enabled = true,
-  detailedStatsEnabled = false,
-  renderer,
   diagnosticsState,
-  runtimeOptimization,
   statsElements,
   getTextureDimensions,
 }) {
-  const state = {
-    detailedStatsEnabled,
-  };
-
   function formatInteger(value) {
     return new Intl.NumberFormat("en-US").format(Math.round(value || 0));
   }
@@ -130,12 +123,18 @@ export function createPerformanceDiagnostics({
     }
 
     const sceneComplexity = estimateVisibleSceneComplexity();
-    const textureUsage = state.detailedStatsEnabled
-      ? estimateVisibleTextureMemory()
-      : null;
+    const textureUsage = estimateVisibleTextureMemory();
 
     if (statsElements.statFps) {
       statsElements.statFps.textContent = formatInteger(diagnosticsState.fps);
+    }
+
+    if (statsElements.quickFpsValue) {
+      statsElements.quickFpsValue.textContent = formatInteger(diagnosticsState.fps);
+    }
+
+    if (statsElements.bottomQuickFpsValue) {
+      statsElements.bottomQuickFpsValue.textContent = formatInteger(diagnosticsState.fps);
     }
 
     if (statsElements.statFrameMs) {
@@ -151,41 +150,15 @@ export function createPerformanceDiagnostics({
     }
 
     if (statsElements.statTextures) {
-      statsElements.statTextures.textContent = textureUsage
-        ? formatInteger(textureUsage.count)
-        : "Debug only";
+      statsElements.statTextures.textContent = formatInteger(textureUsage.count);
     }
 
     if (statsElements.statTextureMemory) {
-      statsElements.statTextureMemory.textContent = textureUsage
-        ? formatMegabytes(textureUsage.bytes)
-        : "Debug only";
-    }
-
-    if (statsElements.performanceNote) {
-      if (!state.detailedStatsEnabled) {
-        statsElements.performanceNote.textContent = "Detailed texture stats and memory tuning are available in debug mode only.";
-        return;
-      }
-
-      const visibleLayerLabels = diagnosticsState.loadedLayers
-        .filter((entry) => entry.root.visible)
-        .map((entry) => entry.layer.label);
-      const deviceMemory = navigator.deviceMemory ? `${navigator.deviceMemory} GB reported RAM` : "device RAM unavailable";
-      const mipMode = runtimeOptimization.lowMemoryBaseMipmaps
-        ? "Base mipmaps disabled."
-        : "Base mipmaps enabled.";
-      const textureCap = runtimeOptimization.baseTextureMaxSize
-        ? `Base textures capped to ${runtimeOptimization.baseTextureMaxSize}px.`
-        : "Base textures uncapped.";
-      statsElements.performanceNote.textContent = `Visible layers: ${visibleLayerLabels.join(", ") || "none"}. Texture VRAM is an approximation. ${mipMode} ${textureCap} ${deviceMemory}.`;
+      statsElements.statTextureMemory.textContent = formatMegabytes(textureUsage.bytes);
     }
   }
 
   return {
-    setDetailedStatsEnabled(nextEnabled) {
-      state.detailedStatsEnabled = Boolean(nextEnabled);
-    },
     update,
   };
 }

@@ -1,5 +1,6 @@
-import { buildMenuSectionsMarkup } from "./menuSections.js";
 import { buildHelpOverlayMarkup } from "./helpOverlayContent.js";
+import { createBottomDock } from "./bottomDock.js";
+import { createLeftSidebar } from "./leftSidebar.js";
 
 export function createViewerShell({
   app,
@@ -8,8 +9,6 @@ export function createViewerShell({
   menuMode,
   viewerConfig,
   sceneLoadStatusHtml,
-  desktopControlText,
-  touchControlText,
 }) {
   const viewport = document.createElement("div");
   viewport.className = "viewport";
@@ -17,28 +16,25 @@ export function createViewerShell({
   const hud = document.createElement("div");
   hud.className = "hud";
   hud.innerHTML = `
-    <!-- Minimal help FAB - always visible -->
     <button type="button" class="help-fab" data-help-fab aria-label="Press H for help" title="Press H for help">
       ?
     </button>
-
-    <!-- Control dock - shows on activity -->
     <div class="control-dock">
       <div class="dock-actions">
-        <button type="button" class="menu-toggle" data-menu-toggle aria-expanded="false">
-          <span data-menu-toggle-label>${menuMode === "debug" ? "Debug Menu" : "Controls"}</span>
+        <button type="button" class="menu-toggle" data-menu-toggle aria-expanded="false" tabindex="-1">
+          <span>Menu</span>
           <kbd>M</kbd>
         </button>
-        <button type="button" class="menu-toggle is-secondary" data-help-toggle aria-expanded="false">
+        <button type="button" class="menu-toggle is-secondary" data-help-toggle aria-expanded="false" tabindex="-1">
           <span>Help</span>
           <kbd>H</kbd>
         </button>
       </div>
       <div class="dock-readouts">
         <div class="dock-readout">
-          <span>Exposure</span>
-          <strong data-quick-exposure-value>${viewerConfig.colorPipeline.exposure.toFixed(2)}</strong>
-          <small>Drawer</small>
+          <span>FPS</span>
+          <strong data-quick-fps-value>0</strong>
+          <small>Live</small>
         </div>
         <div class="dock-readout">
           <span>FOV</span>
@@ -52,54 +48,7 @@ export function createViewerShell({
         </div>
       </div>
     </div>
-    <div class="hud-panel" data-hud-panel hidden>
-      <div class="hud-header">
-        <div>
-          <p class="panel-kicker">${menuMode === "debug" ? "Debug Controls" : "Viewer Controls"}</p>
-          <h1>${menuMode === "debug" ? "Tune the scene without losing flow" : "Keep the scene readable and easy to tune"}</h1>
-          <p>${isTouchDevice
-            ? `Touch controls are enabled for mobile ${isWalkMode ? "walking" : "flight"}.`
-            : "Menu pauses controls so you can tune the scene without fighting pointer lock."}</p>
-        </div>
-        <button type="button" class="menu-close" data-menu-close aria-label="Close menu">Close</button>
-      </div>
-      <p class="status" data-status>${sceneLoadStatusHtml}</p>
-      <div class="hud-topline">
-        <p class="hud-controls-copy">${isTouchDevice ? touchControlText : desktopControlText}</p>
-        <div class="hotkey-strip">
-          <span><kbd>Q</kbd><kbd>E</kbd> height</span>
-          <span><kbd>Shift</kbd> + <kbd>Wheel</kbd> FOV</span>
-          <span><kbd>H</kbd> help</span>
-        </div>
-      </div>
-      <div class="hud-summary">
-        <div class="section-heading">
-          <h2>Live Stats</h2>
-          <p>The essentials stay visible up top so the drawer can stay compact.</p>
-        </div>
-        <div class="stats-grid">
-          <div class="stat-card">
-            <span>FPS</span>
-            <strong data-stat-fps>0</strong>
-          </div>
-          <div class="stat-card">
-            <span>Frame</span>
-            <strong data-stat-frame-ms>0.0 ms</strong>
-          </div>
-          <div class="stat-card">
-            <span>Draw Calls</span>
-            <strong data-stat-draw-calls>0</strong>
-          </div>
-          <div class="stat-card">
-            <span>Triangles</span>
-            <strong data-stat-triangles>0</strong>
-          </div>
-        </div>
-      </div>
-      <div class="menu-sections" data-menu-sections>
-        ${buildMenuSectionsMarkup({ menuMode, viewerConfig })}
-      </div>
-    </div>
+    <p class="hud-status" data-status>${sceneLoadStatusHtml}</p>
     <div class="help-overlay" data-help-overlay hidden>
       ${buildHelpOverlayMarkup({
         isTouchDevice,
@@ -107,6 +56,25 @@ export function createViewerShell({
       })}
     </div>
   `;
+
+  const {
+    dock: bottomDock,
+    categoriesContainer: bottomDockCategories,
+    debugIndicator: bottomDockDebugIndicator,
+  } = createBottomDock({
+    menuMode,
+    viewerConfig,
+  });
+
+  const {
+    sidebar: leftSidebar,
+    titleElement: sidebarTitle,
+    panelsElement: sidebarPanels,
+  } = createLeftSidebar({
+    viewerConfig,
+  });
+
+  hud.append(bottomDock, leftSidebar);
 
   const loadingScreen = document.createElement("div");
   loadingScreen.className = "loading-screen is-visible";
@@ -147,6 +115,12 @@ export function createViewerShell({
   return {
     viewport,
     hud,
+    bottomDock,
+    bottomDockCategories,
+    bottomDockDebugIndicator,
+    leftSidebar,
+    sidebarTitle,
+    sidebarPanels,
     loadingScreen,
     crosshair,
     mobileControls,

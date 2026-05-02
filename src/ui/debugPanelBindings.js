@@ -22,8 +22,6 @@ export function bindViewerUiEvents({
   onMenuToggle,
   onHelpToggle,
   onHelpClose,
-  onToggleDebugMode,
-  onMenuClose,
   onReloadAssets,
   onExitDebug,
 }) {
@@ -34,7 +32,6 @@ export function bindViewerUiEvents({
       target?.removeEventListener(type, handler, options);
     });
   };
-
   const handleToneMappingChange = (event) => {
     onToneMappingChange(event.target.value);
   };
@@ -111,41 +108,28 @@ export function bindViewerUiEvents({
     onBaseTextureCapChange(event.target.value);
   };
 
-  const handleMenuToggleClick = () => {
+  const handleMenuToggleClick = (event) => {
+    event.currentTarget?.blur?.();
     onMenuToggle();
   };
 
-  const handleMenuToggleContextMenu = (event) => {
-    event.preventDefault();
-    onToggleDebugMode();
-  };
-
-  const handleMenuToggleAuxClick = (event) => {
-    if (event.button !== 1) {
-      return;
-    }
-
-    event.preventDefault();
-    onToggleDebugMode();
-  };
-
-  const handleMenuCloseClick = () => {
-    onMenuClose();
-  };
-
-  const handleHelpToggleClick = () => {
+  const handleHelpToggleClick = (event) => {
+    event.currentTarget?.blur?.();
     onHelpToggle();
   };
 
-  const handleHelpCloseClick = () => {
+  const handleHelpCloseClick = (event) => {
+    event.currentTarget?.blur?.();
     onHelpClose();
   };
 
-  const handleReloadAssetsClick = () => {
+  const handleReloadAssetsClick = (event) => {
+    event.currentTarget?.blur?.();
     onReloadAssets();
   };
 
-  const handleExitDebugClick = () => {
+  const handleExitDebugClick = (event) => {
+    event.currentTarget?.blur?.();
     onExitDebug();
   };
 
@@ -169,10 +153,8 @@ export function bindViewerUiEvents({
   bind(refs.baseLowMemoryToggle, "change", handleBaseLowMemoryChange);
   bind(refs.baseTextureCapSelect, "change", handleBaseTextureCapChange);
   bind(refs.menuToggleButton, "click", handleMenuToggleClick);
-  bind(refs.menuToggleButton, "contextmenu", handleMenuToggleContextMenu);
-  bind(refs.menuToggleButton, "auxclick", handleMenuToggleAuxClick);
-  bind(refs.menuCloseButton, "click", handleMenuCloseClick);
   bind(refs.helpToggleButton, "click", handleHelpToggleClick);
+  bind(refs.bottomHelpToggleButton, "click", handleHelpToggleClick);
   bind(refs.helpCloseButton, "click", handleHelpCloseClick);
   bind(refs.helpFab, "click", handleHelpToggleClick);
   bind(refs.reloadAssetsButton, "click", handleReloadAssetsClick);
