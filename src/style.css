@@ -262,6 +262,7 @@ select {
   font-size: 18px;
   line-height: 1;
   color: var(--ui-text);
+  transition: color 150ms ease;
 }
 
 .dock-readout small {
