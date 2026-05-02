@@ -21,6 +21,7 @@ import { createMenuController } from "./ui/menuController.js";
 import { createViewerShell } from "./ui/createViewerShell.js";
 import { createDebugInspectorUi } from "./ui/viewerDomRefs.js";
 import { disposeObjectTree } from "./utils/threeDisposal.js";
+import { createViewerUiController } from "./viewer/createViewerUiController.js";
 
 function renderInitializationError(error) {
   console.error("Viewer initialization failed.", error);
@@ -482,6 +483,30 @@ const helpOverlayState = {
 const controlDockState = {
   hideTimeout: null,
 };
+const uiController = createViewerUiController({
+  refs,
+  nodes: {
+    viewport,
+    hud,
+    crosshair,
+  },
+  state: {
+    colorPipelineState,
+    interfaceState,
+    cameraMotionState,
+    backgroundState,
+    fireState,
+    reflectionState,
+  },
+  renderer,
+  toneMappingModes,
+  selectiveBloomConfig,
+  selectiveBloomPipeline,
+  navigationController,
+  menuController,
+  getDebugMode: () => debugMode,
+  isTouchDevice,
+});
 
 // Show control dock and schedule auto-hide
 function showDock() {
@@ -571,280 +596,8 @@ function setLoadingScreenVisible(visible) {
   }, 320);
 }
 
-function applyViewportColorSettings() {
-  const toneMappingKey = colorPipelineState.toneMapping in toneMappingModes
-    ? colorPipelineState.toneMapping
-    : "standard";
-  renderer.toneMapping = toneMappingModes[toneMappingKey];
-  renderer.toneMappingExposure = colorPipelineState.exposure;
-
-  if (toneMappingSelect) {
-    toneMappingSelect.value = toneMappingKey;
-  }
-
-  if (exposureSlider) {
-    exposureSlider.value = colorPipelineState.exposure.toFixed(2);
-  }
-
-  if (exposureValue) {
-    exposureValue.value = colorPipelineState.exposure.toFixed(2);
-    exposureValue.textContent = colorPipelineState.exposure.toFixed(2);
-  }
-}
-
-function applySelectiveBloomSettings() {
-  selectiveBloomPipeline.applySettings(selectiveBloomConfig);
-
-  if (selectiveBloomStrengthSlider) {
-    selectiveBloomStrengthSlider.value = selectiveBloomConfig.strength.toFixed(2);
-  }
-
-  if (selectiveBloomStrengthValue) {
-    selectiveBloomStrengthValue.value = selectiveBloomConfig.strength.toFixed(2);
-    selectiveBloomStrengthValue.textContent = selectiveBloomConfig.strength.toFixed(2);
-  }
-}
-
-function syncPostProcessingSize() {
-  const pixelRatio = Math.min(window.devicePixelRatio, 2);
-  const width = viewport.clientWidth || window.innerWidth;
-  const height = viewport.clientHeight || window.innerHeight;
-  selectiveBloomPipeline.syncSize(width, height, pixelRatio);
-}
-
 function renderSceneFrame(delta) {
   selectiveBloomPipeline.render(delta, selectiveBloomConfig);
-}
-
-function applyCameraSettings() {
-  navigationController.applyCameraSettings();
-
-  if (cameraFovSlider) {
-    cameraFovSlider.value = navigationController.cameraState.fov.toFixed(0);
-  }
-
-  if (cameraFovValue) {
-    cameraFovValue.value = `${navigationController.cameraState.fov.toFixed(0)}°`;
-    cameraFovValue.textContent = `${navigationController.cameraState.fov.toFixed(0)}°`;
-  }
-
-  if (cameraHeightSlider) {
-    cameraHeightSlider.value = navigationController.cameraState.height.toFixed(2);
-  }
-
-  if (cameraHeightValue) {
-    cameraHeightValue.value = navigationController.cameraState.height.toFixed(2);
-    cameraHeightValue.textContent = navigationController.cameraState.height.toFixed(2);
-  }
-
-  if (quickCameraFovValue) {
-    quickCameraFovValue.textContent = `${navigationController.cameraState.fov.toFixed(0)}°`;
-  }
-
-  if (quickCameraHeightValue) {
-    quickCameraHeightValue.textContent = navigationController.cameraState.height.toFixed(2);
-  }
-
-  if (bottomQuickCameraFovValue) {
-    bottomQuickCameraFovValue.textContent = `${navigationController.cameraState.fov.toFixed(0)}°`;
-  }
-
-  if (bottomQuickCameraHeightValue) {
-    bottomQuickCameraHeightValue.textContent = navigationController.cameraState.height.toFixed(2);
-  }
-}
-
-function applyCameraMotionSettings() {
-  if (cameraShakeToggle) {
-    cameraShakeToggle.checked = cameraMotionState.enabled;
-  }
-}
-
-function clearCameraAmbientMotion() {
-  navigationController.clearCameraAmbientMotion();
-}
-
-function applyCameraAmbientMotion(delta) {
-  navigationController.applyCameraAmbientMotion(delta);
-}
-
-function applyInterfaceSettings() {
-  if (showCrosshairToggle) {
-    showCrosshairToggle.checked = interfaceState.showCrosshair;
-  }
-
-  if (isTouchDevice) {
-    if (crosshair) {
-      crosshair.style.display = "none";
-    }
-    return;
-  }
-
-  if (crosshair) {
-    crosshair.style.display = interfaceState.showCrosshair ? "" : "none";
-  }
-}
-
-function applyDebugModeSettings() {
-  const menuMode = debugMode ? "debug" : "viewer";
-  hud.classList.toggle("is-debug-mode", debugMode);
-  menuController.setMode(menuMode);
-
-  if (bottomDockDebugIndicator) {
-    bottomDockDebugIndicator.hidden = !debugMode;
-  }
-}
-
-function applyBackgroundColorSettings() {
-  if (backgroundHueSlider) {
-    backgroundHueSlider.value = backgroundState.hueDegrees.toFixed(0);
-  }
-
-  if (backgroundHueValue) {
-    backgroundHueValue.value = `${backgroundState.hueDegrees.toFixed(0)}°`;
-    backgroundHueValue.textContent = `${backgroundState.hueDegrees.toFixed(0)}°`;
-  }
-
-  if (backgroundSaturationSlider) {
-    backgroundSaturationSlider.value = backgroundState.saturation.toFixed(2);
-  }
-
-  if (backgroundSaturationValue) {
-    backgroundSaturationValue.value = backgroundState.saturation.toFixed(2);
-    backgroundSaturationValue.textContent = backgroundState.saturation.toFixed(2);
-  }
-
-  if (backgroundValueSlider) {
-    backgroundValueSlider.value = backgroundState.value.toFixed(2);
-  }
-
-  if (backgroundValueOutput) {
-    backgroundValueOutput.value = backgroundState.value.toFixed(2);
-    backgroundValueOutput.textContent = backgroundState.value.toFixed(2);
-  }
-
-  backgroundState.materials.forEach((material) => {
-    const uniforms = material.uniforms ?? material.userData.viewerBackgroundUniforms;
-    if (!uniforms) {
-      return;
-    }
-
-    uniforms.viewerBackgroundHue.value = backgroundState.hueDegrees / 360;
-    uniforms.viewerBackgroundSaturation.value = backgroundState.saturation;
-    uniforms.viewerBackgroundValue.value = backgroundState.value;
-    material.uniformsNeedUpdate = true;
-  });
-}
-
-function updateBackgroundMotion(delta) {
-  backgroundState.motionTime += delta;
-
-  backgroundState.materials.forEach((material) => {
-    const uniforms = material.uniforms ?? material.userData.viewerBackgroundUniforms;
-    if (!uniforms?.viewerBackgroundTime) {
-      return;
-    }
-
-    uniforms.viewerBackgroundTime.value = backgroundState.motionTime;
-  });
-
-  if (!backgroundState.rotationRadiansPerSecond || !backgroundState.roots.size) {
-    return;
-  }
-
-  backgroundState.roots.forEach((root) => {
-    root.rotation.y += backgroundState.rotationRadiansPerSecond * delta;
-  });
-}
-
-function applyFireColorSettings() {
-  if (fireHueSlider) {
-    fireHueSlider.value = fireState.hueDegrees.toFixed(0);
-  }
-
-  if (fireHueValue) {
-    fireHueValue.value = `${fireState.hueDegrees.toFixed(0)}°`;
-    fireHueValue.textContent = `${fireState.hueDegrees.toFixed(0)}°`;
-  }
-
-  if (fireSaturationSlider) {
-    fireSaturationSlider.value = fireState.saturation.toFixed(2);
-  }
-
-  if (fireSaturationValue) {
-    fireSaturationValue.value = fireState.saturation.toFixed(2);
-    fireSaturationValue.textContent = fireState.saturation.toFixed(2);
-  }
-
-  if (fireValueSlider) {
-    fireValueSlider.value = fireState.value.toFixed(2);
-  }
-
-  if (fireValueOutput) {
-    fireValueOutput.value = fireState.value.toFixed(2);
-    fireValueOutput.textContent = fireState.value.toFixed(2);
-  }
-
-  fireState.materials.forEach((material) => {
-    const uniforms = material.userData.viewerFireUniforms;
-    if (!uniforms) {
-      return;
-    }
-
-    uniforms.viewerFireHue.value = fireState.hueDegrees / 360;
-    uniforms.viewerFireSaturation.value = fireState.saturation;
-    uniforms.viewerFireValue.value = fireState.value;
-  });
-}
-
-function applyReflectMaterialSettings() {
-  if (reflectEnvIntensitySlider) {
-    reflectEnvIntensitySlider.value = reflectionState.envMapIntensity.toFixed(2);
-  }
-
-  if (reflectEnvIntensityValue) {
-    reflectEnvIntensityValue.value = reflectionState.envMapIntensity.toFixed(2);
-    reflectEnvIntensityValue.textContent = reflectionState.envMapIntensity.toFixed(2);
-  }
-
-  if (reflectIorSlider) {
-    reflectIorSlider.value = reflectionState.ior.toFixed(2);
-  }
-
-  if (reflectIorValue) {
-    reflectIorValue.value = reflectionState.ior.toFixed(2);
-    reflectIorValue.textContent = reflectionState.ior.toFixed(2);
-  }
-
-  if (reflectSpecularSlider) {
-    reflectSpecularSlider.value = reflectionState.specularIntensity.toFixed(2);
-  }
-
-  if (reflectSpecularValue) {
-    reflectSpecularValue.value = reflectionState.specularIntensity.toFixed(2);
-    reflectSpecularValue.textContent = reflectionState.specularIntensity.toFixed(2);
-  }
-
-  if (reflectMetalnessSlider) {
-    reflectMetalnessSlider.value = reflectionState.metalness.toFixed(2);
-  }
-
-  if (reflectMetalnessValue) {
-    reflectMetalnessValue.value = reflectionState.metalness.toFixed(2);
-    reflectMetalnessValue.textContent = reflectionState.metalness.toFixed(2);
-  }
-
-  reflectionState.materials.forEach((material) => {
-    material.envMapIntensity = reflectionState.envMapIntensity;
-    material.metalness = reflectionState.metalness;
-
-    if (material.isMeshPhysicalMaterial) {
-      material.ior = reflectionState.ior;
-      material.specularIntensity = reflectionState.specularIntensity;
-    }
-
-    material.needsUpdate = true;
-  });
 }
 
 function renderLayerControls() {
@@ -919,7 +672,7 @@ function setDebugMode(nextEnabled) {
   window.history.replaceState({}, "", nextUrl.toString());
 
   debugObjectInspector.setEnabled(debugMode);
-  applyDebugModeSettings();
+  uiController.applyDebugModeSettings();
   renderLayerControls();
   updatePerformanceDiagnostics();
   updateStatus(debugMode
@@ -939,7 +692,7 @@ function nudgeCameraHeight(delta) {
   }
 
   navigationController.cameraState.height = nextHeight;
-  applyCameraSettings();
+  uiController.applyCameraSettings();
   showDock();
   updateStatus(`Camera height set to ${nextHeight.toFixed(2)}.`);
 }
@@ -956,7 +709,7 @@ function nudgeCameraFov(delta) {
   }
 
   navigationController.cameraState.fov = nextFov;
-  applyCameraSettings();
+  uiController.applyCameraSettings();
   showDock();
   updateStatus(`Camera FOV set to ${nextFov.toFixed(0)}°.`);
 }
@@ -1058,13 +811,13 @@ const sceneLayerLoader = createSceneLayerLoader({
   addFallbackScene,
   renderLayerControls,
   clearFallbackScene,
-  applyBackgroundColorSettings,
-  applyFireColorSettings,
-  applyReflectMaterialSettings,
+  applyBackgroundColorSettings: uiController.applyBackgroundColorSettings,
+  applyFireColorSettings: uiController.applyFireColorSettings,
+  applyReflectMaterialSettings: uiController.applyReflectMaterialSettings,
   applyRuntimeTextureOptimizations,
   updatePerformanceDiagnostics,
   positionCameraAtSpawn,
-  applyCameraSettings,
+  applyCameraSettings: uiController.applyCameraSettings,
   setLoadingScreenVisible,
   onLayersLoaded: (loadedLayers) => {
     selectiveBloomPipeline.syncTargets(loadedLayers, selectiveBloomConfig);
@@ -1079,7 +832,7 @@ const sceneLayerLoader = createSceneLayerLoader({
   ],
 });
 const handlePostProcessingResize = () => {
-  syncPostProcessingSize();
+  uiController.syncPostProcessingSize();
 };
 const unbindNavigationEvents = navigationController.bindInputEvents({
   getMenuOpen: () => menuController.isOpen() || helpOverlayState.isOpen,
@@ -1101,37 +854,11 @@ const unbindNavigationEvents = navigationController.bindInputEvents({
     menuController.setOpen(false);
   },
   onCameraHeightChanged: (height) => {
-    // Оновлюємо UI та показуємо dock при зміні висоти
-    if (cameraHeightValue) {
-      cameraHeightValue.value = height.toFixed(2);
-      cameraHeightValue.textContent = height.toFixed(2);
-    }
-    if (cameraHeightSlider) {
-      cameraHeightSlider.value = height.toFixed(2);
-    }
-    if (quickCameraHeightValue) {
-      quickCameraHeightValue.textContent = height.toFixed(2);
-    }
-    if (bottomQuickCameraHeightValue) {
-      bottomQuickCameraHeightValue.textContent = height.toFixed(2);
-    }
+    uiController.syncCameraHeightReadouts(height);
     showDock();
   },
   onCameraFovChanged: (fov) => {
-    // Оновлюємо UI при плавній зміні FOV
-    if (cameraFovValue) {
-      cameraFovValue.value = `${fov.toFixed(0)}°`;
-      cameraFovValue.textContent = `${fov.toFixed(0)}°`;
-    }
-    if (cameraFovSlider) {
-      cameraFovSlider.value = fov.toFixed(0);
-    }
-    if (quickCameraFovValue) {
-      quickCameraFovValue.textContent = `${fov.toFixed(0)}°`;
-    }
-    if (bottomQuickCameraFovValue) {
-      bottomQuickCameraFovValue.textContent = `${fov.toFixed(0)}°`;
-    }
+    uiController.syncCameraFovReadouts(fov);
   },
   onShowDock: () => {
     // Показуємо dock при початку регулювання FOV колесом
@@ -1150,76 +877,76 @@ const unbindViewerUi = bindViewerUiEvents({
   refs,
   onToneMappingChange: (value) => {
     colorPipelineState.toneMapping = value;
-    applyViewportColorSettings();
+    uiController.applyViewportColorSettings();
   },
   onExposureChange: (value) => {
     colorPipelineState.exposure = value;
-    applyViewportColorSettings();
+    uiController.applyViewportColorSettings();
     showDock();
   },
   onSelectiveBloomStrengthChange: (value) => {
     selectiveBloomConfig.strength = value;
-    applySelectiveBloomSettings();
+    uiController.applySelectiveBloomSettings();
   },
   onCameraFovChange: (value) => {
     navigationController.cameraState.fov = value;
-    applyCameraSettings();
+    uiController.applyCameraSettings();
     showDock();
   },
   onCameraHeightChange: (value) => {
     navigationController.cameraState.height = value;
-    applyCameraSettings();
+    uiController.applyCameraSettings();
     showDock();
   },
   onShowCrosshairChange: (checked) => {
     interfaceState.showCrosshair = checked;
-    applyInterfaceSettings();
+    uiController.applyInterfaceSettings();
   },
   onCameraShakeChange: (checked) => {
     cameraMotionState.enabled = checked;
-    clearCameraAmbientMotion();
+    uiController.clearCameraAmbientMotion();
     navigationController.applyLookState();
-    applyCameraMotionSettings();
+    uiController.applyCameraMotionSettings();
   },
   onBackgroundHueChange: (value) => {
     backgroundState.hueDegrees = value;
-    applyBackgroundColorSettings();
+    uiController.applyBackgroundColorSettings();
   },
   onBackgroundSaturationChange: (value) => {
     backgroundState.saturation = value;
-    applyBackgroundColorSettings();
+    uiController.applyBackgroundColorSettings();
   },
   onBackgroundValueChange: (value) => {
     backgroundState.value = value;
-    applyBackgroundColorSettings();
+    uiController.applyBackgroundColorSettings();
   },
   onFireHueChange: (value) => {
     fireState.hueDegrees = value;
-    applyFireColorSettings();
+    uiController.applyFireColorSettings();
   },
   onFireSaturationChange: (value) => {
     fireState.saturation = value;
-    applyFireColorSettings();
+    uiController.applyFireColorSettings();
   },
   onFireValueChange: (value) => {
     fireState.value = value;
-    applyFireColorSettings();
+    uiController.applyFireColorSettings();
   },
   onReflectEnvIntensityChange: (value) => {
     reflectionState.envMapIntensity = value;
-    applyReflectMaterialSettings();
+    uiController.applyReflectMaterialSettings();
   },
   onReflectIorChange: (value) => {
     reflectionState.ior = value;
-    applyReflectMaterialSettings();
+    uiController.applyReflectMaterialSettings();
   },
   onReflectSpecularChange: (value) => {
     reflectionState.specularIntensity = value;
-    applyReflectMaterialSettings();
+    uiController.applyReflectMaterialSettings();
   },
   onReflectMetalnessChange: (value) => {
     reflectionState.metalness = value;
-    applyReflectMaterialSettings();
+    uiController.applyReflectMaterialSettings();
   },
   onBaseLowMemoryToggle: (checked) => {
     setBaseLowMemoryMode(checked);
@@ -1298,12 +1025,12 @@ function animate() {
   }
 
   const delta = clock.getDelta();
-  clearCameraAmbientMotion();
+  uiController.clearCameraAmbientMotion();
   sceneLayerLoader.syncFireVideoPlayback();
-  updateBackgroundMotion(delta);
+  uiController.updateBackgroundMotion(delta);
   navigationController.updateMovement(delta, menuController.isOpen());
   navigationController.updateSmoothAdjustments(delta);  // Плавне регулювання FOV та висоти
-  applyCameraAmbientMotion(delta);
+  uiController.applyCameraAmbientMotion(delta);
   renderSceneFrame(delta);
   diagnosticsState.frameAccumulator += delta;
   diagnosticsState.frameCounter += 1;
@@ -1318,16 +1045,16 @@ function animate() {
 }
 
 navigationController.syncLookStateFromCamera();
-applyViewportColorSettings();
-applySelectiveBloomSettings();
-syncPostProcessingSize();
-applyCameraSettings();
-applyCameraMotionSettings();
-applyInterfaceSettings();
-applyDebugModeSettings();
-applyBackgroundColorSettings();
-applyFireColorSettings();
-applyReflectMaterialSettings();
+uiController.applyViewportColorSettings();
+uiController.applySelectiveBloomSettings();
+uiController.syncPostProcessingSize();
+uiController.applyCameraSettings();
+uiController.applyCameraMotionSettings();
+uiController.applyInterfaceSettings();
+uiController.applyDebugModeSettings();
+uiController.applyBackgroundColorSettings();
+uiController.applyFireColorSettings();
+uiController.applyReflectMaterialSettings();
 sceneLayerLoader.loadSceneLayers();
 viewerLifecycle.animationFrameId = window.requestAnimationFrame(animate);
 } catch (error) {
