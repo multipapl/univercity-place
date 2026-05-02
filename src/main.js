@@ -21,6 +21,7 @@ import { createMenuController } from "./ui/menuController.js";
 import { createViewerShell } from "./ui/createViewerShell.js";
 import { createDebugInspectorUi } from "./ui/viewerDomRefs.js";
 import { disposeObjectTree } from "./utils/threeDisposal.js";
+import { createLayerControls } from "./viewer/createLayerControls.js";
 import { createViewerUiController } from "./viewer/createViewerUiController.js";
 
 function renderInitializationError(error) {
@@ -483,6 +484,13 @@ const helpOverlayState = {
 const controlDockState = {
   hideTimeout: null,
 };
+const layerControlsRenderer = createLayerControls({
+  container: layerControls,
+  diagnosticsState,
+  getDebugMode: () => debugMode,
+  updatePerformanceDiagnostics,
+  updateStatus,
+});
 const uiController = createViewerUiController({
   refs,
   nodes: {
@@ -600,56 +608,6 @@ function renderSceneFrame(delta) {
   selectiveBloomPipeline.render(delta, selectiveBloomConfig);
 }
 
-function renderLayerControls() {
-  if (!layerControls) {
-    return;
-  }
-
-  if (!debugMode) {
-    layerControls.replaceChildren();
-    return;
-  }
-
-  if (!diagnosticsState.loadedLayers.length) {
-    const emptyState = document.createElement("p");
-    emptyState.className = "empty-state";
-    emptyState.textContent = "Layers will appear here after scene load.";
-    layerControls.replaceChildren(emptyState);
-    return;
-  }
-
-  const nextControls = diagnosticsState.loadedLayers.map((entry) => {
-    const label = document.createElement("label");
-    label.className = "layer-toggle";
-
-    const checkbox = document.createElement("input");
-    checkbox.type = "checkbox";
-    checkbox.checked = entry.root.visible;
-    checkbox.addEventListener("change", () => {
-      entry.root.visible = checkbox.checked;
-      updatePerformanceDiagnostics();
-      updateStatus(`${entry.layer.label} layer ${checkbox.checked ? "enabled" : "disabled"}.`);
-    });
-
-    const textWrap = document.createElement("span");
-    textWrap.className = "layer-toggle-copy";
-
-    const title = document.createElement("strong");
-    title.textContent = entry.layer.label;
-
-    const details = document.createElement("small");
-    details.textContent = debugMode
-      ? `${entry.layer.id} · ${entry.layer.url}`
-      : entry.layer.id;
-
-    textWrap.append(title, details);
-    label.append(checkbox, textWrap);
-    return label;
-  });
-
-  layerControls.replaceChildren(...nextControls);
-}
-
 function reloadWithUpdatedSearchParams(mutator) {
   const nextUrl = new URL(window.location.href);
   mutator(nextUrl.searchParams);
@@ -673,7 +631,7 @@ function setDebugMode(nextEnabled) {
 
   debugObjectInspector.setEnabled(debugMode);
   uiController.applyDebugModeSettings();
-  renderLayerControls();
+  layerControlsRenderer.render();
   updatePerformanceDiagnostics();
   updateStatus(debugMode
     ? "Debug mode enabled. Scene stayed live; advanced tools are now available."
@@ -809,7 +767,7 @@ const sceneLayerLoader = createSceneLayerLoader({
   applyFireVideoMaterialPatch: materialPipeline.applyFireVideoMaterialPatch,
   updateStatus,
   addFallbackScene,
-  renderLayerControls,
+  renderLayerControls: () => layerControlsRenderer.render(),
   clearFallbackScene,
   applyBackgroundColorSettings: uiController.applyBackgroundColorSettings,
   applyFireColorSettings: uiController.applyFireColorSettings,
