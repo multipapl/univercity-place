@@ -19,7 +19,7 @@ import { createSelectiveBloomPipeline } from "./postprocessing/createSelectiveBl
 import { bindViewerUiEvents } from "./ui/debugPanelBindings.js";
 import { createMenuController } from "./ui/menuController.js";
 import { createViewerShell } from "./ui/createViewerShell.js";
-import { collectViewerDomRefs, createDebugInspectorUi } from "./ui/viewerDomRefs.js";
+import { createDebugInspectorUi } from "./ui/viewerDomRefs.js";
 import { disposeObjectTree } from "./utils/threeDisposal.js";
 
 function renderInitializationError(error) {
@@ -64,15 +64,14 @@ const searchParams = new URLSearchParams(window.location.search);
 let debugMode = parseBooleanFlag(searchParams.get("debug")) ?? false;
 
 const {
-  viewport,
-  hud,
-  bottomDock,
-  bottomDockCategories,
-  leftSidebar,
-  sidebarTitle,
-  loadingScreen,
-  crosshair,
-  mobileControls,
+  nodes: {
+    viewport,
+    hud,
+    loadingScreen,
+    crosshair,
+    mobileControls,
+  },
+  refs,
 } = createViewerShell({
   app,
   isTouchDevice,
@@ -87,11 +86,6 @@ viewport.style.setProperty("--dock-fade-in-duration", `${VIEWER_CONFIG.interface
 viewport.style.setProperty("--dock-fade-out-duration", `${VIEWER_CONFIG.interface.dock.fadeOutDuration}ms`);
 viewport.style.setProperty("--dock-auto-hide-delay", `${VIEWER_CONFIG.interface.dock.autoHideDelay}ms`);
 
-const refs = collectViewerDomRefs({
-  hud,
-  loadingScreen,
-  mobileControls,
-});
 const {
   statusLine,
   loadingStatusLine,
@@ -469,10 +463,10 @@ const menuController = createMenuController({
   viewport,
   hud,
   menuToggleButton,
-  bottomDock: bottomDockRef ?? bottomDock,
-  bottomDockCategories: bottomDockCategoriesRef ?? bottomDockCategories,
-  leftSidebar: leftSidebarRef ?? leftSidebar,
-  sidebarTitle: sidebarTitleRef ?? sidebarTitle,
+  bottomDock: bottomDockRef,
+  bottomDockCategories: bottomDockCategoriesRef,
+  leftSidebar: leftSidebarRef,
+  sidebarTitle: sidebarTitleRef,
   initialMode: debugMode ? "debug" : "viewer",
   isTouchDevice,
   navigationController,
