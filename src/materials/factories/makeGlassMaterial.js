@@ -1,4 +1,4 @@
-import * as THREE from "three";
+import { DoubleSide, MeshBasicMaterial } from "three";
 
 export function makeGlassMaterial({
   viewerConfig,
@@ -18,14 +18,14 @@ export function makeGlassMaterial({
     ? (source.opacity ?? 1)
     : 1;
   const fresnelPreset = viewerConfig.materialPresets.glassFresnel;
-  const material = new THREE.MeshBasicMaterial({
+  const material = new MeshBasicMaterial({
     name: source.name || "GlassMaterial",
     map,
     color: getMaterialTint(source, hasTexture),
     transparent: true,
     opacity: 1,
     alphaTest: source.alphaTest || viewerConfig.materialPresets.glassAlphaCutoff,
-    side: THREE.DoubleSide,
+    side: DoubleSide,
     depthWrite: false,
     vertexColors: Boolean(source.vertexColors),
   });

@@ -57,6 +57,8 @@ function collectViewerShellRefs({ hud, loadingScreen, mobileControls }) {
     reflectSpecularValue: hud.querySelector("[data-reflect-specular-value]"),
     reflectMetalnessSlider: hud.querySelector("[data-reflect-metalness]"),
     reflectMetalnessValue: hud.querySelector("[data-reflect-metalness-value]"),
+    reflectEnvRotationYSlider: hud.querySelector("[data-reflect-env-rotation-y]"),
+    reflectEnvRotationYValue: hud.querySelector("[data-reflect-env-rotation-y-value]"),
     layerControls: hud.querySelector("[data-layer-controls]"),
     statFps: hud.querySelector("[data-stat-fps]"),
     statFrameMs: hud.querySelector("[data-stat-frame-ms]"),

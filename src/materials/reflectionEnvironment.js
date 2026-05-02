@@ -1,4 +1,4 @@
-import * as THREE from "three";
+import { EquirectangularReflectionMapping, SRGBColorSpace } from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { resolveOptionalAssetUrl } from "../loaders/assetResolver.js";
 import { disposeObjectTree } from "../utils/threeDisposal.js";
@@ -57,8 +57,8 @@ export function createReflectionEnvironmentManager({
 
     try {
       const equirectTexture = await textureLoader.loadAsync(state.envUrl);
-      equirectTexture.colorSpace = THREE.SRGBColorSpace;
-      equirectTexture.mapping = THREE.EquirectangularReflectionMapping;
+      equirectTexture.colorSpace = SRGBColorSpace;
+      equirectTexture.mapping = EquirectangularReflectionMapping;
       equirectTexture.needsUpdate = true;
 
       const reflectionEnvironmentTarget = reflectionPmremGenerator.fromEquirectangular(equirectTexture);

@@ -1,4 +1,4 @@
-import * as THREE from "three";
+import { DoubleSide, ShaderMaterial } from "three";
 import { buildHsvConversionGlsl } from "../shaderChunks/buildHsvConversionGlsl.js";
 
 export function makeBackgroundMaterial({
@@ -27,7 +27,7 @@ export function makeBackgroundMaterial({
     viewerBackgroundShimmerSpeed: { value: viewerConfig.materialPresets.background.shimmerSpeed },
   };
 
-  const material = new THREE.ShaderMaterial({
+  const material = new ShaderMaterial({
     name: source.name || "BackgroundMaterial",
     uniforms: backgroundUniforms,
     vertexShader: `
@@ -79,7 +79,7 @@ void main() {
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
 }`,
-    side: THREE.DoubleSide,
+    side: DoubleSide,
     transparent: Boolean(source.transparent) || (source.opacity ?? 1) < 1,
     depthWrite: false,
     fog: false,

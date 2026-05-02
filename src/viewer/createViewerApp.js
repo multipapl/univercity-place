@@ -1,4 +1,22 @@
-﻿import * as THREE from "three";
+﻿import {
+  BoxGeometry,
+  Clock,
+  Color,
+  GridHelper,
+  Group,
+  LinearToneMapping,
+  LoadingManager,
+  MathUtils,
+  Mesh,
+  MeshBasicMaterial,
+  NoToneMapping,
+  PMREMGenerator,
+  PerspectiveCamera,
+  SRGBColorSpace,
+  Scene,
+  TextureLoader,
+  WebGLRenderer
+} from "three";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import {
@@ -142,6 +160,8 @@ const {
   reflectSpecularValue,
   reflectMetalnessSlider,
   reflectMetalnessValue,
+  reflectEnvRotationYSlider,
+  reflectEnvRotationYValue,
   layerControls,
   statFps,
   statFrameMs,
@@ -159,24 +179,24 @@ const {
   boostButton,
 } = refs;
 
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new WebGLRenderer({ antialias: true });
 const initialViewportWidth = viewport.clientWidth || window.innerWidth;
 const initialViewportHeight = viewport.clientHeight || window.innerHeight;
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(initialViewportWidth, initialViewportHeight);
-renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.outputColorSpace = SRGBColorSpace;
 renderer.shadowMap.enabled = false;
 viewport.prepend(renderer.domElement);
 const maxSupportedAnisotropy = renderer.capabilities.getMaxAnisotropy();
 
-const scene = new THREE.Scene();
-scene.background = new THREE.Color("#050816");
-const reflectionPmremGenerator = new THREE.PMREMGenerator(renderer);
+const scene = new Scene();
+scene.background = new Color("#050816");
+const reflectionPmremGenerator = new PMREMGenerator(renderer);
 reflectionPmremGenerator.compileCubemapShader();
-const sceneRoots = new THREE.Group();
+const sceneRoots = new Group();
 scene.add(sceneRoots);
 
-const camera = new THREE.PerspectiveCamera(
+const camera = new PerspectiveCamera(
   VIEWER_CONFIG.camera.fov,
   initialViewportWidth / initialViewportHeight,
   0.05,
@@ -185,7 +205,7 @@ const camera = new THREE.PerspectiveCamera(
 camera.up.set(0, 1, 0);
 camera.position.set(0, 1.7, 4);
 
-const clock = new THREE.Clock();
+const clock = new Clock();
 const BLOOM_SCENE_LAYER = VIEWER_CONFIG.postProcessing.selectiveBloom.layer;
 const selectiveBloomConfig = {
   ...VIEWER_CONFIG.postProcessing.selectiveBloom,
@@ -298,7 +318,7 @@ function shouldAppendAssetQuery(url) {
   }
 }
 
-const loadingManager = new THREE.LoadingManager();
+const loadingManager = new LoadingManager();
 function setLoadingProgress(progress, { indeterminate = false } = {}) {
   if (!loadingBarFill) {
     return;
@@ -339,7 +359,7 @@ const dracoLoader = new DRACOLoader();
 dracoLoader.setDecoderPath("/draco/");
 const loader = new GLTFLoader(loadingManager);
 loader.setDRACOLoader(dracoLoader);
-const textureLoader = new THREE.TextureLoader(loadingManager);
+const textureLoader = new TextureLoader(loadingManager);
 const fallbackSceneRoots = [];
 const updateStatus = (message) => {
   statusLine.textContent = message;
@@ -411,8 +431,8 @@ const navigationController = createNavigationController({
   updateStatus,
 });
 const toneMappingModes = {
-  standard: THREE.LinearToneMapping,
-  none: THREE.NoToneMapping,
+  standard: LinearToneMapping,
+  none: NoToneMapping,
 };
 const menuController = createMenuController({
   viewport,
@@ -585,7 +605,7 @@ function setDebugMode(nextEnabled) {
 }
 
 function nudgeCameraHeight(delta) {
-  const nextHeight = THREE.MathUtils.clamp(
+  const nextHeight = MathUtils.clamp(
     navigationController.cameraState.height + delta,
     0.5,
     2.5,
@@ -602,7 +622,7 @@ function nudgeCameraHeight(delta) {
 }
 
 function nudgeCameraFov(delta) {
-  const nextFov = THREE.MathUtils.clamp(
+  const nextFov = MathUtils.clamp(
     navigationController.cameraState.fov + delta,
     30,
     110,
@@ -680,14 +700,14 @@ function clearFallbackScene() {
 function addFallbackScene() {
   clearFallbackScene();
 
-  const grid = new THREE.GridHelper(24, 24, 0x93c5fd, 0x334155);
+  const grid = new GridHelper(24, 24, 0x93c5fd, 0x334155);
   grid.position.y = -0.001;
   scene.add(grid);
   fallbackSceneRoots.push(grid);
 
-  const room = new THREE.Group();
-  const wallMaterial = new THREE.MeshBasicMaterial({ color: "#1e293b", wireframe: true });
-  const roomMesh = new THREE.Mesh(new THREE.BoxGeometry(8, 4, 8), wallMaterial);
+  const room = new Group();
+  const wallMaterial = new MeshBasicMaterial({ color: "#1e293b", wireframe: true });
+  const roomMesh = new Mesh(new BoxGeometry(8, 4, 8), wallMaterial);
   roomMesh.position.y = 2;
   room.add(roomMesh);
   scene.add(room);
@@ -846,6 +866,10 @@ const unbindViewerUi = bindViewerUiEvents({
   },
   onReflectMetalnessChange: (value) => {
     reflectionState.metalness = value;
+    uiController.applyReflectMaterialSettings();
+  },
+  onReflectEnvRotationYChange: (value) => {
+    reflectionState.envMapRotationY = value * Math.PI / 180;
     uiController.applyReflectMaterialSettings();
   },
   onBaseLowMemoryToggle: (checked) => {

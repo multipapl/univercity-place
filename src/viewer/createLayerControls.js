@@ -9,6 +9,7 @@ function createLayerToggleEntry({
 
   const checkbox = document.createElement("input");
   checkbox.type = "checkbox";
+  checkbox.name = "layer-visibility";
   checkbox.checked = entry.root.visible;
   checkbox.addEventListener("change", () => {
     entry.root.visible = checkbox.checked;

@@ -56,6 +56,7 @@ export const MATERIAL_PRESETS = {
     defaultMetalness: 0.0,
     ior: 1.5,
     specularIntensity: 1.0,
+    envMapRotationDegrees: 90,
   },
   background: {
     hueDegrees: 0,

@@ -1,4 +1,9 @@
-import * as THREE from "three";
+import {
+  LinearFilter,
+  LinearMipmapLinearFilter,
+  NoColorSpace,
+  SRGBColorSpace
+} from "three";
 
 export function createTextureUtils({
   viewerConfig,
@@ -9,7 +14,7 @@ export function createTextureUtils({
       return texture;
     }
 
-    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.colorSpace = SRGBColorSpace;
     texture.flipY = false;
     texture.needsUpdate = true;
 
@@ -21,7 +26,7 @@ export function createTextureUtils({
       return texture;
     }
 
-    texture.colorSpace = THREE.NoColorSpace;
+    texture.colorSpace = NoColorSpace;
     texture.flipY = false;
     texture.needsUpdate = true;
 
@@ -35,12 +40,12 @@ export function createTextureUtils({
 
     if (viewerConfig.materialPresets.foliageDisableMipmaps) {
       texture.generateMipmaps = false;
-      texture.minFilter = THREE.LinearFilter;
-      texture.magFilter = THREE.LinearFilter;
+      texture.minFilter = LinearFilter;
+      texture.magFilter = LinearFilter;
     } else {
       texture.generateMipmaps = true;
-      texture.minFilter = THREE.LinearMipmapLinearFilter;
-      texture.magFilter = THREE.LinearFilter;
+      texture.minFilter = LinearMipmapLinearFilter;
+      texture.magFilter = LinearFilter;
     }
 
     texture.anisotropy = Math.min(
@@ -134,12 +139,12 @@ export function createTextureUtils({
 
     if (viewerConfig.runtimeOptimization.lowMemoryBaseMipmaps) {
       texture.generateMipmaps = false;
-      texture.minFilter = THREE.LinearFilter;
-      texture.magFilter = THREE.LinearFilter;
+      texture.minFilter = LinearFilter;
+      texture.magFilter = LinearFilter;
     } else {
       texture.generateMipmaps = true;
-      texture.minFilter = THREE.LinearMipmapLinearFilter;
-      texture.magFilter = THREE.LinearFilter;
+      texture.minFilter = LinearMipmapLinearFilter;
+      texture.magFilter = LinearFilter;
     }
 
     texture.needsUpdate = true;

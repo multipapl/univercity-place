@@ -1,4 +1,4 @@
-import * as THREE from "three";
+import { Color } from "three";
 import { createDebugMaterialOverrides } from "./debugMaterialOverrides.js";
 import { describeMaterialTarget } from "./debugMaterialTargeting.js";
 import { makeAlphaCutoutMaterial } from "./factories/makeAlphaCutoutMaterial.js";
@@ -142,8 +142,8 @@ export function createMaterialPipeline({
 
   function getMaterialTint(source, hasTexture) {
     return hasTexture
-      ? new THREE.Color(0xffffff)
-      : (source.color ? source.color.clone() : new THREE.Color(0xffffff));
+      ? new Color(0xffffff)
+      : (source.color ? source.color.clone() : new Color(0xffffff));
   }
 
   function looksLikeAdditiveFx(mesh, source) {

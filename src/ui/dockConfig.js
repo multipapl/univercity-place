@@ -11,34 +11,34 @@ export const DOCK_CATEGORIES = [
           <div class="color-tools">
             <label class="field field-range">
               <span>Exposure</span>
-              <input type="range" min="0.25" max="2.5" step="0.01" value="${viewerConfig.colorPipeline.exposure}" data-exposure />
+              <input type="range" name="exposure" min="0.25" max="2.5" step="0.01" value="${viewerConfig.colorPipeline.exposure}" data-exposure />
               <output data-exposure-value>${viewerConfig.colorPipeline.exposure.toFixed(2)}</output>
             </label>
             <label class="field field-range">
               <span>Selective Bloom</span>
-              <input type="range" min="0" max="3" step="0.01" value="${viewerConfig.postProcessing.selectiveBloom.strength}" data-selective-bloom-strength />
+              <input type="range" name="selective-bloom-strength" min="0" max="3" step="0.01" value="${viewerConfig.postProcessing.selectiveBloom.strength}" data-selective-bloom-strength />
               <output data-selective-bloom-strength-value>${viewerConfig.postProcessing.selectiveBloom.strength.toFixed(2)}</output>
             </label>
             <label class="field field-range">
               <span>FOV</span>
-              <input type="range" min="30" max="110" step="1" value="${viewerConfig.camera.fov}" data-camera-fov />
+              <input type="range" name="camera-fov" min="30" max="110" step="1" value="${viewerConfig.camera.fov}" data-camera-fov />
               <output data-camera-fov-value>${viewerConfig.camera.fov.toFixed(0)}&deg;</output>
             </label>
             <label class="field field-range">
               <span>Camera Height</span>
-              <input type="range" min="0.5" max="2.5" step="0.01" value="${viewerConfig.camera.height}" data-camera-height />
+              <input type="range" name="camera-height" min="0.5" max="2.5" step="0.01" value="${viewerConfig.camera.height}" data-camera-height />
               <output data-camera-height-value>${viewerConfig.camera.height.toFixed(2)}</output>
             </label>
           </div>
           <div class="layer-controls">
             <label class="layer-toggle">
-              <input type="checkbox" data-show-crosshair ${viewerConfig.interface.showCrosshair ? "checked" : ""} />
+              <input type="checkbox" name="show-crosshair" data-show-crosshair ${viewerConfig.interface.showCrosshair ? "checked" : ""} />
               <span class="layer-toggle-copy">
                 <strong>Show Crosshair</strong>
               </span>
             </label>
             <label class="layer-toggle">
-              <input type="checkbox" data-camera-shake ${viewerConfig.camera.ambientMotion.enabled ? "checked" : ""} />
+              <input type="checkbox" name="camera-shake" data-camera-shake ${viewerConfig.camera.ambientMotion.enabled ? "checked" : ""} />
               <span class="layer-toggle-copy">
                 <strong>Camera Shake</strong>
               </span>
@@ -54,17 +54,17 @@ export const DOCK_CATEGORIES = [
           <div class="color-tools">
             <label class="field field-range">
               <span>Hue</span>
-              <input type="range" min="-180" max="180" step="1" value="${viewerConfig.materialPresets.background.hueDegrees}" data-background-hue />
+              <input type="range" name="background-hue" min="-180" max="180" step="1" value="${viewerConfig.materialPresets.background.hueDegrees}" data-background-hue />
               <output data-background-hue-value>${viewerConfig.materialPresets.background.hueDegrees.toFixed(0)}&deg;</output>
             </label>
             <label class="field field-range">
               <span>Saturation</span>
-              <input type="range" min="0" max="2" step="0.01" value="${viewerConfig.materialPresets.background.saturation}" data-background-saturation />
+              <input type="range" name="background-saturation" min="0" max="2" step="0.01" value="${viewerConfig.materialPresets.background.saturation}" data-background-saturation />
               <output data-background-saturation-value>${viewerConfig.materialPresets.background.saturation.toFixed(2)}</output>
             </label>
             <label class="field field-range">
               <span>Value</span>
-              <input type="range" min="0" max="2" step="0.01" value="${viewerConfig.materialPresets.background.value}" data-background-value />
+              <input type="range" name="background-value" min="0" max="2" step="0.01" value="${viewerConfig.materialPresets.background.value}" data-background-value />
               <output data-background-value-output>${viewerConfig.materialPresets.background.value.toFixed(2)}</output>
             </label>
           </div>
@@ -96,22 +96,22 @@ export const DOCK_CATEGORIES = [
             <div class="color-tools">
               <label class="field field-range">
                 <span>Hue</span>
-                <input type="range" min="-180" max="180" step="1" value="0" data-object-hue />
+                <input type="range" name="object-hue" min="-180" max="180" step="1" value="0" data-object-hue />
                 <output data-object-hue-value>0&deg;</output>
               </label>
               <label class="field field-range">
                 <span>Saturation</span>
-                <input type="range" min="0" max="4" step="0.02" value="1" data-object-saturation />
+                <input type="range" name="object-saturation" min="0" max="4" step="0.02" value="1" data-object-saturation />
                 <output data-object-saturation-value>1.00</output>
               </label>
               <label class="field field-range">
                 <span>Value</span>
-                <input type="range" min="0" max="4" step="0.02" value="1" data-object-value />
+                <input type="range" name="object-value" min="0" max="4" step="0.02" value="1" data-object-value />
                 <output data-object-value-value>1.00</output>
               </label>
               <label class="field field-range">
                 <span>Gamma</span>
-                <input type="range" min="0.25" max="4" step="0.02" value="1" data-object-gamma />
+                <input type="range" name="object-gamma" min="0.25" max="4" step="0.02" value="1" data-object-gamma />
                 <output data-object-gamma-value>1.00</output>
               </label>
             </div>
@@ -147,17 +147,17 @@ export const DOCK_CATEGORIES = [
           <div class="color-tools">
             <label class="field field-range">
               <span>Hue</span>
-              <input type="range" min="-180" max="180" step="1" value="${viewerConfig.materialPresets.fireVideo.hueDegrees}" data-fire-hue />
+              <input type="range" name="fire-hue" min="-180" max="180" step="1" value="${viewerConfig.materialPresets.fireVideo.hueDegrees}" data-fire-hue />
               <output data-fire-hue-value>${viewerConfig.materialPresets.fireVideo.hueDegrees.toFixed(0)}&deg;</output>
             </label>
             <label class="field field-range">
               <span>Saturation</span>
-              <input type="range" min="0" max="2" step="0.01" value="${viewerConfig.materialPresets.fireVideo.saturation}" data-fire-saturation />
+              <input type="range" name="fire-saturation" min="0" max="2" step="0.01" value="${viewerConfig.materialPresets.fireVideo.saturation}" data-fire-saturation />
               <output data-fire-saturation-value>${viewerConfig.materialPresets.fireVideo.saturation.toFixed(2)}</output>
             </label>
             <label class="field field-range">
               <span>Value</span>
-              <input type="range" min="0" max="2" step="0.01" value="${viewerConfig.materialPresets.fireVideo.value}" data-fire-value />
+              <input type="range" name="fire-value" min="0" max="2" step="0.01" value="${viewerConfig.materialPresets.fireVideo.value}" data-fire-value />
               <output data-fire-value-output>${viewerConfig.materialPresets.fireVideo.value.toFixed(2)}</output>
             </label>
           </div>
@@ -171,23 +171,28 @@ export const DOCK_CATEGORIES = [
           <div class="color-tools">
             <label class="field field-range">
               <span>Env Intensity</span>
-              <input type="range" min="0" max="4" step="0.01" value="${viewerConfig.materialPresets.reflectMaterial.envMapIntensity}" data-reflect-env-intensity />
+              <input type="range" name="reflect-env-intensity" min="0" max="4" step="0.01" value="${viewerConfig.materialPresets.reflectMaterial.envMapIntensity}" data-reflect-env-intensity />
               <output data-reflect-env-intensity-value>${viewerConfig.materialPresets.reflectMaterial.envMapIntensity.toFixed(2)}</output>
             </label>
             <label class="field field-range">
               <span>IOR</span>
-              <input type="range" min="1" max="2.5" step="0.01" value="${viewerConfig.materialPresets.reflectMaterial.ior}" data-reflect-ior />
+              <input type="range" name="reflect-ior" min="1" max="2.5" step="0.01" value="${viewerConfig.materialPresets.reflectMaterial.ior}" data-reflect-ior />
               <output data-reflect-ior-value>${viewerConfig.materialPresets.reflectMaterial.ior.toFixed(2)}</output>
             </label>
             <label class="field field-range">
               <span>Specular</span>
-              <input type="range" min="0" max="1" step="0.01" value="${viewerConfig.materialPresets.reflectMaterial.specularIntensity}" data-reflect-specular />
+              <input type="range" name="reflect-specular" min="0" max="1" step="0.01" value="${viewerConfig.materialPresets.reflectMaterial.specularIntensity}" data-reflect-specular />
               <output data-reflect-specular-value>${viewerConfig.materialPresets.reflectMaterial.specularIntensity.toFixed(2)}</output>
             </label>
             <label class="field field-range">
               <span>Metalness</span>
-              <input type="range" min="0" max="1" step="0.01" value="${viewerConfig.materialPresets.reflectMaterial.defaultMetalness}" data-reflect-metalness />
+              <input type="range" name="reflect-metalness" min="0" max="1" step="0.01" value="${viewerConfig.materialPresets.reflectMaterial.defaultMetalness}" data-reflect-metalness />
               <output data-reflect-metalness-value>${viewerConfig.materialPresets.reflectMaterial.defaultMetalness.toFixed(2)}</output>
+            </label>
+            <label class="field field-range">
+              <span>Env Rotation Y</span>
+              <input type="range" name="reflect-env-rotation-y" min="-180" max="180" step="1" value="${viewerConfig.materialPresets.reflectMaterial.envMapRotationDegrees}" data-reflect-env-rotation-y />
+              <output data-reflect-env-rotation-y-value>${viewerConfig.materialPresets.reflectMaterial.envMapRotationDegrees.toFixed(0)}&deg;</output>
             </label>
           </div>
         `,
@@ -251,14 +256,14 @@ export const DOCK_CATEGORIES = [
         render: () => `
           <div class="layer-controls">
             <label class="layer-toggle">
-              <input type="checkbox" data-base-low-memory />
+              <input type="checkbox" name="base-low-memory" data-base-low-memory />
               <span class="layer-toggle-copy">
                 <strong>Low-memory base textures</strong>
               </span>
             </label>
             <label class="field">
               <span>Base Texture Cap</span>
-              <select data-base-texture-cap>
+              <select name="base-texture-cap" data-base-texture-cap>
                 <option value="0">Off</option>
                 <option value="4096">4096</option>
                 <option value="3072">3072</option>
@@ -277,7 +282,7 @@ export const DOCK_CATEGORIES = [
           <div class="color-tools">
             <label class="field">
               <span>View Transform</span>
-              <select data-tone-mapping>
+              <select name="tone-mapping" data-tone-mapping>
                 <option value="standard">Standard</option>
                 <option value="none">None</option>
               </select>

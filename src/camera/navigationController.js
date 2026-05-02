@@ -1,4 +1,4 @@
-import * as THREE from "three";
+import { Box3, MathUtils, Vector3 } from "three";
 
 export function createNavigationController({
   camera,
@@ -32,17 +32,17 @@ export function createNavigationController({
     lastLookY: 0,
   };
   const sceneMetrics = {
-    bounds: new THREE.Box3(),
-    center: new THREE.Vector3(),
-    size: new THREE.Vector3(),
+    bounds: new Box3(),
+    center: new Vector3(),
+    size: new Vector3(),
     groundY: 0,
     walkY: viewerConfig.locomotion.eyeHeight,
   };
-  const tmpForward = new THREE.Vector3();
-  const tmpRight = new THREE.Vector3();
-  const tmpUp = new THREE.Vector3();
-  const velocity = new THREE.Vector3();
-  const tmpBox = new THREE.Box3();
+  const tmpForward = new Vector3();
+  const tmpRight = new Vector3();
+  const tmpUp = new Vector3();
+  const velocity = new Vector3();
+  const tmpBox = new Box3();
   const lookState = {
     pitch: 0,
     yaw: 0,
@@ -55,7 +55,7 @@ export function createNavigationController({
     height: viewerConfig.camera.height,
     lastAppliedHeight: viewerConfig.camera.height,
     ambientMotionTime: 0,
-    lastOffset: new THREE.Vector3(),
+    lastOffset: new Vector3(),
     lastYawOffset: 0,
     lastPitchOffset: 0,
   };
@@ -132,7 +132,7 @@ export function createNavigationController({
     // Плавне регулювання висоти
     if (heightDirection !== 0) {
       const heightDelta = heightDirection * heightSpeed * deltaTime;
-      const newHeight = THREE.MathUtils.clamp(
+      const newHeight = MathUtils.clamp(
         cameraState.height + heightDelta,
         minHeight,
         maxHeight,
@@ -149,8 +149,8 @@ export function createNavigationController({
     const fovDiff = Math.abs(targetFov - cameraState.fov);
     if (fovDiff > 0.01) {
       const lerpAmount = fovLerpFactor * deltaTime;  // нормалізуємо по часу
-      const lerpedFov = THREE.MathUtils.lerp(cameraState.fov, targetFov, lerpAmount);
-      const clampedFov = THREE.MathUtils.clamp(lerpedFov, smoothAdjustState.minFov, smoothAdjustState.maxFov);
+      const lerpedFov = MathUtils.lerp(cameraState.fov, targetFov, lerpAmount);
+      const clampedFov = MathUtils.clamp(lerpedFov, smoothAdjustState.minFov, smoothAdjustState.maxFov);
 
       if (clampedFov !== cameraState.fov) {
         cameraState.fov = clampedFov;
@@ -192,8 +192,8 @@ export function createNavigationController({
     camera.position.z += offsetZ;
     cameraState.lastOffset.set(offsetX, offsetY, offsetZ);
 
-    const yawOffset = THREE.MathUtils.degToRad(ambientMotion.yawDegrees) * Math.sin(t * 0.41 + 0.6);
-    const pitchOffset = THREE.MathUtils.degToRad(ambientMotion.pitchDegrees) * Math.cos(t * 0.52 + 1.1);
+    const yawOffset = MathUtils.degToRad(ambientMotion.yawDegrees) * Math.sin(t * 0.41 + 0.6);
+    const pitchOffset = MathUtils.degToRad(ambientMotion.pitchDegrees) * Math.cos(t * 0.52 + 1.1);
 
     camera.rotation.y += yawOffset;
     camera.rotation.x += pitchOffset;
@@ -244,13 +244,13 @@ export function createNavigationController({
     const moveY = Math.sin(angle) * clampedDistance;
 
     joystickThumb.style.transform = `translate(-50%, -50%) translate(${moveX}px, ${moveY}px)`;
-    touchInput.moveX = THREE.MathUtils.clamp(moveX / radius, -1, 1);
-    touchInput.moveZ = THREE.MathUtils.clamp(-moveY / radius, -1, 1);
+    touchInput.moveX = MathUtils.clamp(moveX / radius, -1, 1);
+    touchInput.moveZ = MathUtils.clamp(-moveY / radius, -1, 1);
   }
 
   function applyLookDelta(deltaX, deltaY) {
     lookState.yaw -= deltaX * lookState.sensitivity;
-    lookState.pitch = THREE.MathUtils.clamp(
+    lookState.pitch = MathUtils.clamp(
       lookState.pitch - deltaY * lookState.sensitivity,
       lookState.minPitch,
       lookState.maxPitch,
@@ -270,7 +270,7 @@ export function createNavigationController({
   }
 
   function clampSpeed(nextSpeed) {
-    movement.baseSpeed = THREE.MathUtils.clamp(nextSpeed, 1, 50);
+    movement.baseSpeed = MathUtils.clamp(nextSpeed, 1, 50);
     updateStatus(`Move speed: ${movement.baseSpeed.toFixed(1)} u/s`);
   }
 
@@ -354,8 +354,8 @@ export function createNavigationController({
       camera.lookAt(sceneMetrics.center);
       syncLookStateFromCamera();
     } else {
-      lookState.yaw = THREE.MathUtils.degToRad(viewerConfig.locomotion.startYawDegrees ?? 0);
-      lookState.pitch = THREE.MathUtils.degToRad(viewerConfig.locomotion.startPitchDegrees ?? 0);
+      lookState.yaw = MathUtils.degToRad(viewerConfig.locomotion.startYawDegrees ?? 0);
+      lookState.pitch = MathUtils.degToRad(viewerConfig.locomotion.startPitchDegrees ?? 0);
       applyLookState();
     }
 
@@ -673,7 +673,7 @@ export function createNavigationController({
         // FOV регулювання: прокрутка вниз (deltaY > 0) -> менше FOV, вгору -> більше FOV
         // Змінюємо ЦІЛЬОВЕ значення, а не поточне — поточне плавно підтягнеться
         const fovChange = event.deltaY > 0 ? -smoothAdjustState.fovWheelSensitivity : smoothAdjustState.fovWheelSensitivity;
-        const newTargetFov = THREE.MathUtils.clamp(
+        const newTargetFov = MathUtils.clamp(
           smoothAdjustState.targetFov + fovChange,
           smoothAdjustState.minFov,
           smoothAdjustState.maxFov,

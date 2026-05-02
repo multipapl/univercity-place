@@ -1,4 +1,4 @@
-import * as THREE from "three";
+import { DoubleSide, MeshBasicMaterial } from "three";
 
 export function makeAlphaCutoutMaterial({
   viewerConfig,
@@ -39,7 +39,7 @@ export function makeAlphaCutoutMaterial({
   tuneFoliageTexture(map);
   tuneFoliageTexture(alphaMap);
 
-  const material = new THREE.MeshBasicMaterial({
+  const material = new MeshBasicMaterial({
     name: source.name || "AlphaCutoutMaterial",
     map,
     alphaMap,
@@ -47,7 +47,7 @@ export function makeAlphaCutoutMaterial({
     transparent: false,
     opacity: source.opacity ?? 1,
     alphaTest: source.alphaTest || viewerConfig.materialPresets.alphaCutoff,
-    side: THREE.DoubleSide,
+    side: DoubleSide,
     vertexColors: Boolean(source.vertexColors),
   });
   material.alphaToCoverage = true;

@@ -1,4 +1,4 @@
-import * as THREE from "three";
+import { DoubleSide, MeshBasicMaterial, NormalBlending } from "three";
 
 export function makeUnlitAlphaMaterial({
   sourceMaterial,
@@ -46,7 +46,7 @@ export function makeUnlitAlphaMaterial({
     material.transparent = true;
     material.opacity = source.opacity ?? 1;
     material.alphaTest = source.alphaTest ?? 0;
-    material.side = source.side ?? THREE.DoubleSide;
+    material.side = source.side ?? DoubleSide;
     material.depthWrite = false;
     material.fog = false;
     material.toneMapped = false;
@@ -61,7 +61,7 @@ export function makeUnlitAlphaMaterial({
   const alphaMap = getMaterialAlphaTexture(source);
   const hasTexture = Boolean(map);
 
-  const material = new THREE.MeshBasicMaterial({
+  const material = new MeshBasicMaterial({
     name: source.name || "UnlitAlphaMaterial",
     map,
     alphaMap,
@@ -69,9 +69,9 @@ export function makeUnlitAlphaMaterial({
     transparent: true,
     opacity: source.opacity ?? 1,
     alphaTest: source.alphaTest ?? 0,
-    side: source.side ?? THREE.DoubleSide,
+    side: source.side ?? DoubleSide,
     depthWrite: false,
-    blending: THREE.NormalBlending,
+    blending: NormalBlending,
     vertexColors: Boolean(source.vertexColors),
     fog: false,
   });

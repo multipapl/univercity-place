@@ -1,4 +1,4 @@
-import * as THREE from "three";
+import { LinearFilter, SRGBColorSpace, VideoTexture } from "three";
 import { resolveOptionalAssetUrl, resolveSceneLayers } from "./assetResolver.js";
 import { disposeObjectTree } from "../utils/threeDisposal.js";
 
@@ -160,12 +160,12 @@ export function createSceneLayerLoader({
         video.load();
       });
 
-      const texture = new THREE.VideoTexture(video);
-      texture.colorSpace = THREE.SRGBColorSpace;
+      const texture = new VideoTexture(video);
+      texture.colorSpace = SRGBColorSpace;
       texture.flipY = false;
       texture.generateMipmaps = false;
-      texture.minFilter = THREE.LinearFilter;
-      texture.magFilter = THREE.LinearFilter;
+      texture.minFilter = LinearFilter;
+      texture.magFilter = LinearFilter;
       texture.needsUpdate = true;
 
       fxState.videoElement = video;

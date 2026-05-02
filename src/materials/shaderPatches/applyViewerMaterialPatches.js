@@ -1,4 +1,4 @@
-import * as THREE from "three";
+import { Matrix3 } from "three";
 
 function getUvAttributeName(channel) {
   return channel === 0 ? "uv" : `uv${channel}`;
@@ -37,7 +37,7 @@ vec3 viewerAdjustSaturation(vec3 color, float saturation) {
 
       if (hasSeparateAlphaFromMap) {
         shader.uniforms.viewerAlphaUvTransform = {
-          value: material.map?.matrix ?? new THREE.Matrix3(),
+          value: material.map?.matrix ?? new Matrix3(),
         };
 
         shader.vertexShader = shader.vertexShader.replace(

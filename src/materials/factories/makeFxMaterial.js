@@ -1,4 +1,9 @@
-import * as THREE from "three";
+import {
+  AdditiveBlending,
+  DoubleSide,
+  MeshBasicMaterial,
+  NormalBlending
+} from "three";
 
 export function makeFxMaterial({
   viewerConfig,
@@ -31,7 +36,7 @@ export function makeFxMaterial({
   applyTextureChannelOverride(map, colorChannel);
   applyTextureChannelOverride(alphaMap, alphaChannel);
 
-  const material = new THREE.MeshBasicMaterial({
+  const material = new MeshBasicMaterial({
     name: source.name || "FxMaterial",
     map,
     alphaMap,
@@ -39,9 +44,9 @@ export function makeFxMaterial({
     transparent: true,
     opacity: source.opacity ?? 1,
     alphaTest: source.alphaTest || viewerConfig.materialPresets.fxAlphaCutoff,
-    side: source.side ?? THREE.DoubleSide,
+    side: source.side ?? DoubleSide,
     depthWrite: false,
-    blending: looksLikeAdditiveFx(mesh, source) ? THREE.AdditiveBlending : THREE.NormalBlending,
+    blending: looksLikeAdditiveFx(mesh, source) ? AdditiveBlending : NormalBlending,
     vertexColors: Boolean(source.vertexColors),
   });
 

@@ -1,4 +1,4 @@
-﻿import * as THREE from "three";
+﻿import { BoxHelper, Raycaster, Vector2 } from "three";
 import {
   createDefaultOverridesDocument,
   createObjectOverrideStore,
@@ -20,9 +20,9 @@ export function createDebugObjectInspector({
   getMenuOpen,
   ui,
 }) {
-  const raycaster = new THREE.Raycaster();
-  const pointer = new THREE.Vector2();
-  const hoverHelper = new THREE.BoxHelper(undefined, 0x93c5fd);
+  const raycaster = new Raycaster();
+  const pointer = new Vector2();
+  const hoverHelper = new BoxHelper(undefined, 0x93c5fd);
   hoverHelper.visible = false;
   hoverHelper.material.depthTest = false;
   hoverHelper.material.transparent = true;

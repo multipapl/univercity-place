@@ -1,4 +1,4 @@
-import * as THREE from "three";
+import { DoubleSide, FrontSide, MeshBasicMaterial } from "three";
 
 export function makeBakedMaterial({
   sourceMaterial,
@@ -19,14 +19,14 @@ export function makeBakedMaterial({
 
   tuneBakedTexture(map);
 
-  const material = new THREE.MeshBasicMaterial({
+  const material = new MeshBasicMaterial({
     name: source.name || "BakedMaterial",
     map,
     color: tintColor,
     transparent: Boolean(source.transparent),
     opacity: source.opacity ?? 1,
     alphaTest: source.alphaTest ?? 0,
-    side: source.side ?? (hasEmissiveMap ? THREE.DoubleSide : THREE.FrontSide),
+    side: source.side ?? (hasEmissiveMap ? DoubleSide : FrontSide),
     vertexColors: Boolean(source.vertexColors),
   });
 

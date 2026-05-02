@@ -63,6 +63,7 @@ export function createViewerState({
     ior: baseViewerConfig.materialPresets.reflectMaterial.ior,
     specularIntensity: baseViewerConfig.materialPresets.reflectMaterial.specularIntensity,
     metalness: baseViewerConfig.materialPresets.reflectMaterial.defaultMetalness,
+    envMapRotationY: baseViewerConfig.materialPresets.reflectMaterial.envMapRotationDegrees * Math.PI / 180,
     materials: new Set(),
   };
   const viewerLifecycle = {

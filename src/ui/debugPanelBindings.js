@@ -17,6 +17,7 @@ export function bindViewerUiEvents({
   onReflectIorChange,
   onReflectSpecularChange,
   onReflectMetalnessChange,
+  onReflectEnvRotationYChange,
   onBaseLowMemoryToggle,
   onBaseTextureCapChange,
   onMenuToggle,
@@ -100,6 +101,10 @@ export function bindViewerUiEvents({
     onReflectMetalnessChange(Number(event.target.value));
   };
 
+  const handleReflectEnvRotationYInput = (event) => {
+    onReflectEnvRotationYChange(Number(event.target.value));
+  };
+
   const handleBaseLowMemoryChange = (event) => {
     onBaseLowMemoryToggle(Boolean(event.target.checked));
   };
@@ -150,6 +155,7 @@ export function bindViewerUiEvents({
   bind(refs.reflectIorSlider, "input", handleReflectIorInput);
   bind(refs.reflectSpecularSlider, "input", handleReflectSpecularInput);
   bind(refs.reflectMetalnessSlider, "input", handleReflectMetalnessInput);
+  bind(refs.reflectEnvRotationYSlider, "input", handleReflectEnvRotationYInput);
   bind(refs.baseLowMemoryToggle, "change", handleBaseLowMemoryChange);
   bind(refs.baseTextureCapSelect, "change", handleBaseTextureCapChange);
   bind(refs.menuToggleButton, "click", handleMenuToggleClick);

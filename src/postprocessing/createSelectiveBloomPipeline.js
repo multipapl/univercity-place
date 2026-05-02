@@ -1,4 +1,4 @@
-import * as THREE from "three";
+import { DoubleSide, Layers, MeshBasicMaterial, Vector2 } from "three";
 import { EffectComposer } from "three/examples/jsm/postprocessing/EffectComposer.js";
 import { OutputPass } from "three/examples/jsm/postprocessing/OutputPass.js";
 import { RenderPass } from "three/examples/jsm/postprocessing/RenderPass.js";
@@ -46,7 +46,7 @@ export function createSelectiveBloomPipeline({
     targetCount: 0,
     width,
   };
-  const bloomLayer = new THREE.Layers();
+  const bloomLayer = new Layers();
   bloomLayer.set(bloomLayerId);
   camera.layers.set(DEFAULT_SCENE_LAYER);
 
@@ -61,13 +61,13 @@ export function createSelectiveBloomPipeline({
       return state.resources;
     }
 
-    const bloomOcclusionMaterial = new THREE.MeshBasicMaterial({
+    const bloomOcclusionMaterial = new MeshBasicMaterial({
       color: 0x000000,
-      side: THREE.DoubleSide,
+      side: DoubleSide,
     });
     const darkenedBloomMaterials = new Map();
     const bloomRenderPass = new RenderPass(scene, camera, null, 0x000000, 0);
-    const bloomPass = new UnrealBloomPass(new THREE.Vector2(state.width, state.height), 0, 0, 0);
+    const bloomPass = new UnrealBloomPass(new Vector2(state.width, state.height), 0, 0, 0);
     const bloomComposer = new EffectComposer(renderer);
     bloomComposer.renderToScreen = false;
     bloomComposer.addPass(bloomRenderPass);

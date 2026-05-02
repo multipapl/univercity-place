@@ -1,4 +1,4 @@
-import * as THREE from "three";
+import { Color, Euler, FrontSide, MeshPhysicalMaterial, Vector2 } from "three";
 
 export function makeReflectMaterial({
   viewerConfig,
@@ -41,7 +41,7 @@ export function makeReflectMaterial({
   applyTextureChannelOverride(aoMap, aoChannel);
   applyTextureChannelOverride(normalMap, normalChannel);
 
-  const material = new THREE.MeshPhysicalMaterial({
+  const material = new MeshPhysicalMaterial({
     name: source.name || "ReflectMaterial",
     map,
     color: getMaterialTint(source, hasTexture),
@@ -50,15 +50,15 @@ export function makeReflectMaterial({
     metalness: reflectionState.metalness,
     metalnessMap,
     normalMap,
-    normalScale: source.normalScale?.clone?.() ?? new THREE.Vector2(1, 1),
+    normalScale: source.normalScale?.clone?.() ?? new Vector2(1, 1),
     aoMap,
     envMapIntensity: reflectionState.envMapIntensity,
     transparent: Boolean(source.transparent),
     opacity: source.opacity ?? 1,
     alphaTest: source.alphaTest ?? 0,
-    side: source.side ?? THREE.FrontSide,
+    side: source.side ?? FrontSide,
     vertexColors: Boolean(source.vertexColors),
-    emissive: source.emissive?.clone?.() ?? new THREE.Color(0x000000),
+    emissive: source.emissive?.clone?.() ?? new Color(0x000000),
     emissiveMap: normalizeTexture(source.emissiveMap || null),
     emissiveIntensity: source.emissiveIntensity ?? 1,
     ior: reflectionState.ior,
@@ -70,6 +70,7 @@ export function makeReflectMaterial({
   });
 
   material.envMap = reflectionEnvironment.getEnvironmentMap();
+  material.envMapRotation = new Euler(0, reflectionState.envMapRotationY, 0);
 
   stampViewerMaterialData(material, source, tweak);
   material.userData.viewerUvChannels = {

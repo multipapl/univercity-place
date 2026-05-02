@@ -209,10 +209,14 @@ export function createViewerUiController({
     syncTextValue(refs.reflectSpecularValue, state.reflectionState.specularIntensity.toFixed(2));
     syncSliderValue(refs.reflectMetalnessSlider, state.reflectionState.metalness.toFixed(2));
     syncTextValue(refs.reflectMetalnessValue, state.reflectionState.metalness.toFixed(2));
+    const rotDeg = (state.reflectionState.envMapRotationY * 180 / Math.PI).toFixed(0);
+    syncSliderValue(refs.reflectEnvRotationZSlider, rotDeg);
+    syncTextValue(refs.reflectEnvRotationZValue, `${rotDeg}°`);
 
     state.reflectionState.materials.forEach((material) => {
       material.envMapIntensity = state.reflectionState.envMapIntensity;
       material.metalness = state.reflectionState.metalness;
+      material.envMapRotation.y = state.reflectionState.envMapRotationY;
 
       if (material.isMeshPhysicalMaterial) {
         material.ior = state.reflectionState.ior;
