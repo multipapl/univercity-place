@@ -15,7 +15,7 @@ test("assetsConfig exposes a single manifest for scene layers and runtime assets
 
   const baseLayer = SCENE_LAYER_CONTRACTS.find((layer) => layer.runtime?.preferAsSpawnRoot);
   const backgroundLayer = SCENE_LAYER_CONTRACTS.find((layer) => layer.runtime?.registerAsBackgroundRoot);
-  const bloomLayer = SCENE_LAYER_CONTRACTS.find((layer) => layer.runtime?.enableBloom);
+  const bloomLayers = SCENE_LAYER_CONTRACTS.filter((layer) => layer.runtime?.enableBloom);
 
   assert.ok(baseLayer);
   assert.equal(baseLayer.localPath, "scene.glb");
@@ -25,9 +25,15 @@ test("assetsConfig exposes a single manifest for scene layers and runtime assets
   assert.ok(backgroundLayer);
   assert.equal(backgroundLayer.localPath, "bg.glb");
 
-  assert.ok(bloomLayer);
-  assert.equal(bloomLayer.localPath, "fx.glb");
-  assert.equal(bloomLayer.runtime.applyFireVideoTexture, true);
+  assert.ok(bloomLayers.length >= 1);
+  const fireLayer = bloomLayers.find((l) => l.id === "fire");
+  assert.ok(fireLayer);
+  assert.equal(fireLayer.localPath, "fire.glb");
+  assert.equal(fireLayer.runtime.applyFireVideoTexture, true);
+
+  const emissiveLayer = bloomLayers.find((l) => l.id === "emissive");
+  assert.ok(emissiveLayer);
+  assert.equal(emissiveLayer.localPath, "emissive.glb");
 
   assert.equal(FIRE_VIDEO_ASSET_CONTRACT.localPath, "fire.mp4");
   assert.equal(FIRE_VIDEO_ASSET_CONTRACT.urls.local, `${LOCAL_SCENE_ASSET_BASE_URL}/fire.mp4`);

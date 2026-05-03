@@ -1,4 +1,4 @@
-import { Color, Euler, FrontSide, MeshPhysicalMaterial, Vector2 } from "three";
+import { Color, Euler, FrontSide, MeshPhysicalMaterial, Vector2, Vector3 } from "three";
 
 export function makeReflectMaterial({
   viewerConfig,
@@ -69,7 +69,13 @@ export function makeReflectMaterial({
     thickness: source.thickness ?? 0,
   });
 
-  material.envMap = reflectionEnvironment.getEnvironmentMap();
+  const worldCenter = new Vector3();
+  if (mesh.geometry) {
+    mesh.geometry.computeBoundingBox();
+    mesh.geometry.boundingBox.getCenter(worldCenter);
+    mesh.localToWorld(worldCenter);
+  }
+  material.envMap = reflectionEnvironment.getClosestEnvMap(worldCenter);
   material.envMapRotation = new Euler(0, reflectionState.envMapRotationY, 0);
 
   stampViewerMaterialData(material, source, tweak);

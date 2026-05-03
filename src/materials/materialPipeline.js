@@ -4,12 +4,14 @@ import { describeMaterialTarget } from "./debugMaterialTargeting.js";
 import { makeAlphaCutoutMaterial } from "./factories/makeAlphaCutoutMaterial.js";
 import { makeBackgroundMaterial } from "./factories/makeBackgroundMaterial.js";
 import { makeBakedMaterial } from "./factories/makeBakedMaterial.js";
+import { makeEmissiveMaterial } from "./factories/makeEmissiveMaterial.js";
 import { makeFxMaterial } from "./factories/makeFxMaterial.js";
 import { makeGlassMaterial } from "./factories/makeGlassMaterial.js";
 import { makeReflectMaterial } from "./factories/makeReflectMaterial.js";
 import { makeUnlitAlphaMaterial } from "./factories/makeUnlitAlphaMaterial.js";
-import { createGlassMaterialPatchApplier } from "./shaderPatches/applyGlassMaterialPatch.js";
+import { makeWindowsMaterial } from "./factories/makeWindowsMaterial.js";
 import { createFireVideoMaterialPatchApplier } from "./shaderPatches/applyFireVideoMaterialPatch.js";
+import { createTranslucencyPatchApplier } from "./shaderPatches/applyTranslucencyPatch.js";
 import { createViewerMaterialPatchApplier } from "./shaderPatches/applyViewerMaterialPatches.js";
 import { createTextureUtils } from "./textureUtils.js";
 
@@ -103,14 +105,18 @@ export function createMaterialPipeline({
   const applyViewerMaterialPatches = createViewerMaterialPatchApplier({
     setMaterialCompileHook,
   });
-  const applyGlassMaterialPatch = createGlassMaterialPatchApplier({
-    setMaterialCompileHook,
-  });
   const applyFireVideoMaterialPatch = createFireVideoMaterialPatchApplier({
     viewerConfig,
     fireState,
     setMaterialCompileHook,
   });
+  const applyTranslucencyPatch = createTranslucencyPatchApplier({
+    setMaterialCompileHook,
+  });
+
+  const translucencyState = {
+    sunDirection: null,
+  };
 
   function getMaterialTexture(source) {
     return normalizeTexture(source.map || source.emissiveMap || null);
@@ -221,17 +227,25 @@ export function createMaterialPipeline({
           tuneFoliageTexture,
           stampViewerMaterialData,
           applyViewerMaterialPatches,
+          applyTranslucencyPatch,
+          translucencyConfig: viewerConfig.materialPresets.translucency,
+          translucencySunDirection: translucencyState.sunDirection,
         });
       case "glass":
         return makeGlassMaterial({
           viewerConfig,
+          reflectionEnvironment,
           sourceMaterial,
           mesh,
           findMaterialTweak,
           getMaterialTexture,
+          getMaterialNormalTexture,
+          getMaterialRoughnessTexture,
           getMaterialTint,
+          getFallbackTextureChannel,
+          applyTextureChannelOverride,
           stampViewerMaterialData,
-          applyGlassMaterialPatch,
+          applyViewerMaterialPatches,
         });
       case "reflect":
         return makeReflectMaterial({
@@ -252,6 +266,25 @@ export function createMaterialPipeline({
           stampViewerMaterialData,
           applyViewerMaterialPatches,
           normalizeTexture,
+        });
+      case "windows":
+        return makeWindowsMaterial({
+          viewerConfig,
+          reflectionEnvironment,
+          sourceMaterial,
+          mesh,
+          findMaterialTweak,
+          stampViewerMaterialData,
+          applyViewerMaterialPatches,
+        });
+      case "emissive":
+        return makeEmissiveMaterial({
+          viewerConfig,
+          sourceMaterial,
+          mesh,
+          findMaterialTweak,
+          stampViewerMaterialData,
+          applyViewerMaterialPatches,
         });
       case "fx":
         return makeFxMaterial({
@@ -381,5 +414,8 @@ export function createMaterialPipeline({
     getTextureDimensions,
     isGameplayMesh,
     matchesFireVideoTarget,
+    setTranslucencySunDirection(direction) {
+      translucencyState.sunDirection = direction;
+    },
   };
 }

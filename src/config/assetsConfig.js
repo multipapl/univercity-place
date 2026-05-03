@@ -91,12 +91,12 @@ export const SCENE_LAYER_CONTRACTS = [
     },
   }),
   createAssetContract({
-    id: "bg360",
-    label: "BG360",
-    searchParam: "bg360",
+    id: "sky",
+    label: "Sky",
+    searchParam: "sky",
     materialMode: "unlitAlpha",
     required: false,
-    localPath: "BG360.glb",
+    localPath: "sky.glb",
   }),
   createAssetContract({
     id: "base",
@@ -116,7 +116,7 @@ export const SCENE_LAYER_CONTRACTS = [
     searchParam: "alpha",
     materialMode: "alphaCutout",
     required: false,
-    localPath: "leaf.glb",
+    localPath: "translucent.glb",
   }),
   createAssetContract({
     id: "glass",
@@ -135,18 +135,45 @@ export const SCENE_LAYER_CONTRACTS = [
     localPath: "reflect.glb",
   }),
   createAssetContract({
-    id: "fx",
-    label: "FX",
-    searchParam: "fx",
+    id: "windows",
+    label: "Windows",
+    searchParam: "windows",
+    materialMode: "windows",
+    required: false,
+    localPath: "windows.glb",
+  }),
+  createAssetContract({
+    id: "fire",
+    label: "Fire",
+    searchParam: "fire",
     materialMode: "fx",
     required: false,
-    localPath: "fx.glb",
+    localPath: "fire.glb",
     runtime: {
       applyFireVideoTexture: true,
       enableBloom: true,
     },
   }),
+  createAssetContract({
+    id: "emissive",
+    label: "Emissive",
+    searchParam: "emissive",
+    materialMode: "emissive",
+    required: false,
+    localPath: "emissive.glb",
+    runtime: {
+      enableBloom: true,
+    },
+  }),
 ];
+
+export const PROBES_ASSET_CONTRACT = createAssetContract({
+  id: "probes",
+  label: "Probes",
+  searchParam: "probes",
+  localPath: "probes.glb",
+  required: false,
+});
 
 export const FIRE_VIDEO_ASSET_CONTRACT = createAssetContract({
   id: "fireVideo",
@@ -190,5 +217,6 @@ export const ASSETS_CONFIG = {
   remoteSceneAssetBaseUrl: REMOTE_SCENE_ASSET_BASE_URL,
   sceneLayers: SCENE_LAYER_CONTRACTS,
   fireVideo: FIRE_VIDEO_ASSET_CONTRACT,
+  probes: PROBES_ASSET_CONTRACT,
   reflectEnvironment: REFLECTION_ENVIRONMENT_ASSET_CONTRACT,
 };

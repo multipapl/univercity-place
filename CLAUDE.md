@@ -34,9 +34,10 @@ All config merges into `VIEWER_CONFIG` exported from `viewerConfig.js`. Never im
 ### Material pipeline (`src/materials/`)
 
 - `materialPipeline.js` — dispatches mesh conversion to per-type factories, owns the `onBeforeCompile` hook chain (state stored in `material.userData.viewerCompileHookState`), applies `MATERIAL_TWEAKS` by substring name match.
-- `factories/` — one file per mode: `baked`, `background`, `unlitAlpha`, `alphaCutout`, `glass`, `reflect`, `fx`.
-- `shaderPatches/` — GLSL injection: glass (Fresnel), fire video (HSV + luma remap), shared viewer patch.
-- `reflectionEnvironment.js` — loads `cubemap.png` as PMREM env map.
+- `factories/` — one file per mode: `baked`, `background`, `unlitAlpha`, `alphaCutout`, `glass` (MeshPhysicalMaterial + transmission), `reflect`, `windows`, `emissive`, `fx`.
+- `shaderPatches/` — GLSL injection: translucency (fake subsurface for foliage), fire video (HSV + luma remap), shared viewer patch.
+- `reflectionEnvironment.js` — loads fallback `cubemap.png` as PMREM env map, delegates to probe manager when probes are available.
+- `probeEnvironmentManager.js` — multi-probe env map system. Loads `probes.glb` with `probe_*` named nodes carrying panorama textures, converts to PMREM, assigns closest probe to each mesh by distance. Used by reflect, glass, and windows layers.
 
 ### Viewer subsystems (`src/viewer/`)
 

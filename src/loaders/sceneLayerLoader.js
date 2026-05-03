@@ -1,4 +1,4 @@
-import { LinearFilter, SRGBColorSpace, VideoTexture } from "three";
+import { LinearFilter, Quaternion, SRGBColorSpace, Vector3, VideoTexture } from "three";
 import { resolveAssetContract, resolveSceneLayers } from "./assetResolver.js";
 import { disposeObjectTree } from "../utils/threeDisposal.js";
 
@@ -24,6 +24,32 @@ function logLayerMaterials(root, layer, enabled) {
     });
   });
   console.table(rows);
+}
+
+async function loadProbesGlb({ viewerConfig, searchParams, assetQuery, gltfLoader, probeEnvironmentManager, updateStatus }) {
+  if (!probeEnvironmentManager) {
+    return;
+  }
+
+  const probesContract = resolveAssetContract(
+    viewerConfig.assets.probes,
+    searchParams,
+    assetQuery,
+  );
+
+  if (!probesContract?.url) {
+    return;
+  }
+
+  try {
+    updateStatus(`Loading probes from ${probesContract.url}...`);
+    const gltf = await gltfLoader(probesContract.url);
+    probeEnvironmentManager.loadProbesFromGltf(gltf.scene);
+    disposeObjectTree(gltf.scene);
+    updateStatus(`Probes loaded from ${probesContract.url}.`);
+  } catch (error) {
+    console.warn(`Failed to load probes from ${probesContract.url}.`, error);
+  }
 }
 
 export function createSceneLayerLoader({
@@ -56,6 +82,8 @@ export function createSceneLayerLoader({
   isTouchDevice,
   isWalkMode,
   trackedMaterialSets = [],
+  probeEnvironmentManager = null,
+  setTranslucencySunDirection = null,
 }) {
   const fxState = {
     videoUrl: null,
@@ -240,6 +268,18 @@ export function createSceneLayerLoader({
       root.name = root.name || `${layer.id}-root`;
       root.userData.viewerLayerId = layer.id;
 
+      if (layer.materialMode === "alphaCutout" && setTranslucencySunDirection) {
+        const sunNode = root.getObjectByName("Sun");
+        if (sunNode) {
+          const forward = new Vector3(0, 0, -1);
+          const worldQuaternion = new Quaternion();
+          sunNode.getWorldQuaternion(worldQuaternion);
+          forward.applyQuaternion(worldQuaternion).normalize();
+          setTranslucencySunDirection(forward);
+          root.remove(sunNode);
+        }
+      }
+
       root.traverse((child) => {
         if (child.isMesh) {
           child.userData.viewerLayerId = layer.id;
@@ -334,6 +374,14 @@ export function createSceneLayerLoader({
       disposeFireVideoResources();
       clearFallbackScene();
       await ensureReflectionEnvironment();
+      await loadProbesGlb({
+        viewerConfig,
+        searchParams,
+        assetQuery,
+        gltfLoader: loadGltfScene,
+        probeEnvironmentManager,
+        updateStatus,
+      });
       const layers = resolveSceneLayers(viewerConfig.sceneLayers, searchParams, assetQuery);
       if (!layers?.length) {
         addFallbackScene();

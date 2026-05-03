@@ -30,6 +30,7 @@ import { createDebugObjectInspector } from "../debug/debugObjectInspector.js";
 import { createPerformanceDiagnostics } from "../diagnostics/performanceDiagnostics.js";
 import { createSceneLayerLoader } from "../loaders/sceneLayerLoader.js";
 import { createMaterialPipeline } from "../materials/materialPipeline.js";
+import { createProbeEnvironmentManager } from "../materials/probeEnvironmentManager.js";
 import { createReflectionEnvironmentManager } from "../materials/reflectionEnvironment.js";
 import { createSelectiveBloomPipeline } from "../postprocessing/createSelectiveBloomPipeline.js";
 import { bindViewerUiEvents } from "../ui/debugPanelBindings.js";
@@ -193,6 +194,7 @@ const scene = new Scene();
 scene.background = new Color("#050816");
 const reflectionPmremGenerator = new PMREMGenerator(renderer);
 reflectionPmremGenerator.compileCubemapShader();
+const probeEnvironmentManager = createProbeEnvironmentManager({ pmremGenerator: reflectionPmremGenerator });
 const sceneRoots = new Group();
 scene.add(sceneRoots);
 
@@ -376,6 +378,7 @@ const reflectionEnvironment = createReflectionEnvironmentManager({
   textureLoader,
   updateStatus,
 });
+reflectionEnvironment.setProbeEnvironmentManager(probeEnvironmentManager);
 const materialPipeline = createMaterialPipeline({
   viewerConfig,
   maxSupportedAnisotropy,
@@ -754,6 +757,8 @@ const sceneLayerLoader = createSceneLayerLoader({
     fireState.materials,
     reflectionState.materials,
   ],
+  probeEnvironmentManager,
+  setTranslucencySunDirection: materialPipeline.setTranslucencySunDirection,
 });
 const unbindNavigationEvents = navigationController.bindInputEvents({
   getMenuOpen: () => menuController.isOpen() || helpOverlayState.isOpen,

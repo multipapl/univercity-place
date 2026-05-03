@@ -1,4 +1,4 @@
-import { EquirectangularReflectionMapping, SRGBColorSpace } from "three";
+import { EquirectangularReflectionMapping, SRGBColorSpace, Vector3 } from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
 import { resolveAssetContract } from "../loaders/assetResolver.js";
 import { disposeObjectTree } from "../utils/threeDisposal.js";
@@ -16,6 +16,7 @@ export function createReflectionEnvironmentManager({
     envUrl: null,
     envTarget: null,
     envTexture: null,
+    probeEnvironmentManager: null,
   };
 
   function buildFallbackReflectionEnvironment() {
@@ -33,7 +34,9 @@ export function createReflectionEnvironmentManager({
     state.envTarget?.dispose();
     state.envTarget = nextTarget;
     state.envTexture = nextTarget?.texture ?? null;
-    scene.environment = state.envTexture;
+    if (!state.probeEnvironmentManager?.hasProbes()) {
+      scene.environment = state.envTexture;
+    }
   }
 
   async function ensureEnvironment() {
@@ -76,7 +79,20 @@ export function createReflectionEnvironmentManager({
     return state.envTexture ?? scene.environment ?? null;
   }
 
+  function getClosestEnvMap(meshWorldPosition) {
+    if (state.probeEnvironmentManager?.hasProbes()) {
+      return state.probeEnvironmentManager.getClosestEnvMap(meshWorldPosition);
+    }
+    return getEnvironmentMap();
+  }
+
+  function setProbeEnvironmentManager(probeManager) {
+    state.probeEnvironmentManager = probeManager;
+  }
+
   function dispose() {
+    state.probeEnvironmentManager?.dispose();
+    state.probeEnvironmentManager = null;
     scene.environment = null;
     state.envTarget?.dispose();
     state.envTarget = null;
@@ -87,5 +103,7 @@ export function createReflectionEnvironmentManager({
     dispose,
     ensureEnvironment,
     getEnvironmentMap,
+    getClosestEnvMap,
+    setProbeEnvironmentManager,
   };
 }

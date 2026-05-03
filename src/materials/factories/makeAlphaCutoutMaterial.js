@@ -13,6 +13,9 @@ export function makeAlphaCutoutMaterial({
   tuneFoliageTexture,
   stampViewerMaterialData,
   applyViewerMaterialPatches,
+  applyTranslucencyPatch = null,
+  translucencyConfig = null,
+  translucencySunDirection = null,
 }) {
   const source = sourceMaterial ?? {};
   const map = getMaterialTexture(source);
@@ -65,6 +68,16 @@ export function makeAlphaCutoutMaterial({
     tweak,
     alphaFromMapChannel: useSeparateAlphaFromMap ? alphaChannel : null,
   });
+
+  if (applyTranslucencyPatch && translucencyConfig) {
+    applyTranslucencyPatch(material, {
+      sunDirection: translucencySunDirection,
+      strength: translucencyConfig.strength,
+      hueDegrees: translucencyConfig.hueDegrees,
+      saturationBoost: translucencyConfig.saturationBoost,
+      brightnessBoost: translucencyConfig.brightnessBoost,
+    });
+  }
 
   return material;
 }

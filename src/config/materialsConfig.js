@@ -11,13 +11,32 @@ export const MATERIAL_TWEAKS = [
 
 export const MATERIAL_PRESETS = {
   alphaCutoff: 0.5,
-  glassOpacity: 0.22,
-  glassAlphaCutoff: 0.02,
-  glassFresnel: {
-    centerOpacity: 0.08,
-    edgeOpacity: 0.34,
-    power: 3.6,
-    edgeTintStrength: 0.18,
+  glassMaterial: {
+    defaultRoughness: 0.1,
+    ior: 1.5,
+    transmission: 0.95,
+    thickness: 0.5,
+    envMapIntensity: 1.0,
+  },
+  glassUvChannels: {
+    color: 1,
+    roughness: 1,
+    normal: 1,
+  },
+  windowsMaterial: {
+    ior: 1.5,
+    transmission: 0.98,
+    roughness: 0.05,
+    envMapIntensity: 0.8,
+  },
+  translucency: {
+    strength: 0.5,
+    hueDegrees: -5,
+    saturationBoost: 0.10,
+    brightnessBoost: 0.10,
+  },
+  emissiveMaterial: {
+    intensityMultiplier: 1.0,
   },
   fxAlphaCutoff: 0.05,
   fxUvChannels: {
