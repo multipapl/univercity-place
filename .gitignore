@@ -4,3 +4,14 @@ vite.stdout.log
 vite.stderr.log
 .env
 docs/
+
+# Heavy scene assets - stored in Cloudflare R2
+/public/assets/scene/*.glb
+/public/assets/scene/*.gltf
+/public/assets/scene/*.bin
+/public/assets/scene/*.mp4
+/public/assets/scene/*.webm
+/public/assets/scene/*.png
+/public/assets/scene/*.jpg
+/public/assets/scene/*.hdr
+/public/assets/scene/*.exr
