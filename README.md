@@ -2,14 +2,7 @@
 
 Scene-specific architectural viewer built with `three` + `vite`.
 
-This project is intentionally narrow. It assumes a known asset contract, a layered scene export, and a few specialized runtime material paths.
-
-## What Matters
-
-- This is a delivery viewer, not a generic editor or engine.
-- The required base layer is `scene.glb`; everything else is optional.
-- Runtime behavior depends on stable layer, mesh, and material naming.
-- Internal docs in `docs/` are local-only and ignored by git.
+This runtime is intentionally narrow. It assumes a fixed layered asset contract, stable naming, and a few specialized material paths. It is a delivery viewer, not a generic editor or engine.
 
 ## Quick Start
 
@@ -21,17 +14,38 @@ npm run dev
 Other useful commands:
 
 ```bash
+npm test
 npm run build
 npm run preview
 ```
 
-## Asset Contract
+## Scene Asset Delivery
 
-Default asset root:
+Default asset base URL:
+
+```text
+/assets/scene
+```
+
+By default that resolves to local files in:
 
 ```text
 public/assets/scene/
 ```
+
+You can point the runtime at object storage instead:
+
+```text
+VITE_SCENE_ASSET_BASE_URL=https://assets.example.com/assets/scene
+```
+
+Current intended deployment shape:
+
+- app bundle and `/public/draco` ship with the site
+- heavy scene payload can live in Cloudflare R2 or another public object store
+- if `VITE_SCENE_ASSET_BASE_URL` is unset, the viewer falls back to local `/public/assets/scene`
+
+## Asset Contract
 
 Required:
 
@@ -68,13 +82,14 @@ If the required base scene is missing, the app loads a placeholder room instead 
 
 ## Runtime Shape
 
-- `src/main.js` only bootstraps the app and renders a startup error shell if init fails.
-- `src/viewer/createViewerApp.js` composes the runtime.
+- `src/main.js` bootstraps the app and renders a startup error shell if init fails.
+- `src/viewer/createViewerApp.js` composes the runtime and owns `init()` / `dispose()`.
 - `src/viewer/createViewerState.js` owns mutable runtime state.
 - `src/viewer/createViewerLifecycle.js` owns the render loop, resize handling, and teardown.
 - `src/loaders/sceneLayerLoader.js` loads required and optional layers, applies runtime assets, and handles fallback transitions.
 - `src/materials/` contains the specialized material pipeline.
-- `src/ui/` contains the shell, menu structure, help overlay, and debug/viewer bindings.
+- `src/ui/` contains the shell, menu structure, help overlay, and viewer/debug bindings.
+- `tests/` contains focused Node tests for state creation, override logic, diagnostics, debug targeting, and disposal helpers.
 
 ## Query Overrides
 
@@ -103,6 +118,8 @@ Useful runtime flags:
 - `lowMemoryBase=1`
 - `baseTextureCap=2048`
 
+`assetBust` flows through the asset resolver for top-level scene layers, fire video, and reflection environment URLs. During local dev, the app also timestamps same-origin asset requests automatically to reduce stale caching.
+
 ## Interaction
 
 - Desktop: click to lock pointer, `WASD` to move, `Shift` to sprint/boost, wheel for speed, `Shift` + wheel for FOV, `Q` / `E` for camera height.
@@ -113,7 +130,7 @@ Useful runtime flags:
 
 Default locomotion mode is `walk`. There is no collision system.
 
-## Debug Notes
+## Debug Workflow
 
 Enable debug mode with `?debug=1`.
 
@@ -139,3 +156,6 @@ During `npm run dev`, `vite.config.js` exposes a dev-only POST endpoint at `/__d
 1. `README.md`
 2. `docs/CURRENT_SYSTEM_OVERVIEW.md`
 3. `docs/PROJECT_NOTES.md`
+4. `docs/r2-asset-migration.md`
+
+The files in `docs/` are internal workspace notes in this repo and are currently ignored by git.

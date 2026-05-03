@@ -56,6 +56,15 @@ export default defineConfig({
   plugins: [
     debugSceneOverridesPlugin(),
   ],
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          three: ["three"],
+        },
+      },
+    },
+  },
   server: {
     host: "localhost",
     port: 5173,
