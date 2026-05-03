@@ -65,6 +65,49 @@ export function createSceneLayerLoader({
     lastResumeAttemptAt: 0,
     resumePlayPromise: null,
   };
+  const imageBitmapBypassState = {
+    activeCount: 0,
+    originalCreateImageBitmap: null,
+  };
+
+  function shouldBypassImageBitmapForGltf() {
+    if (typeof navigator === "undefined" || typeof globalThis.createImageBitmap !== "function") {
+      return false;
+    }
+
+    return navigator.userAgent.includes("Firefox");
+  }
+
+  async function loadGltfScene(url) {
+    if (!shouldBypassImageBitmapForGltf()) {
+      return gltfLoader.loadAsync(url);
+    }
+
+    if (imageBitmapBypassState.activeCount === 0) {
+      imageBitmapBypassState.originalCreateImageBitmap = globalThis.createImageBitmap;
+      try {
+        globalThis.createImageBitmap = undefined;
+      } catch {
+        return gltfLoader.loadAsync(url);
+      }
+    }
+
+    imageBitmapBypassState.activeCount += 1;
+
+    try {
+      return await gltfLoader.loadAsync(url);
+    } finally {
+      imageBitmapBypassState.activeCount = Math.max(0, imageBitmapBypassState.activeCount - 1);
+      if (imageBitmapBypassState.activeCount === 0) {
+        try {
+          globalThis.createImageBitmap = imageBitmapBypassState.originalCreateImageBitmap;
+        } catch {
+          // Ignore environments that don't allow restoring this global.
+        }
+        imageBitmapBypassState.originalCreateImageBitmap = null;
+      }
+    }
+  }
 
   function cleanupLoadedRoots(loadedLayers = []) {
     const seenGeometries = new Set();
@@ -193,7 +236,7 @@ export function createSceneLayerLoader({
 
     try {
       updateStatus(`Loading ${layer.label} layer from ${layer.url}...`);
-      const gltf = await gltfLoader.loadAsync(layer.url);
+      const gltf = await loadGltfScene(layer.url);
       root = gltf.scene;
       root.name = root.name || `${layer.id}-root`;
       root.userData.viewerLayerId = layer.id;
