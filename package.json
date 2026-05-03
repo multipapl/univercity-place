@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "test": "node --test --test-concurrency=1 --test-isolation=none",
     "build": "vite build",
     "preview": "vite preview"
   },

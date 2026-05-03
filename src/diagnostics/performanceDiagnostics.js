@@ -97,7 +97,7 @@ export function createPerformanceDiagnostics({
       }
 
       entry.root.traverse((child) => {
-        if (!child.isMesh) {
+        if (!child.isMesh || !child.visible) {
           return;
         }
 
