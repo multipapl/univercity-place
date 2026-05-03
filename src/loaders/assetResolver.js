@@ -24,14 +24,18 @@ export function resolveOptionalAssetUrl(searchParams, searchParam, expectedUrl =
   return expectedUrl ? appendAssetQuery(expectedUrl, assetQuery) : null;
 }
 
-export function resolveSceneLayers(sceneLayers, searchParams, assetQuery = "") {
-  return sceneLayers.map((layer) => ({
-    ...layer,
+export function resolveAssetContract(assetContract, searchParams, assetQuery = "") {
+  return {
+    ...assetContract,
     url: resolveOptionalAssetUrl(
       searchParams,
-      layer.searchParam ?? layer.id,
-      layer.url,
+      assetContract.searchParam ?? assetContract.id,
+      assetContract.url,
       assetQuery,
     ),
-  }));
+  };
+}
+
+export function resolveSceneLayers(sceneLayers, searchParams, assetQuery = "") {
+  return sceneLayers.map((layer) => resolveAssetContract(layer, searchParams, assetQuery));
 }

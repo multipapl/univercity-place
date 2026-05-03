@@ -47,6 +47,14 @@ Current intended deployment shape:
 
 ## Asset Contract
 
+All runtime asset paths live in one manifest:
+
+```text
+src/config/assetsConfig.js
+```
+
+Each asset entry can define both `localPath` and `remotePath`. The runtime resolves URLs from that manifest instead of hardcoding filenames in loaders.
+
 Required:
 
 ```text
@@ -85,6 +93,7 @@ If the required base scene is missing, the app loads a placeholder room instead 
 - `src/main.js` bootstraps the app and renders a startup error shell if init fails.
 - `src/viewer/createViewerApp.js` composes the runtime and owns `init()` / `dispose()`.
 - `src/viewer/createViewerState.js` owns mutable runtime state.
+- `src/config/assetsConfig.js` is the single source of truth for local/remote asset paths and per-layer runtime flags.
 - `src/viewer/createViewerLifecycle.js` owns the render loop, resize handling, and teardown.
 - `src/loaders/sceneLayerLoader.js` loads required and optional layers, applies runtime assets, and handles fallback transitions.
 - `src/materials/` contains the specialized material pipeline.

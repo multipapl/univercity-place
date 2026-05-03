@@ -1,6 +1,6 @@
 import { EquirectangularReflectionMapping, SRGBColorSpace } from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
-import { resolveOptionalAssetUrl } from "../loaders/assetResolver.js";
+import { resolveAssetContract } from "../loaders/assetResolver.js";
 import { disposeObjectTree } from "../utils/threeDisposal.js";
 
 export function createReflectionEnvironmentManager({
@@ -42,12 +42,11 @@ export function createReflectionEnvironmentManager({
     }
 
     if (!state.envUrl) {
-      state.envUrl = resolveOptionalAssetUrl(
+      state.envUrl = resolveAssetContract(
+        viewerConfig.assets.reflectEnvironment,
         searchParams,
-        viewerConfig.materialPresets.reflectMaterial.searchParam,
-        viewerConfig.materialPresets.reflectMaterial.url,
         assetQuery,
-      );
+      ).url;
     }
 
     if (!state.envUrl) {

@@ -151,7 +151,7 @@ export function createSelectiveBloomPipeline({
     let targetCount = 0;
 
     loadedLayers.forEach((entry) => {
-      const shouldBloom = entry.layer.id === "fx";
+      const shouldBloom = entry.layer.runtime?.enableBloom === true;
       entry.root.traverse((child) => {
         if (!child.isMesh) {
           return;

@@ -19,6 +19,7 @@ export {
 };
 
 export const VIEWER_CONFIG = {
+  assets: ASSETS_CONFIG,
   debug: DEBUG_CONFIG,
   colorPipeline: COLOR_PIPELINE_CONFIG,
   postProcessing: POST_PROCESSING_CONFIG,
@@ -28,15 +29,5 @@ export const VIEWER_CONFIG = {
   sceneLayers: ASSETS_CONFIG.sceneLayers,
   locomotion: LOCOMOTION_CONFIG,
   materialTweaks: MATERIAL_TWEAKS,
-  materialPresets: {
-    ...MATERIAL_PRESETS,
-    fireVideo: {
-      ...MATERIAL_PRESETS.fireVideo,
-      ...ASSETS_CONFIG.fireVideo,
-    },
-    reflectMaterial: {
-      ...MATERIAL_PRESETS.reflectMaterial,
-      ...ASSETS_CONFIG.reflectEnvironment,
-    },
-  },
+  materialPresets: MATERIAL_PRESETS,
 };

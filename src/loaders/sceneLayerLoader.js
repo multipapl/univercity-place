@@ -1,5 +1,5 @@
 import { LinearFilter, SRGBColorSpace, VideoTexture } from "three";
-import { resolveOptionalAssetUrl, resolveSceneLayers } from "./assetResolver.js";
+import { resolveAssetContract, resolveSceneLayers } from "./assetResolver.js";
 import { disposeObjectTree } from "../utils/threeDisposal.js";
 
 function logLayerMaterials(root, layer, enabled) {
@@ -158,12 +158,11 @@ export function createSceneLayerLoader({
 
     fxState.videoTexturePromise = (async () => {
       if (!fxState.videoUrl) {
-        fxState.videoUrl = resolveOptionalAssetUrl(
+        fxState.videoUrl = resolveAssetContract(
+          viewerConfig.assets.fireVideo,
           searchParams,
-          viewerConfig.materialPresets.fireVideo.searchParam,
-          viewerConfig.materialPresets.fireVideo.url,
           assetQuery,
-        );
+        ).url;
       }
 
       if (!fxState.videoUrl) {
@@ -248,11 +247,11 @@ export function createSceneLayerLoader({
         }
       });
 
-      if (layer.id === "fx") {
+      if (layer.runtime?.applyFireVideoTexture) {
         await applyFxRuntimeAssets(root);
       }
 
-      if (layer.id === "background") {
+      if (layer.runtime?.registerAsBackgroundRoot) {
         backgroundRoots.add(root);
       }
 
@@ -381,7 +380,8 @@ export function createSceneLayerLoader({
       updatePerformanceDiagnostics();
       onLayersLoaded?.(loadedLayers);
 
-      const spawnRoot = loadedLayers.find((entry) => entry.layer.id === "base")?.root ?? loadedLayers[0].root;
+      const spawnRoot = loadedLayers.find((entry) => entry.layer.runtime?.preferAsSpawnRoot)?.root
+        ?? loadedLayers[0].root;
       positionCameraAtSpawn(spawnRoot);
       applyCameraSettings();
 

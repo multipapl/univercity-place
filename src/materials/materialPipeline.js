@@ -328,7 +328,7 @@ export function createMaterialPipeline({
   }
 
   function tuneBaseLayerEntryTextures(entry) {
-    if (entry.layer.id !== "base") {
+    if (!entry.layer.runtime?.applyBaseTextureOptimizations) {
       return;
     }
 
