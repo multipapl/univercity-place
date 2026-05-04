@@ -5,7 +5,7 @@ import {
   ACTIVE_SCENE_ASSET_SOURCE,
   FIRE_VIDEO_ASSET_CONTRACT,
   LOCAL_SCENE_ASSET_BASE_URL,
-  REFLECTION_ENVIRONMENT_ASSET_CONTRACT,
+  PROBES_ASSET_CONTRACT,
   SCENE_LAYER_CONTRACTS,
   getMissingSceneStatusMessage,
 } from "../src/config/assetsConfig.js";
@@ -37,7 +37,7 @@ test("assetsConfig exposes a single manifest for scene layers and runtime assets
 
   assert.equal(FIRE_VIDEO_ASSET_CONTRACT.localPath, "fire.mp4");
   assert.equal(FIRE_VIDEO_ASSET_CONTRACT.urls.local, `${LOCAL_SCENE_ASSET_BASE_URL}/fire.mp4`);
-  assert.equal(REFLECTION_ENVIRONMENT_ASSET_CONTRACT.localPath, "cubemap.png");
-  assert.equal(REFLECTION_ENVIRONMENT_ASSET_CONTRACT.urls.local, `${LOCAL_SCENE_ASSET_BASE_URL}/cubemap.png`);
+  assert.equal(PROBES_ASSET_CONTRACT.localPath, "probes.glb");
+  assert.equal(PROBES_ASSET_CONTRACT.urls.local, `${LOCAL_SCENE_ASSET_BASE_URL}/probes.glb`);
   assert.match(getMissingSceneStatusMessage(), /\/public\/assets\/scene\/scene\.glb/);
 });

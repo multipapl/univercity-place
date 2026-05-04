@@ -182,13 +182,6 @@ export const FIRE_VIDEO_ASSET_CONTRACT = createAssetContract({
   localPath: "fire.mp4",
 });
 
-export const REFLECTION_ENVIRONMENT_ASSET_CONTRACT = createAssetContract({
-  id: "reflectEnv",
-  label: "Reflection Environment",
-  searchParam: "reflectEnv",
-  localPath: "cubemap.png",
-});
-
 const REQUIRED_SCENE_LAYER = SCENE_LAYER_CONTRACTS.find((layer) => layer.required);
 const OPTIONAL_LAYER_HINTS = SCENE_LAYER_CONTRACTS
   .filter((layer) => !layer.required)
@@ -218,5 +211,4 @@ export const ASSETS_CONFIG = {
   sceneLayers: SCENE_LAYER_CONTRACTS,
   fireVideo: FIRE_VIDEO_ASSET_CONTRACT,
   probes: PROBES_ASSET_CONTRACT,
-  reflectEnvironment: REFLECTION_ENVIRONMENT_ASSET_CONTRACT,
 };

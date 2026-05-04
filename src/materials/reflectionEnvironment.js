@@ -1,19 +1,11 @@
-import { EquirectangularReflectionMapping, SRGBColorSpace, Vector3 } from "three";
 import { RoomEnvironment } from "three/examples/jsm/environments/RoomEnvironment.js";
-import { resolveAssetContract } from "../loaders/assetResolver.js";
 import { disposeObjectTree } from "../utils/threeDisposal.js";
 
 export function createReflectionEnvironmentManager({
-  viewerConfig,
-  searchParams,
-  assetQuery = "",
   reflectionPmremGenerator,
   scene,
-  textureLoader,
-  updateStatus,
 }) {
   const state = {
-    envUrl: null,
     envTarget: null,
     envTexture: null,
     probeEnvironmentManager: null,
@@ -26,53 +18,20 @@ export function createReflectionEnvironmentManager({
     return reflectionEnvironmentTarget;
   }
 
-  function setEnvironmentTarget(nextTarget) {
-    if (state.envTarget === nextTarget) {
-      return;
-    }
-
-    state.envTarget?.dispose();
-    state.envTarget = nextTarget;
-    state.envTexture = nextTarget?.texture ?? null;
-    if (!state.probeEnvironmentManager?.hasProbes()) {
-      scene.environment = state.envTexture;
-    }
-  }
-
-  async function ensureEnvironment() {
+  function ensureFallbackEnvironment() {
     if (state.envTexture) {
       return state.envTexture;
     }
 
-    if (!state.envUrl) {
-      state.envUrl = resolveAssetContract(
-        viewerConfig.assets.reflectEnvironment,
-        searchParams,
-        assetQuery,
-      ).url;
+    const target = buildFallbackReflectionEnvironment();
+    state.envTarget = target;
+    state.envTexture = target.texture;
+
+    if (!state.probeEnvironmentManager?.hasProbes()) {
+      scene.environment = state.envTexture;
     }
 
-    if (!state.envUrl) {
-      setEnvironmentTarget(buildFallbackReflectionEnvironment());
-      return state.envTexture;
-    }
-
-    try {
-      const equirectTexture = await textureLoader.loadAsync(state.envUrl);
-      equirectTexture.colorSpace = SRGBColorSpace;
-      equirectTexture.mapping = EquirectangularReflectionMapping;
-      equirectTexture.needsUpdate = true;
-
-      const reflectionEnvironmentTarget = reflectionPmremGenerator.fromEquirectangular(equirectTexture);
-      equirectTexture.dispose();
-      setEnvironmentTarget(reflectionEnvironmentTarget);
-      updateStatus(`Reflection environment loaded from ${state.envUrl}.`);
-      return state.envTexture;
-    } catch (error) {
-      console.warn(`Failed to load reflection environment from ${state.envUrl}.`, error);
-      setEnvironmentTarget(buildFallbackReflectionEnvironment());
-      return state.envTexture;
-    }
+    return state.envTexture;
   }
 
   function getEnvironmentMap() {
@@ -101,7 +60,7 @@ export function createReflectionEnvironmentManager({
 
   return {
     dispose,
-    ensureEnvironment,
+    ensureFallbackEnvironment,
     getEnvironmentMap,
     getClosestEnvMap,
     setProbeEnvironmentManager,

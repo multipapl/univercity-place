@@ -5,11 +5,17 @@ export function createProbeEnvironmentManager({ pmremGenerator }) {
     probes: [],
   };
 
+  function looksLikeProbeNode(name) {
+    if (!name) return false;
+    const normalized = name.toLowerCase().replace(/[\s_-]+/g, "_");
+    return normalized.startsWith("probe_") || normalized === "probe";
+  }
+
   function loadProbesFromGltf(gltfScene) {
     const probeNodes = [];
 
     gltfScene.traverse((node) => {
-      if (node.name && node.name.startsWith("probe_")) {
+      if (looksLikeProbeNode(node.name)) {
         probeNodes.push(node);
       }
     });
@@ -23,7 +29,9 @@ export function createProbeEnvironmentManager({ pmremGenerator }) {
     probeNodes.forEach((node) => {
       node.getWorldPosition(worldPosition);
 
-      const sourceMaterial = node.children?.[0]?.material ?? node.material;
+      const sourceMaterial = node.material
+        ?? node.children?.[0]?.material
+        ?? null;
       const texture = sourceMaterial?.map || sourceMaterial?.emissiveMap || null;
 
       if (!texture) {

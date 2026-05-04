@@ -370,13 +370,8 @@ const updateStatus = (message) => {
   }
 };
 const reflectionEnvironment = createReflectionEnvironmentManager({
-  viewerConfig,
-  searchParams,
-  assetQuery,
   reflectionPmremGenerator,
   scene,
-  textureLoader,
-  updateStatus,
 });
 reflectionEnvironment.setProbeEnvironmentManager(probeEnvironmentManager);
 const materialPipeline = createMaterialPipeline({
@@ -728,7 +723,7 @@ const sceneLayerLoader = createSceneLayerLoader({
   sceneRoots,
   backgroundRoots: backgroundState.roots,
   diagnosticsState,
-  ensureReflectionEnvironment: () => reflectionEnvironment.ensureEnvironment(),
+  ensureReflectionEnvironment: () => reflectionEnvironment.ensureFallbackEnvironment(),
   convertMeshForLayer: materialPipeline.convertMeshForLayer,
   matchesFireVideoTarget: materialPipeline.matchesFireVideoTarget,
   getFallbackTextureChannel: materialPipeline.getFallbackTextureChannel,

@@ -373,7 +373,6 @@ export function createSceneLayerLoader({
       diagnosticsState.loadedLayers = [];
       disposeFireVideoResources();
       clearFallbackScene();
-      await ensureReflectionEnvironment();
       await loadProbesGlb({
         viewerConfig,
         searchParams,
@@ -382,6 +381,9 @@ export function createSceneLayerLoader({
         probeEnvironmentManager,
         updateStatus,
       });
+      if (!probeEnvironmentManager?.hasProbes()) {
+        await ensureReflectionEnvironment();
+      }
       const layers = resolveSceneLayers(viewerConfig.sceneLayers, searchParams, assetQuery);
       if (!layers?.length) {
         addFallbackScene();
