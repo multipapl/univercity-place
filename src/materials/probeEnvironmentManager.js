@@ -1,5 +1,18 @@
 import { EquirectangularReflectionMapping, SRGBColorSpace, Vector3 } from "three";
 
+function flipImageVertically(image) {
+  const w = image.width || image.naturalWidth;
+  const h = image.height || image.naturalHeight;
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  ctx.translate(0, h);
+  ctx.scale(1, -1);
+  ctx.drawImage(image, 0, 0);
+  return canvas;
+}
+
 export function createProbeEnvironmentManager({ pmremGenerator }) {
   const state = {
     probes: [],
@@ -39,6 +52,7 @@ export function createProbeEnvironmentManager({ pmremGenerator }) {
         return;
       }
 
+      texture.image = flipImageVertically(texture.image);
       texture.colorSpace = SRGBColorSpace;
       texture.mapping = EquirectangularReflectionMapping;
       texture.needsUpdate = true;

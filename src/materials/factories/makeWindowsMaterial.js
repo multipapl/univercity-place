@@ -16,11 +16,8 @@ export function makeWindowsMaterial({
   const material = new MeshPhysicalMaterial({
     name: source.name || "WindowsMaterial",
     color: source.color?.clone?.() ?? 0xffffff,
-    transparent: true,
-    depthWrite: false,
     side: DoubleSide,
-    vertexColors: Boolean(source.vertexColors),
-    roughness: source.roughness ?? windowsPreset.roughness,
+    roughness: windowsPreset.roughness,
     ior: windowsPreset.ior,
     transmission: windowsPreset.transmission,
     envMapIntensity: windowsPreset.envMapIntensity,

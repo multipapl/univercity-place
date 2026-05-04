@@ -13,9 +13,9 @@ export const MATERIAL_PRESETS = {
   alphaCutoff: 0.5,
   glassMaterial: {
     defaultRoughness: 0.1,
-    ior: 1.5,
+    ior: 1.01,
     transmission: 0.95,
-    thickness: 0.5,
+    thickness: 0.0,
     envMapIntensity: 1.0,
   },
   glassUvChannels: {
@@ -71,7 +71,7 @@ export const MATERIAL_PRESETS = {
   reflectMaterial: {
     searchParam: "reflectEnv",
     envMapIntensity: 1.0,
-    defaultRoughness: 1.0,
+    defaultRoughness: 0.0,
     defaultMetalness: 0.0,
     ior: 1.5,
     specularIntensity: 1.0,

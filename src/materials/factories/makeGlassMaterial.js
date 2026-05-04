@@ -1,4 +1,30 @@
-import { DoubleSide, MeshPhysicalMaterial, Vector2, Vector3 } from "three";
+import { CanvasTexture, DoubleSide, MeshPhysicalMaterial, RepeatWrapping, Vector2, Vector3 } from "three";
+
+// Procedural bump for glass test — remove when real textures are ready
+let _sharedBumpTexture = null;
+function getProceduralGlassBump() {
+  if (_sharedBumpTexture) return _sharedBumpTexture;
+  const size = 128;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  const img = ctx.createImageData(size, size);
+  for (let i = 0; i < img.data.length; i += 4) {
+    const v = Math.random() * 255;
+    img.data[i] = v;
+    img.data[i + 1] = v;
+    img.data[i + 2] = v;
+    img.data[i + 3] = 255;
+  }
+  ctx.putImageData(img, 0, 0);
+  const tex = new CanvasTexture(canvas);
+  tex.wrapS = RepeatWrapping;
+  tex.wrapT = RepeatWrapping;
+  tex.repeat.set(2, 2);
+  _sharedBumpTexture = tex;
+  return tex;
+}
 
 export function makeGlassMaterial({
   viewerConfig,
@@ -38,12 +64,9 @@ export function makeGlassMaterial({
     color: getMaterialTint(source, hasTexture),
     normalMap,
     normalScale: source.normalScale?.clone?.() ?? new Vector2(1, 1),
-    roughness: source.roughness ?? glassPreset.defaultRoughness,
+    roughness: glassPreset.defaultRoughness,
     roughnessMap,
-    transparent: true,
-    depthWrite: false,
     side: DoubleSide,
-    vertexColors: Boolean(source.vertexColors),
     ior: glassPreset.ior,
     transmission: glassPreset.transmission,
     thickness: glassPreset.thickness,
@@ -57,6 +80,8 @@ export function makeGlassMaterial({
     mesh.localToWorld(worldCenter);
   }
   material.envMap = reflectionEnvironment.getClosestEnvMap(worldCenter);
+  material.bumpMap = normalMap ? null : getProceduralGlassBump();
+  material.bumpScale = 0.5;
 
   stampViewerMaterialData(material, source, tweak);
   material.userData.viewerUvChannels = {
