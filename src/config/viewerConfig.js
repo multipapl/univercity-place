@@ -2,6 +2,7 @@ import {
   ASSETS_CONFIG,
   DEFAULT_SCENE_FILE_URL,
   getMissingSceneStatusMessage,
+  RENDERS_BASE_URL,
   SCENE_ASSET_BASE_URL,
   SCENE_LOAD_STATUS_HTML,
 } from "./assetsConfig.js";
@@ -14,6 +15,7 @@ import { COLOR_PIPELINE_CONFIG, POST_PROCESSING_CONFIG } from "./renderingConfig
 export {
   DEFAULT_SCENE_FILE_URL,
   getMissingSceneStatusMessage,
+  RENDERS_BASE_URL,
   SCENE_ASSET_BASE_URL,
   SCENE_LOAD_STATUS_HTML,
 };

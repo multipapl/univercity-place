@@ -21,6 +21,7 @@ import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import {
   getMissingSceneStatusMessage,
+  RENDERS_BASE_URL,
   SCENE_LOAD_STATUS_HTML,
   VIEWER_CONFIG,
 } from "../config/viewerConfig.js";
@@ -34,6 +35,7 @@ import { createProbeEnvironmentManager } from "../materials/probeEnvironmentMana
 import { createReflectionEnvironmentManager } from "../materials/reflectionEnvironment.js";
 import { createSelectiveBloomPipeline } from "../postprocessing/createSelectiveBloomPipeline.js";
 import { bindViewerUiEvents } from "../ui/debugPanelBindings.js";
+import { createGalleryOverlay } from "../ui/galleryOverlay.js";
 import { createMenuController } from "../ui/menuController.js";
 import { createViewerShell } from "../ui/createViewerShell.js";
 import { createDebugInspectorUi } from "../ui/viewerDomRefs.js";
@@ -172,6 +174,7 @@ const {
   statTextureMemory,
   baseLowMemoryToggle,
   baseTextureCapSelect,
+  galleryOverlay: galleryOverlayRef,
   joystickBase,
   joystickThumb,
   lookPad,
@@ -447,6 +450,13 @@ const menuController = createMenuController({
   onDebugToggleRequest: () => {
     setDebugMode(!debugMode);
   },
+  onGalleryToggle: () => {
+    galleryOverlay.open();
+  },
+});
+const galleryOverlay = createGalleryOverlay({
+  overlay: galleryOverlayRef,
+  rendersBaseUrl: RENDERS_BASE_URL,
 });
 const layerControlsRenderer = createLayerControls({
   container: layerControls,
@@ -756,8 +766,13 @@ const sceneLayerLoader = createSceneLayerLoader({
   setTranslucencySunDirection: materialPipeline.setTranslucencySunDirection,
 });
 const unbindNavigationEvents = navigationController.bindInputEvents({
-  getMenuOpen: () => menuController.isOpen() || helpOverlayState.isOpen,
+  getMenuOpen: () => menuController.isOpen() || helpOverlayState.isOpen || galleryOverlay.isOpen(),
   onToggleMenu: () => {
+    if (galleryOverlay.isOpen()) {
+      galleryOverlay.close();
+      return;
+    }
+
     if (helpOverlayState.isOpen) {
       setHelpOverlayOpen(false);
     }
@@ -765,8 +780,20 @@ const unbindNavigationEvents = navigationController.bindInputEvents({
     showDock();
     menuController.setOpen(!menuController.isOpen());
   },
-  onToggleHelp: () => setHelpOverlayOpen(!helpOverlayState.isOpen),
+  onToggleHelp: () => {
+    if (galleryOverlay.isOpen()) {
+      galleryOverlay.close();
+      return;
+    }
+
+    setHelpOverlayOpen(!helpOverlayState.isOpen);
+  },
   onCloseMenu: () => {
+    if (galleryOverlay.isOpen()) {
+      galleryOverlay.close();
+      return;
+    }
+
     if (helpOverlayState.isOpen) {
       setHelpOverlayOpen(false);
       return;
@@ -918,6 +945,7 @@ const viewerLifecycleController = createViewerLifecycle({
     unbindDebugUi?.();
     unbindNavigationEvents?.();
     menuController.dispose?.();
+    galleryOverlay.dispose?.();
     setHelpOverlayOpen(false);
     debugObjectInspector.dispose?.();
     sceneLayerLoader.dispose();

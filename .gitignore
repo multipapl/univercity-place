@@ -15,3 +15,6 @@ docs/
 /public/assets/scene/*.jpg
 /public/assets/scene/*.hdr
 /public/assets/scene/*.exr
+
+# Render gallery assets - local testing only
+/public/assets/renders/

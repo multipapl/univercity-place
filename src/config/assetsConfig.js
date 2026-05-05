@@ -203,6 +203,12 @@ export function getMissingSceneStatusMessage() {
   return `No GLTF found yet. Placeholder room loaded. Check ${SCENE_ASSET_BASE_URL} for scene assets or override with ?${REQUIRED_SCENE_LAYER.searchParam}=...`;
 }
 
+export const RENDERS_BASE_URL = normalizeConfiguredAssetBaseUrl(
+  ENV.VITE_RENDER_ASSET_BASE_URL,
+) || (REMOTE_SCENE_ASSET_BASE_URL
+  ? REMOTE_SCENE_ASSET_BASE_URL.replace(/\/[^/]+\/?$/, "/renders")
+  : "/assets/renders");
+
 export const ASSETS_CONFIG = {
   sceneAssetBaseUrl: SCENE_ASSET_BASE_URL,
   sceneAssetSource: ACTIVE_SCENE_ASSET_SOURCE,

@@ -88,6 +88,7 @@ function collectViewerShellRefs({ hud, loadingScreen, mobileControls }) {
     copyObjectOverridesButton: hud.querySelector("[data-copy-object-overrides]"),
     saveObjectOverridesButton: hud.querySelector("[data-save-object-overrides]"),
     objectOverridesStatus: hud.querySelector("[data-object-overrides-status]"),
+    galleryOverlay: hud.querySelector("[data-gallery-overlay]"),
     joystickBase: mobileControls.querySelector("[data-joystick]"),
     joystickThumb: mobileControls.querySelector("[data-joystick-thumb]"),
     lookPad: mobileControls.querySelector("[data-lookpad]"),
@@ -169,7 +170,23 @@ export function createViewerShell({
     viewerConfig,
   });
 
-  hud.append(bottomDock, leftSidebar);
+  const galleryOverlayElement = document.createElement("div");
+  galleryOverlayElement.className = "gallery-overlay";
+  galleryOverlayElement.dataset.galleryOverlay = "";
+  galleryOverlayElement.hidden = true;
+  galleryOverlayElement.innerHTML = `
+    <div class="gallery-header">
+      <span class="gallery-counter" data-gallery-counter></span>
+      <button type="button" class="gallery-close" data-gallery-close aria-label="Close gallery"></button>
+    </div>
+    <div class="gallery-body">
+      <button type="button" class="gallery-nav-btn gallery-nav-prev" data-gallery-prev disabled aria-label="Previous"></button>
+      <div class="gallery-stage" data-gallery-stage></div>
+      <button type="button" class="gallery-nav-btn gallery-nav-next" data-gallery-next disabled aria-label="Next"></button>
+    </div>
+  `;
+
+  hud.append(bottomDock, leftSidebar, galleryOverlayElement);
 
   const loadingScreen = document.createElement("div");
   loadingScreen.className = "loading-screen is-visible";

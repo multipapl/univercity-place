@@ -27,6 +27,7 @@ export function createMenuController({
   navigationController,
   updateStatus,
   onDebugToggleRequest,
+  onGalleryToggle,
 }) {
   const state = {
     isOpen: false,
@@ -140,7 +141,17 @@ export function createMenuController({
     }
 
     button.blur?.();
-    setCategory(button.dataset.dockCategory || "");
+
+    const categoryId = button.dataset.dockCategory || "";
+
+    if (categoryId === "gallery") {
+      setSidebarOpen(leftSidebar, false);
+      syncVisualState();
+      onGalleryToggle?.();
+      return;
+    }
+
+    setCategory(categoryId);
   }
 
   function handleDockAuxClick(event) {

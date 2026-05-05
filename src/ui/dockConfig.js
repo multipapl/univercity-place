@@ -292,12 +292,17 @@ export const DOCK_CATEGORIES = [
       },
     ],
   },
+  {
+    id: "gallery",
+    label: "Gallery",
+    items: [],
+  },
 ];
 
 export function getDockCategories(mode) {
   const orderedIds = mode === "debug"
-    ? ["system", "viewport", "objects", "materials"]
-    : ["system", "viewport"];
+    ? ["system", "viewport", "objects", "materials", "gallery"]
+    : ["system", "viewport", "gallery"];
 
   return orderedIds
     .map((id) => DOCK_CATEGORIES.find((category) => category.id === id))
