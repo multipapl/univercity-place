@@ -31,6 +31,7 @@ export function buildHelpOverlayMarkup({
       ];
 
   const cameraItems = [
+    { keys: "<kbd>Right Click</kbd>", description: "Hold to zoom in (2× magnification)." },
     { keys: "<kbd>Q</kbd><kbd>E</kbd>", description: "Lower or raise the camera height." },
     { keys: "<kbd>Shift</kbd> + <kbd>Wheel</kbd>", description: "Widen or narrow the field of view." },
     { keys: "<kbd>Wheel</kbd>", description: "Adjust move speed when overlays are closed." },

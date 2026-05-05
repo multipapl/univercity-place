@@ -75,6 +75,9 @@ export function createNavigationController({
     fovWheelSensitivity: 3,  // градусів за один "клік" колеса
     targetFov: cameraState.fov,  // цільове значення FOV для плавного переходу
     fovLerpFactor: 8,   // швидкість плавного переходу FOV (більше = швидше)
+    zoomActive: false,
+    preZoomTargetFov: null,
+    zoomFovDivisor: 2,  // 2x zoom on right-click
     onHeightChanged: null,
     onFovChanged: null,
     onShowDock: null,
@@ -502,9 +505,28 @@ export function createNavigationController({
       keys.delete(event.code);
     };
 
+    function engageZoom() {
+      if (smoothAdjustState.zoomActive) return;
+      smoothAdjustState.zoomActive = true;
+      smoothAdjustState.preZoomTargetFov = smoothAdjustState.targetFov;
+      smoothAdjustState.targetFov = MathUtils.clamp(
+        smoothAdjustState.targetFov / smoothAdjustState.zoomFovDivisor,
+        smoothAdjustState.minFov,
+        smoothAdjustState.maxFov,
+      );
+    }
+
+    function disengageZoom() {
+      if (!smoothAdjustState.zoomActive) return;
+      smoothAdjustState.zoomActive = false;
+      smoothAdjustState.targetFov = smoothAdjustState.preZoomTargetFov;
+      smoothAdjustState.preZoomTargetFov = null;
+    }
+
     const handlePointerLockChange = () => {
       if (!controls.isLocked) {
         pointerLockState.lastUnlockAt = performance.now();
+        disengageZoom();
       }
     };
 
@@ -543,6 +565,7 @@ export function createNavigationController({
 
     const handleBlur = () => {
       resetMovementInputs();
+      disengageZoom();
     };
 
     const handleVisibilityChange = () => {
@@ -551,7 +574,24 @@ export function createNavigationController({
       }
     };
 
+    const handleMouseDown = (event) => {
+      if (event.button !== 2 || !controls.isLocked || getMenuOpen()) return;
+      engageZoom();
+    };
+
+    const handleMouseUp = (event) => {
+      if (event.button !== 2) return;
+      disengageZoom();
+    };
+
+    const handleContextMenu = (event) => {
+      event.preventDefault();
+    };
+
     bind(window, "mousemove", handleMouseMove);
+    bind(window, "mousedown", handleMouseDown);
+    bind(window, "mouseup", handleMouseUp);
+    bind(viewport, "contextmenu", handleContextMenu);
     bind(window, "focus", handleFocus);
     bind(window, "blur", handleBlur);
     bind(document, "visibilitychange", handleVisibilityChange);
