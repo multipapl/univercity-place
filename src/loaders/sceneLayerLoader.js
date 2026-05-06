@@ -86,6 +86,7 @@ export function createSceneLayerLoader({
   setTranslucencySunDirection = null,
 }) {
   const fxState = {
+    activeLoadToken: null,
     videoUrl: null,
     videoElement: null,
     videoTexture: null,
@@ -158,6 +159,7 @@ export function createSceneLayerLoader({
   }
 
   function disposeFireVideoResources() {
+    fxState.activeLoadToken = null;
     fxState.videoTexture?.dispose();
 
     if (fxState.videoElement) {
@@ -173,6 +175,25 @@ export function createSceneLayerLoader({
     fxState.videoTexturePromise = null;
     fxState.lastResumeAttemptAt = 0;
     fxState.resumePlayPromise = null;
+  }
+
+  function beginDeferredFireVideoLoad(root, loadToken) {
+    ensureFireVideoTexture()
+      .then((fireVideoTexture) => {
+        if (!fireVideoTexture || fxState.activeLoadToken !== loadToken) {
+          return;
+        }
+
+        applyFxRuntimeAssets(root, fireVideoTexture);
+        applyFireColorSettings();
+      })
+      .catch((error) => {
+        if (fxState.activeLoadToken !== loadToken) {
+          return;
+        }
+
+        console.warn(`Deferred fire video failed to load from ${fxState.videoUrl}.`, error);
+      });
   }
 
   async function ensureFireVideoTexture() {
@@ -205,7 +226,7 @@ export function createSceneLayerLoader({
       video.muted = true;
       video.defaultMuted = true;
       video.playsInline = true;
-      video.preload = "auto";
+      video.preload = "metadata";
       video.setAttribute("autoplay", "");
       video.setAttribute("muted", "");
       video.setAttribute("playsinline", "");
@@ -258,7 +279,7 @@ export function createSceneLayerLoader({
     }
   }
 
-  async function loadLayer(layer) {
+  async function loadLayer(layer, loadToken) {
     let root = null;
 
     try {
@@ -288,7 +309,11 @@ export function createSceneLayerLoader({
       });
 
       if (layer.runtime?.applyFireVideoTexture) {
-        await applyFxRuntimeAssets(root);
+        if (fxState.videoTexture) {
+          applyFxRuntimeAssets(root, fxState.videoTexture);
+        } else {
+          beginDeferredFireVideoLoad(root, loadToken);
+        }
       }
 
       if (layer.runtime?.registerAsBackgroundRoot) {
@@ -307,8 +332,7 @@ export function createSceneLayerLoader({
     }
   }
 
-  async function applyFxRuntimeAssets(root) {
-    const fireVideoTexture = await ensureFireVideoTexture();
+  function applyFxRuntimeAssets(root, fireVideoTexture = fxState.videoTexture) {
     if (!fireVideoTexture) {
       return 0;
     }
@@ -368,10 +392,13 @@ export function createSceneLayerLoader({
 
   async function loadSceneLayers() {
     const loadedLayers = [];
+    const loadToken = Symbol("scene-load");
     try {
+      fxState.activeLoadToken = loadToken;
       cleanupLoadedRoots(diagnosticsState.loadedLayers);
       diagnosticsState.loadedLayers = [];
       disposeFireVideoResources();
+      fxState.activeLoadToken = loadToken;
       clearFallbackScene();
       await loadProbesGlb({
         viewerConfig,
@@ -393,7 +420,7 @@ export function createSceneLayerLoader({
       const requiredLayers = layers.filter((layer) => layer.required);
       const optionalLayers = layers.filter((layer) => !layer.required);
 
-      const requiredResults = await Promise.allSettled(requiredLayers.map((layer) => loadLayer(layer)));
+      const requiredResults = await Promise.allSettled(requiredLayers.map((layer) => loadLayer(layer, loadToken)));
       const requiredFailure = requiredResults.find((result) => result.status === "rejected");
       if (requiredFailure) {
         throw requiredFailure.reason;
@@ -405,7 +432,7 @@ export function createSceneLayerLoader({
           .map((result) => result.value),
       );
 
-      const optionalResults = await Promise.allSettled(optionalLayers.map((layer) => loadLayer(layer)));
+      const optionalResults = await Promise.allSettled(optionalLayers.map((layer) => loadLayer(layer, loadToken)));
       optionalResults.forEach((result, index) => {
         if (result.status === "fulfilled") {
           loadedLayers.push(result.value);
@@ -441,6 +468,7 @@ export function createSceneLayerLoader({
         : `Loaded layers: ${loadedSummary}. Click to lock mouse and ${isWalkMode ? "walk" : "fly"}.`);
       setLoadingScreenVisible(false);
     } catch (error) {
+      fxState.activeLoadToken = null;
       console.error(error);
       cleanupLoadedRoots(loadedLayers);
       disposeFireVideoResources();
@@ -453,6 +481,7 @@ export function createSceneLayerLoader({
   }
 
   function dispose() {
+    fxState.activeLoadToken = null;
     cleanupLoadedRoots(diagnosticsState.loadedLayers);
     diagnosticsState.loadedLayers = [];
     clearFallbackScene();
