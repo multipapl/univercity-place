@@ -86,6 +86,7 @@ export function makeGlassMaterial({
   material.bumpScale = 0.5;
 
   stampViewerMaterialData(material, source, tweak);
+  material.userData.meshWorldCenter = worldCenter.clone();
   material.userData.viewerUvChannels = {
     color: map?.channel ?? colorChannel ?? null,
     roughness: roughnessMap?.channel ?? roughnessChannel ?? null,

@@ -20,12 +20,9 @@ export function createRuntimeReflectionProbes({
   const defaultHalfExtent = config.defaultHalfExtent
     ? new Vector3(...config.defaultHalfExtent)
     : new Vector3(6, 3, 6);
-  const updateDistanceThreshold = config.updateDistanceThreshold ?? 0.3;
 
   const state = {
     capturedProbes: [],
-    lastCameraPosition: new Vector3(Infinity, Infinity, Infinity),
-    activeProbe: null,
     trackedMaterials: new Set(),
   };
 
@@ -100,7 +97,7 @@ export function createRuntimeReflectionProbes({
     cubeRT.dispose();
 
     collectReflectiveMaterials(sceneRoot);
-    forceUpdateAllMaterials();
+    assignProbesToMaterials();
 
     console.log(
       `Runtime reflection probes: captured ${state.capturedProbes.length} probe(s), ` +
@@ -120,10 +117,8 @@ export function createRuntimeReflectionProbes({
     });
   }
 
-  function forceUpdateAllMaterials() {
+  function assignProbesToMaterials() {
     if (!state.capturedProbes.length) return;
-
-    const centerProbe = state.capturedProbes[Math.floor(state.capturedProbes.length / 2)];
 
     state.trackedMaterials.forEach((material) => {
       if (!material.isMaterial) {
@@ -131,21 +126,25 @@ export function createRuntimeReflectionProbes({
         return;
       }
 
+      const meshPos = material.userData.meshWorldCenter;
+      if (!meshPos) return;
+
+      const probe = findClosestProbe(meshPos);
+      if (!probe) return;
+
       const hadNoEnvMap = !material.envMap;
-      material.envMap = centerProbe.envMap;
+      material.envMap = probe.envMap;
       if (hadNoEnvMap) {
         material.needsUpdate = true;
       }
 
       const uniforms = material.userData.boxProjectionUniforms;
       if (uniforms) {
-        uniforms.boxProjectionMin.value.copy(centerProbe.boxMin);
-        uniforms.boxProjectionMax.value.copy(centerProbe.boxMax);
-        uniforms.boxProjectionPosition.value.copy(centerProbe.position);
+        uniforms.boxProjectionMin.value.copy(probe.boxMin);
+        uniforms.boxProjectionMax.value.copy(probe.boxMax);
+        uniforms.boxProjectionPosition.value.copy(probe.position);
       }
     });
-
-    state.activeProbe = centerProbe;
   }
 
   function findClosestProbe(worldPosition) {
@@ -169,32 +168,9 @@ export function createRuntimeReflectionProbes({
     state.trackedMaterials.add(material);
   }
 
-  function updateFromCamera(cameraPosition) {
-    if (!state.capturedProbes.length) return;
-    if (cameraPosition.distanceTo(state.lastCameraPosition) < updateDistanceThreshold) return;
-
-    state.lastCameraPosition.copy(cameraPosition);
-
-    const probe = findClosestProbe(cameraPosition);
-    if (!probe || probe === state.activeProbe) return;
-
-    state.activeProbe = probe;
-
-    state.trackedMaterials.forEach((material) => {
-      if (!material.isMaterial) {
-        state.trackedMaterials.delete(material);
-        return;
-      }
-
-      material.envMap = probe.envMap;
-
-      const uniforms = material.userData.boxProjectionUniforms;
-      if (uniforms) {
-        uniforms.boxProjectionMin.value.copy(probe.boxMin);
-        uniforms.boxProjectionMax.value.copy(probe.boxMax);
-        uniforms.boxProjectionPosition.value.copy(probe.position);
-      }
-    });
+  function updateFromCamera(_cameraPosition) {
+    // Box projection provides per-pixel parallax automatically.
+    // Probes are assigned per-mesh at capture time — no per-frame switching needed.
   }
 
   function hasProbes() {
@@ -215,8 +191,6 @@ export function createRuntimeReflectionProbes({
       probe.pmremTarget?.dispose();
     });
     state.capturedProbes = [];
-    state.activeProbe = null;
-    state.lastCameraPosition.set(Infinity, Infinity, Infinity);
   }
 
   function dispose() {

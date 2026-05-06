@@ -34,6 +34,7 @@ export function makeWindowsMaterial({
   material.envMap = probeData?.envMap ?? reflectionEnvironment.getClosestEnvMap(worldCenter);
 
   stampViewerMaterialData(material, source, tweak);
+  material.userData.meshWorldCenter = worldCenter.clone();
   applyViewerMaterialPatches(material, { tweak });
   if (probeData) {
     applyBoxProjectionPatch(material, probeData);
