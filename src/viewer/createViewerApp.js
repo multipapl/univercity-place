@@ -452,6 +452,29 @@ const performanceDiagnostics = createPerformanceDiagnostics({
 const updatePerformanceDiagnostics = () => {
   performanceDiagnostics.update();
 };
+let viewerLifecycleController = null;
+const requestSceneRender = () => {
+  viewerLifecycleController?.requestRender();
+};
+const getDocumentHasFocus = () => (
+  typeof document.hasFocus === "function"
+    ? document.hasFocus()
+    : true
+);
+const getRenderMode = () => {
+  if (document.hidden || !getDocumentHasFocus()) {
+    return "background";
+  }
+
+  if (menuController.isOpen() || helpOverlayState.isOpen || galleryOverlay.isOpen()) {
+    return "paused";
+  }
+
+  return "active";
+};
+const syncViewerRenderMode = () => {
+  viewerLifecycleController?.syncRenderMode();
+};
 const debugObjectInspector = createDebugObjectInspector({
   enabled: debugMode,
   isDev: import.meta.env.DEV,
@@ -500,17 +523,22 @@ const menuController = createMenuController({
     setDebugMode(!debugMode);
   },
   onGalleryToggle: () => {
-    galleryOverlay.open();
+    openGallery();
   },
 });
 const galleryOverlay = createGalleryOverlay({
   overlay: galleryOverlayRef,
   rendersBaseUrl: RENDERS_BASE_URL,
 });
+galleryOverlay.setOnClose(() => {
+  syncViewerRenderMode();
+  requestSceneRender();
+});
 const layerControlsRenderer = createLayerControls({
   container: layerControls,
   diagnosticsState,
   getDebugMode: () => debugMode,
+  requestRender: requestSceneRender,
   updatePerformanceDiagnostics,
   updateStatus,
 });
@@ -598,9 +626,13 @@ function setHelpOverlayOpen(nextOpen) {
     navigationController.controls.unlock();
     navigationController.resetMovementInputs();
     updateStatus("Help open. Scene controls are paused.");
+    syncViewerRenderMode();
+    requestSceneRender();
     return;
   }
 
+  syncViewerRenderMode();
+  requestSceneRender();
   if (helpOverlayState.relockAfterClose && !isTouchDevice && !menuController.isOpen()) {
     requestAnimationFrame(() => {
       navigationController.controls.lock({ ignoreCooldown: true });
@@ -631,6 +663,24 @@ function renderSceneFrame(delta) {
   selectiveBloomPipeline.render(delta, selectiveBloomConfig);
 }
 
+function setMenuOpen(nextOpen) {
+  menuController.setOpen(nextOpen);
+  syncViewerRenderMode();
+  requestSceneRender();
+}
+
+function openGallery() {
+  galleryOverlay.open();
+  syncViewerRenderMode();
+  requestSceneRender();
+}
+
+function closeGallery() {
+  galleryOverlay.close();
+  syncViewerRenderMode();
+  requestSceneRender();
+}
+
 function reloadWithUpdatedSearchParams(mutator) {
   const nextUrl = new URL(window.location.href);
   mutator(nextUrl.searchParams);
@@ -656,6 +706,7 @@ function setDebugMode(nextEnabled) {
   uiController.applyDebugModeSettings();
   layerControlsRenderer.render();
   updatePerformanceDiagnostics();
+  requestSceneRender();
   updateStatus(debugMode
     ? "Debug mode enabled. Scene stayed live; advanced tools are now available."
     : "Debug mode disabled. Scene stayed live; advanced tools are hidden.");
@@ -698,6 +749,7 @@ function nudgeCameraFov(delta) {
 function applyRuntimeTextureOptimizations() {
   materialPipeline.applyRuntimeTextureOptimizations(diagnosticsState.loadedLayers);
   updatePerformanceDiagnostics();
+  requestSceneRender();
 }
 
 function setBaseLowMemoryMode(enabled) {
@@ -714,6 +766,7 @@ function setBaseLowMemoryMode(enabled) {
   }
 
   applyRuntimeTextureOptimizations();
+  requestSceneRender();
   updateStatus(`Low-memory base textures ${enabled ? "enabled" : "disabled"}.`);
 }
 
@@ -732,6 +785,7 @@ function setBaseTextureCap(nextCap) {
   }
 
   applyRuntimeTextureOptimizations();
+  requestSceneRender();
   updateStatus(cap ? `Base texture cap set to ${cap}px.` : "Base texture cap disabled.");
 }
 
@@ -803,6 +857,7 @@ const sceneLayerLoader = createSceneLayerLoader({
   onLayersLoaded: (loadedLayers) => {
     selectiveBloomPipeline.syncTargets(loadedLayers, selectiveBloomConfig);
     debugObjectInspector.setLoadedLayers(loadedLayers);
+    requestSceneRender();
   },
   isTouchDevice,
   isWalkMode,
@@ -818,7 +873,7 @@ const unbindNavigationEvents = navigationController.bindInputEvents({
   getMenuOpen: () => menuController.isOpen() || helpOverlayState.isOpen || galleryOverlay.isOpen(),
   onToggleMenu: () => {
     if (galleryOverlay.isOpen()) {
-      galleryOverlay.close();
+      closeGallery();
       return;
     }
 
@@ -827,11 +882,11 @@ const unbindNavigationEvents = navigationController.bindInputEvents({
     }
 
     showDock();
-    menuController.setOpen(!menuController.isOpen());
+    setMenuOpen(!menuController.isOpen());
   },
   onToggleHelp: () => {
     if (galleryOverlay.isOpen()) {
-      galleryOverlay.close();
+      closeGallery();
       return;
     }
 
@@ -839,7 +894,7 @@ const unbindNavigationEvents = navigationController.bindInputEvents({
   },
   onCloseMenu: () => {
     if (galleryOverlay.isOpen()) {
-      galleryOverlay.close();
+      closeGallery();
       return;
     }
 
@@ -848,7 +903,7 @@ const unbindNavigationEvents = navigationController.bindInputEvents({
       return;
     }
 
-    menuController.setOpen(false);
+    setMenuOpen(false);
   },
   onCameraHeightChanged: (height) => {
     uiController.syncCameraHeightReadouts(height);
@@ -874,79 +929,97 @@ const unbindViewerUi = bindViewerUiEvents({
   onToneMappingChange: (value) => {
     colorPipelineState.toneMapping = value;
     uiController.applyViewportColorSettings();
+    requestSceneRender();
   },
   onExposureChange: (value) => {
     colorPipelineState.exposure = value;
     uiController.applyViewportColorSettings();
+    requestSceneRender();
     showDock();
   },
   onSelectiveBloomStrengthChange: (value) => {
     selectiveBloomConfig.strength = value;
     uiController.applySelectiveBloomSettings();
+    requestSceneRender();
   },
   onCameraFovChange: (value) => {
     navigationController.cameraState.fov = value;
     uiController.applyCameraSettings();
+    requestSceneRender();
     showDock();
   },
   onCameraHeightChange: (value) => {
     navigationController.cameraState.height = value;
     uiController.applyCameraSettings();
+    requestSceneRender();
     showDock();
   },
   onShowCrosshairChange: (checked) => {
     interfaceState.showCrosshair = checked;
     uiController.applyInterfaceSettings();
+    requestSceneRender();
   },
   onCameraShakeChange: (checked) => {
     cameraMotionState.enabled = checked;
     uiController.clearCameraAmbientMotion();
     navigationController.applyLookState();
     uiController.applyCameraMotionSettings();
+    requestSceneRender();
   },
   onBackgroundHueChange: (value) => {
     backgroundState.hueDegrees = value;
     uiController.applyBackgroundColorSettings();
+    requestSceneRender();
   },
   onBackgroundSaturationChange: (value) => {
     backgroundState.saturation = value;
     uiController.applyBackgroundColorSettings();
+    requestSceneRender();
   },
   onBackgroundValueChange: (value) => {
     backgroundState.value = value;
     uiController.applyBackgroundColorSettings();
+    requestSceneRender();
   },
   onFireHueChange: (value) => {
     fireState.hueDegrees = value;
     uiController.applyFireColorSettings();
+    requestSceneRender();
   },
   onFireSaturationChange: (value) => {
     fireState.saturation = value;
     uiController.applyFireColorSettings();
+    requestSceneRender();
   },
   onFireValueChange: (value) => {
     fireState.value = value;
     uiController.applyFireColorSettings();
+    requestSceneRender();
   },
   onReflectEnvIntensityChange: (value) => {
     reflectionState.envMapIntensity = value;
     uiController.applyReflectMaterialSettings();
+    requestSceneRender();
   },
   onReflectIorChange: (value) => {
     reflectionState.ior = value;
     uiController.applyReflectMaterialSettings();
+    requestSceneRender();
   },
   onReflectSpecularChange: (value) => {
     reflectionState.specularIntensity = value;
     uiController.applyReflectMaterialSettings();
+    requestSceneRender();
   },
   onReflectMetalnessChange: (value) => {
     reflectionState.metalness = value;
     uiController.applyReflectMaterialSettings();
+    requestSceneRender();
   },
   onReflectEnvRotationYChange: (value) => {
     reflectionState.envMapRotationY = value * Math.PI / 180;
     uiController.applyReflectMaterialSettings();
+    requestSceneRender();
   },
   onBaseLowMemoryToggle: (checked) => {
     setBaseLowMemoryMode(checked);
@@ -959,7 +1032,7 @@ const unbindViewerUi = bindViewerUiEvents({
       setHelpOverlayOpen(false);
     }
     showDock();
-    menuController.setOpen(!menuController.isOpen());
+    setMenuOpen(!menuController.isOpen());
   },
   onHelpToggle: () => {
     setHelpOverlayOpen(!helpOverlayState.isOpen);
@@ -980,13 +1053,13 @@ const unbindViewerUi = bindViewerUiEvents({
     setDebugMode(false);
   },
 });
-const viewerLifecycleController = createViewerLifecycle({
+viewerLifecycleController = createViewerLifecycle({
   clock,
   state,
   uiController,
   navigationController,
-  menuController,
   sceneLayerLoader,
+  getRenderMode,
   renderSceneFrame,
   updatePerformanceDiagnostics,
   disposeRuntimeResources: () => {

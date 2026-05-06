@@ -66,6 +66,9 @@ test("createViewerState initializes derived values and default UI state", () => 
   assert.equal(state.helpOverlayState.isOpen, false);
   assert.equal(state.helpOverlayState.relockAfterClose, false);
   assert.equal(state.viewerLifecycle.animationFrameId, null);
+  assert.equal(state.viewerLifecycle.timeoutId, null);
+  assert.equal(state.viewerLifecycle.renderMode, "active");
+  assert.equal(state.viewerLifecycle.renderRequested, false);
   assert.equal(state.viewerLifecycle.started, false);
   assert.equal(state.controlDockState.hideTimeout, null);
   assert.equal(

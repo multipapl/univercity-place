@@ -68,7 +68,10 @@ export function createViewerState({
   };
   const viewerLifecycle = {
     animationFrameId: null,
+    timeoutId: null,
     disposed: false,
+    renderMode: "active",
+    renderRequested: false,
     started: false,
   };
   const helpOverlayState = {

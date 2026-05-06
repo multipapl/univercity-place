@@ -1,6 +1,7 @@
 function createLayerToggleEntry({
   entry,
   debugMode,
+  requestRender,
   updatePerformanceDiagnostics,
   updateStatus,
 }) {
@@ -13,6 +14,7 @@ function createLayerToggleEntry({
   checkbox.checked = entry.root.visible;
   checkbox.addEventListener("change", () => {
     entry.root.visible = checkbox.checked;
+    requestRender?.();
     updatePerformanceDiagnostics();
     updateStatus(`${entry.layer.label} layer ${checkbox.checked ? "enabled" : "disabled"}.`);
   });
@@ -37,6 +39,7 @@ export function createLayerControls({
   container,
   diagnosticsState,
   getDebugMode,
+  requestRender,
   updatePerformanceDiagnostics,
   updateStatus,
 }) {
@@ -64,6 +67,7 @@ export function createLayerControls({
         createLayerToggleEntry({
           entry,
           debugMode,
+          requestRender,
           updatePerformanceDiagnostics,
           updateStatus,
         })

@@ -87,6 +87,7 @@ export function createSceneLayerLoader({
 }) {
   const fxState = {
     activeLoadToken: null,
+    playbackEnabled: true,
     videoUrl: null,
     videoElement: null,
     videoTexture: null,
@@ -160,6 +161,7 @@ export function createSceneLayerLoader({
 
   function disposeFireVideoResources() {
     fxState.activeLoadToken = null;
+    fxState.playbackEnabled = true;
     fxState.videoTexture?.dispose();
 
     if (fxState.videoElement) {
@@ -262,10 +264,12 @@ export function createSceneLayerLoader({
       fxState.videoElement = video;
       fxState.videoTexture = texture;
 
-      try {
-        await video.play();
-      } catch {
-        // Autoplay can be blocked until a user gesture; we'll retry on click/lock.
+      if (fxState.playbackEnabled) {
+        try {
+          await video.play();
+        } catch {
+          // Autoplay can be blocked until a user gesture; we'll retry on click/lock.
+        }
       }
 
       return texture;
@@ -368,7 +372,7 @@ export function createSceneLayerLoader({
   }
 
   function resumeFireVideoPlayback() {
-    if (!fxState.videoElement || !fxState.videoElement.paused || fxState.resumePlayPromise) {
+    if (!fxState.playbackEnabled || !fxState.videoElement || !fxState.videoElement.paused || fxState.resumePlayPromise) {
       return fxState.resumePlayPromise ?? null;
     }
 
@@ -385,9 +389,28 @@ export function createSceneLayerLoader({
   }
 
   function syncFireVideoPlayback() {
-    if (fxState.videoElement?.paused && performance.now() - fxState.lastResumeAttemptAt > 1500) {
+    if (
+      fxState.playbackEnabled
+      && fxState.videoElement?.paused
+      && performance.now() - fxState.lastResumeAttemptAt > 1500
+    ) {
       resumeFireVideoPlayback();
     }
+  }
+
+  function setFireVideoPlaybackEnabled(enabled) {
+    fxState.playbackEnabled = enabled;
+
+    if (!fxState.videoElement) {
+      return null;
+    }
+
+    if (enabled) {
+      return resumeFireVideoPlayback();
+    }
+
+    fxState.videoElement.pause();
+    return null;
   }
 
   async function loadSceneLayers() {
@@ -492,6 +515,7 @@ export function createSceneLayerLoader({
     dispose,
     loadSceneLayers,
     resumeFireVideoPlayback,
+    setFireVideoPlaybackEnabled,
     syncFireVideoPlayback,
   };
 }

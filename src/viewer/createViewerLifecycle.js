@@ -3,22 +3,46 @@ export function createViewerLifecycle({
   state,
   uiController,
   navigationController,
-  menuController,
   sceneLayerLoader,
+  getRenderMode,
   renderSceneFrame,
   updatePerformanceDiagnostics,
   disposeRuntimeResources,
 }) {
-  function tick() {
-    if (state.viewerLifecycle.disposed) {
+  function clearScheduledTick() {
+    if (state.viewerLifecycle.animationFrameId !== null) {
+      window.cancelAnimationFrame(state.viewerLifecycle.animationFrameId);
+      state.viewerLifecycle.animationFrameId = null;
+    }
+
+    if (state.viewerLifecycle.timeoutId !== null) {
+      window.clearTimeout(state.viewerLifecycle.timeoutId);
+      state.viewerLifecycle.timeoutId = null;
+    }
+  }
+
+  function scheduleTick() {
+    if (!state.viewerLifecycle.started || state.viewerLifecycle.disposed) {
       return;
     }
 
-    const delta = clock.getDelta();
+    if (state.viewerLifecycle.renderMode === "active") {
+      if (state.viewerLifecycle.animationFrameId === null) {
+        state.viewerLifecycle.animationFrameId = window.requestAnimationFrame(tick);
+      }
+      return;
+    }
+
+    if (state.viewerLifecycle.timeoutId === null) {
+      state.viewerLifecycle.timeoutId = window.setTimeout(tick, 0);
+    }
+  }
+
+  function renderActiveFrame(delta) {
     uiController.clearCameraAmbientMotion();
     sceneLayerLoader.syncFireVideoPlayback();
     uiController.updateBackgroundMotion(delta);
-    navigationController.updateMovement(delta, menuController.isOpen());
+    navigationController.updateMovement(delta, false);
     navigationController.updateSmoothAdjustments(delta);
     uiController.applyCameraAmbientMotion(delta);
     renderSceneFrame(delta);
@@ -33,13 +57,70 @@ export function createViewerLifecycle({
       state.diagnosticsState.frameCounter = 0;
       updatePerformanceDiagnostics();
     }
+  }
 
-    state.viewerLifecycle.animationFrameId = window.requestAnimationFrame(tick);
+  function renderPausedFrame() {
+    uiController.clearCameraAmbientMotion();
+    renderSceneFrame(0);
+  }
+
+  function tick() {
+    if (state.viewerLifecycle.disposed) {
+      return;
+    }
+
+    state.viewerLifecycle.animationFrameId = null;
+    state.viewerLifecycle.timeoutId = null;
+    syncRenderMode();
+
+    if (state.viewerLifecycle.renderMode === "active") {
+      const delta = clock.getDelta();
+      renderActiveFrame(delta);
+      scheduleTick();
+      return;
+    }
+
+    clock.getDelta();
+    if (state.viewerLifecycle.renderRequested) {
+      state.viewerLifecycle.renderRequested = false;
+      renderPausedFrame();
+    }
   }
 
   function handleResize() {
     navigationController.handleResize();
     uiController.syncPostProcessingSize();
+    requestRender();
+  }
+
+  function syncRenderMode() {
+    const nextRenderMode = getRenderMode();
+    if (state.viewerLifecycle.renderMode === nextRenderMode) {
+      return;
+    }
+
+    clearScheduledTick();
+    state.viewerLifecycle.renderMode = nextRenderMode;
+    state.viewerLifecycle.renderRequested = true;
+    state.diagnosticsState.frameAccumulator = 0;
+    state.diagnosticsState.frameCounter = 0;
+    clock.getDelta();
+
+    if (nextRenderMode === "active") {
+      sceneLayerLoader.setFireVideoPlaybackEnabled(true);
+      scheduleTick();
+      return;
+    }
+
+    navigationController.resetMovementInputs();
+    sceneLayerLoader.setFireVideoPlaybackEnabled(false);
+    clearScheduledTick();
+    scheduleTick();
+  }
+
+  function requestRender() {
+    state.viewerLifecycle.renderRequested = true;
+    scheduleTick();
   }
 
   function start() {
@@ -49,7 +130,9 @@ export function createViewerLifecycle({
 
     state.viewerLifecycle.started = true;
     window.addEventListener("resize", handleResize);
-    state.viewerLifecycle.animationFrameId = window.requestAnimationFrame(tick);
+    state.viewerLifecycle.renderRequested = true;
+    syncRenderMode();
+    scheduleTick();
   }
 
   function stop() {
@@ -59,11 +142,7 @@ export function createViewerLifecycle({
 
     state.viewerLifecycle.started = false;
     window.removeEventListener("resize", handleResize);
-
-    if (state.viewerLifecycle.animationFrameId !== null) {
-      window.cancelAnimationFrame(state.viewerLifecycle.animationFrameId);
-      state.viewerLifecycle.animationFrameId = null;
-    }
+    clearScheduledTick();
   }
 
   function dispose() {
@@ -77,6 +156,8 @@ export function createViewerLifecycle({
   }
 
   return {
+    requestRender,
+    syncRenderMode,
     start,
     stop,
     dispose,
