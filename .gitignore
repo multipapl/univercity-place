@@ -2,8 +2,12 @@ node_modules/
 dist/
 vite.stdout.log
 vite.stderr.log
+vite-dev.log
+vite-dev.err
 .env
+# Internal working docs and reviews
 docs/
+docs/performance-review-2026-05-06.md
 
 # Heavy scene assets - stored in Cloudflare R2
 /public/assets/scene/*.glb
