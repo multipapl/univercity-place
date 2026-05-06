@@ -105,6 +105,7 @@ export function createViewerShell({
   menuMode,
   viewerConfig,
   sceneLoadStatusHtml,
+  loadingBackgroundUrl,
 }) {
   const viewport = document.createElement("div");
   viewport.className = "viewport";
@@ -190,14 +191,14 @@ export function createViewerShell({
 
   const loadingScreen = document.createElement("div");
   loadingScreen.className = "loading-screen is-visible";
+  if (loadingBackgroundUrl) {
+    loadingScreen.style.setProperty("--loading-bg", `url(${loadingBackgroundUrl})`);
+  }
   loadingScreen.innerHTML = `
-    <div class="loading-card">
-      <p class="loading-kicker">University Place</p>
-      <h1>Loading Scene</h1>
-      <p class="loading-copy" data-loading-status>${sceneLoadStatusHtml}</p>
-      <div class="loading-bar" aria-hidden="true">
-        <span class="loading-bar-fill is-indeterminate" data-loading-bar-fill></span>
-      </div>
+    <h1 class="loading-title">University Place</h1>
+    <p class="loading-status" data-loading-status>${sceneLoadStatusHtml}</p>
+    <div class="loading-bar" aria-hidden="true">
+      <span class="loading-bar-fill is-indeterminate" data-loading-bar-fill></span>
     </div>
   `;
 

@@ -209,6 +209,8 @@ export const RENDERS_BASE_URL = normalizeConfiguredAssetBaseUrl(
   ? REMOTE_SCENE_ASSET_BASE_URL.replace(/\/[^/]+\/?$/, "/renders")
   : "/assets/renders");
 
+export const LOADING_BACKGROUND_URL = `${RENDERS_BASE_URL}/stills/up_still_004.jpg`;
+
 export const ASSETS_CONFIG = {
   sceneAssetBaseUrl: SCENE_ASSET_BASE_URL,
   sceneAssetSource: ACTIVE_SCENE_ASSET_SOURCE,

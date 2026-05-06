@@ -21,6 +21,7 @@ import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import {
   getMissingSceneStatusMessage,
+  LOADING_BACKGROUND_URL,
   RENDERS_BASE_URL,
   SCENE_LOAD_STATUS_HTML,
   VIEWER_CONFIG,
@@ -103,6 +104,7 @@ const {
   menuMode: debugMode ? "debug" : "viewer",
   viewerConfig: VIEWER_CONFIG,
   sceneLoadStatusHtml: SCENE_LOAD_STATUS_HTML,
+  loadingBackgroundUrl: LOADING_BACKGROUND_URL,
 });
 
 // Set dock animation durations from config
@@ -575,7 +577,7 @@ function setLoadingScreenVisible(visible) {
     if (!loadingScreen.classList.contains("is-visible")) {
       loadingScreen.hidden = true;
     }
-  }, 320);
+  }, 650);
 }
 
 function renderSceneFrame(delta) {
