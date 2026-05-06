@@ -3,6 +3,8 @@ export function createPerformanceDiagnostics({
   diagnosticsState,
   statsElements,
   getTextureDimensions,
+  getHeavyStatsEnabled = () => true,
+  getRendererInfo = null,
 }) {
   function formatInteger(value) {
     return new Intl.NumberFormat("en-US").format(Math.round(value || 0));
@@ -10,6 +12,15 @@ export function createPerformanceDiagnostics({
 
   function formatMegabytes(bytes) {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  }
+
+  function getLightweightRendererStats() {
+    const rendererInfo = getRendererInfo?.();
+    return {
+      drawCalls: rendererInfo?.render?.calls ?? 0,
+      triangles: rendererInfo?.render?.triangles ?? 0,
+      textureCount: rendererInfo?.memory?.textures ?? 0,
+    };
   }
 
   function collectMaterialTextures(material, target) {
@@ -122,8 +133,16 @@ export function createPerformanceDiagnostics({
       return;
     }
 
-    const sceneComplexity = estimateVisibleSceneComplexity();
-    const textureUsage = estimateVisibleTextureMemory();
+    const heavyStatsEnabled = getHeavyStatsEnabled();
+    const sceneComplexity = heavyStatsEnabled
+      ? estimateVisibleSceneComplexity()
+      : getLightweightRendererStats();
+    const textureUsage = heavyStatsEnabled
+      ? estimateVisibleTextureMemory()
+      : {
+          count: sceneComplexity.textureCount,
+          bytes: null,
+        };
 
     if (statsElements.statFps) {
       statsElements.statFps.textContent = formatInteger(diagnosticsState.fps);
@@ -154,7 +173,9 @@ export function createPerformanceDiagnostics({
     }
 
     if (statsElements.statTextureMemory) {
-      statsElements.statTextureMemory.textContent = formatMegabytes(textureUsage.bytes);
+      statsElements.statTextureMemory.textContent = textureUsage.bytes === null
+        ? "n/a"
+        : formatMegabytes(textureUsage.bytes);
     }
   }
 

@@ -125,3 +125,47 @@ test("createPerformanceDiagnostics does nothing when disabled", () => {
 
   assert.equal(statsElements.statFps.textContent, "");
 });
+
+test("createPerformanceDiagnostics uses lightweight renderer info outside heavy mode", () => {
+  const statsElements = {
+    statDrawCalls: createTextNode(),
+    statTriangles: createTextNode(),
+    statTextures: createTextNode(),
+    statTextureMemory: createTextNode(),
+  };
+  const diagnostics = createPerformanceDiagnostics({
+    diagnosticsState: {
+      loadedLayers: [
+        {
+          root: {
+            visible: true,
+            traverse() {
+              throw new Error("heavy scene traversal should stay disabled");
+            },
+          },
+        },
+      ],
+      fps: 0,
+      frameMs: 0,
+    },
+    statsElements,
+    getTextureDimensions: (image) => image,
+    getHeavyStatsEnabled: () => false,
+    getRendererInfo: () => ({
+      render: {
+        calls: 42,
+        triangles: 2048,
+      },
+      memory: {
+        textures: 17,
+      },
+    }),
+  });
+
+  diagnostics.update();
+
+  assert.equal(statsElements.statDrawCalls.textContent, "42");
+  assert.equal(statsElements.statTriangles.textContent, "2,048");
+  assert.equal(statsElements.statTextures.textContent, "17");
+  assert.equal(statsElements.statTextureMemory.textContent, "n/a");
+});

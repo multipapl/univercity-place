@@ -472,6 +472,8 @@ const performanceDiagnostics = createPerformanceDiagnostics({
     statTextureMemory,
   },
   getTextureDimensions: materialPipeline.getTextureDimensions,
+  getHeavyStatsEnabled: () => debugMode,
+  getRendererInfo: () => renderer.info,
 });
 const updatePerformanceDiagnostics = () => {
   performanceDiagnostics.update();
