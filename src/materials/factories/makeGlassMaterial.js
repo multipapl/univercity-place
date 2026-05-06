@@ -40,6 +40,7 @@ export function makeGlassMaterial({
   applyTextureChannelOverride,
   stampViewerMaterialData,
   applyViewerMaterialPatches,
+  applyBoxProjectionPatch,
 }) {
   const source = sourceMaterial ?? {};
   const map = getMaterialTexture(source);
@@ -79,7 +80,8 @@ export function makeGlassMaterial({
     mesh.geometry.boundingBox.getCenter(worldCenter);
     mesh.localToWorld(worldCenter);
   }
-  material.envMap = reflectionEnvironment.getClosestEnvMap(worldCenter);
+  const probeData = reflectionEnvironment.getClosestProbeData(worldCenter);
+  material.envMap = probeData?.envMap ?? reflectionEnvironment.getClosestEnvMap(worldCenter);
   material.bumpMap = normalMap ? null : getProceduralGlassBump();
   material.bumpScale = 0.5;
 
@@ -90,6 +92,9 @@ export function makeGlassMaterial({
     normal: normalMap?.channel ?? normalChannel ?? null,
   };
   applyViewerMaterialPatches(material, { tweak });
+  if (probeData) {
+    applyBoxProjectionPatch(material, probeData);
+  }
 
   return material;
 }

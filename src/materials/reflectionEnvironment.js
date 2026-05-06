@@ -45,6 +45,13 @@ export function createReflectionEnvironmentManager({
     return getEnvironmentMap();
   }
 
+  function getClosestProbeData(meshWorldPosition) {
+    if (state.probeEnvironmentManager?.hasProbes()) {
+      return state.probeEnvironmentManager.getClosestProbeData(meshWorldPosition);
+    }
+    return null;
+  }
+
   function setProbeEnvironmentManager(probeManager) {
     state.probeEnvironmentManager = probeManager;
   }
@@ -63,6 +70,7 @@ export function createReflectionEnvironmentManager({
     ensureFallbackEnvironment,
     getEnvironmentMap,
     getClosestEnvMap,
+    getClosestProbeData,
     setProbeEnvironmentManager,
   };
 }

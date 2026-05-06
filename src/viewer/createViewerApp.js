@@ -34,6 +34,7 @@ import { createSceneLayerLoader } from "../loaders/sceneLayerLoader.js";
 import { createMaterialPipeline } from "../materials/materialPipeline.js";
 import { createProbeEnvironmentManager } from "../materials/probeEnvironmentManager.js";
 import { createReflectionEnvironmentManager } from "../materials/reflectionEnvironment.js";
+import { createRuntimeReflectionProbes } from "../materials/runtimeReflectionProbes.js";
 import { createSelectiveBloomPipeline } from "../postprocessing/createSelectiveBloomPipeline.js";
 import { bindViewerUiEvents } from "../ui/debugPanelBindings.js";
 import { createGalleryOverlay } from "../ui/galleryOverlay.js";
@@ -199,7 +200,19 @@ const scene = new Scene();
 scene.background = new Color("#050816");
 const reflectionPmremGenerator = new PMREMGenerator(renderer);
 reflectionPmremGenerator.compileCubemapShader();
-const probeEnvironmentManager = createProbeEnvironmentManager({ pmremGenerator: reflectionPmremGenerator });
+const probeEnvironmentManager = createProbeEnvironmentManager({
+  pmremGenerator: reflectionPmremGenerator,
+  boxProjectionConfig: VIEWER_CONFIG.materialPresets.boxProjection,
+});
+const runtimeReflectionProbes = createRuntimeReflectionProbes({
+  renderer,
+  scene,
+  pmremGenerator: reflectionPmremGenerator,
+  config: {
+    ...VIEWER_CONFIG.materialPresets.runtimeProbes,
+    defaultHalfExtent: VIEWER_CONFIG.materialPresets.boxProjection.defaultHalfExtent,
+  },
+});
 const sceneRoots = new Group();
 scene.add(sceneRoots);
 
@@ -581,6 +594,7 @@ function setLoadingScreenVisible(visible) {
 }
 
 function renderSceneFrame(delta) {
+  runtimeReflectionProbes.updateFromCamera(camera.position);
   selectiveBloomPipeline.render(delta, selectiveBloomConfig);
 }
 
@@ -756,6 +770,9 @@ const sceneLayerLoader = createSceneLayerLoader({
   onLayersLoaded: (loadedLayers) => {
     selectiveBloomPipeline.syncTargets(loadedLayers, selectiveBloomConfig);
     debugObjectInspector.setLoadedLayers(loadedLayers);
+    if (VIEWER_CONFIG.materialPresets.runtimeProbes.enabled) {
+      runtimeReflectionProbes.captureProbes(sceneRoots);
+    }
   },
   isTouchDevice,
   isWalkMode,
@@ -952,6 +969,7 @@ const viewerLifecycleController = createViewerLifecycle({
     debugObjectInspector.dispose?.();
     sceneLayerLoader.dispose();
     clearFallbackScene();
+    runtimeReflectionProbes.dispose();
     reflectionEnvironment.dispose();
     selectiveBloomPipeline.dispose();
     reflectionPmremGenerator.dispose();
