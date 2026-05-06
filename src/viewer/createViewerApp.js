@@ -217,14 +217,6 @@ const BLOOM_SCENE_LAYER = VIEWER_CONFIG.postProcessing.selectiveBloom.layer;
 const selectiveBloomConfig = {
   ...VIEWER_CONFIG.postProcessing.selectiveBloom,
 };
-const selectiveBloomPipeline = createSelectiveBloomPipeline({
-  renderer,
-  scene,
-  camera,
-  bloomLayerId: BLOOM_SCENE_LAYER,
-  width: initialViewportWidth,
-  height: initialViewportHeight,
-});
 
 function parseBooleanFlag(value) {
   if (value == null) {
@@ -242,6 +234,38 @@ function parseBooleanFlag(value) {
 
   return null;
 }
+
+function isLikelyLowEndBloomDevice() {
+  const deviceMemory = typeof navigator.deviceMemory === "number"
+    ? navigator.deviceMemory
+    : null;
+  const hardwareConcurrency = typeof navigator.hardwareConcurrency === "number"
+    ? navigator.hardwareConcurrency
+    : null;
+
+  return (
+    (deviceMemory !== null && deviceMemory <= selectiveBloomConfig.lowEndDeviceMemoryGb)
+    || (hardwareConcurrency !== null && hardwareConcurrency <= selectiveBloomConfig.lowEndHardwareConcurrency)
+  );
+}
+
+const bloomQueryValue = parseBooleanFlag(
+  searchParams.get("bloom") ?? searchParams.get("selectiveBloom"),
+);
+if (bloomQueryValue !== null) {
+  selectiveBloomConfig.enabled = bloomQueryValue;
+} else if (selectiveBloomConfig.autoDisableOnLowEndDevices && isLikelyLowEndBloomDevice()) {
+  selectiveBloomConfig.enabled = false;
+}
+
+const selectiveBloomPipeline = createSelectiveBloomPipeline({
+  renderer,
+  scene,
+  camera,
+  bloomLayerId: BLOOM_SCENE_LAYER,
+  width: initialViewportWidth,
+  height: initialViewportHeight,
+});
 
 function getStoredLowMemoryBaseMode() {
   try {

@@ -41,6 +41,7 @@ export function createSelectiveBloomPipeline({
 }) {
   const state = {
     height,
+    nonBloomMeshes: [],
     pixelRatio: 1,
     resources: null,
     targetCount: 0,
@@ -148,6 +149,7 @@ export function createSelectiveBloomPipeline({
   }
 
   function syncTargets(loadedLayers, config) {
+    const nonBloomMeshes = [];
     let targetCount = 0;
 
     loadedLayers.forEach((entry) => {
@@ -164,15 +166,17 @@ export function createSelectiveBloomPipeline({
         }
 
         child.layers.disable(bloomLayerId);
+        nonBloomMeshes.push(child);
       });
     });
 
+    state.nonBloomMeshes = nonBloomMeshes;
     state.targetCount = targetCount;
     applySettings(config);
   }
 
   function darkenNonBloomedObjects(object) {
-    if (!object.isMesh || bloomLayer.test(object.layers)) {
+    if (!object.isMesh || bloomLayer.test(object.layers) || state.resources.darkenedBloomMaterials.has(object)) {
       return;
     }
 
@@ -194,7 +198,7 @@ export function createSelectiveBloomPipeline({
     const previousBackground = scene.background;
     scene.background = null;
     camera.layers.set(DEFAULT_SCENE_LAYER);
-    scene.traverse(darkenNonBloomedObjects);
+    state.nonBloomMeshes.forEach(darkenNonBloomedObjects);
     try {
       resources.bloomComposer.render(delta);
     } finally {
