@@ -10,7 +10,6 @@ import { makeGlassMaterial } from "./factories/makeGlassMaterial.js";
 import { makeReflectMaterial } from "./factories/makeReflectMaterial.js";
 import { makeUnlitAlphaMaterial } from "./factories/makeUnlitAlphaMaterial.js";
 import { makeWindowsMaterial } from "./factories/makeWindowsMaterial.js";
-import { createBoxProjectionPatchApplier } from "./shaderPatches/applyBoxProjectionPatch.js";
 import { createFireVideoMaterialPatchApplier } from "./shaderPatches/applyFireVideoMaterialPatch.js";
 import { createTranslucencyPatchApplier } from "./shaderPatches/applyTranslucencyPatch.js";
 import { createViewerMaterialPatchApplier } from "./shaderPatches/applyViewerMaterialPatches.js";
@@ -104,9 +103,6 @@ export function createMaterialPipeline({
   });
 
   const applyViewerMaterialPatches = createViewerMaterialPatchApplier({
-    setMaterialCompileHook,
-  });
-  const applyBoxProjectionPatch = createBoxProjectionPatchApplier({
     setMaterialCompileHook,
   });
   const applyFireVideoMaterialPatch = createFireVideoMaterialPatchApplier({
@@ -250,7 +246,6 @@ export function createMaterialPipeline({
           applyTextureChannelOverride,
           stampViewerMaterialData,
           applyViewerMaterialPatches,
-          applyBoxProjectionPatch,
         });
       case "reflect":
         return makeReflectMaterial({
@@ -270,7 +265,6 @@ export function createMaterialPipeline({
           applyTextureChannelOverride,
           stampViewerMaterialData,
           applyViewerMaterialPatches,
-          applyBoxProjectionPatch,
           normalizeTexture,
         });
       case "windows":
@@ -282,7 +276,6 @@ export function createMaterialPipeline({
           findMaterialTweak,
           stampViewerMaterialData,
           applyViewerMaterialPatches,
-          applyBoxProjectionPatch,
         });
       case "emissive":
         return makeEmissiveMaterial({

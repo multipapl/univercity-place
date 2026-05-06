@@ -34,7 +34,6 @@ import { createSceneLayerLoader } from "../loaders/sceneLayerLoader.js";
 import { createMaterialPipeline } from "../materials/materialPipeline.js";
 import { createProbeEnvironmentManager } from "../materials/probeEnvironmentManager.js";
 import { createReflectionEnvironmentManager } from "../materials/reflectionEnvironment.js";
-import { createRuntimeReflectionProbes } from "../materials/runtimeReflectionProbes.js";
 import { createSelectiveBloomPipeline } from "../postprocessing/createSelectiveBloomPipeline.js";
 import { bindViewerUiEvents } from "../ui/debugPanelBindings.js";
 import { createGalleryOverlay } from "../ui/galleryOverlay.js";
@@ -200,19 +199,7 @@ const scene = new Scene();
 scene.background = new Color("#050816");
 const reflectionPmremGenerator = new PMREMGenerator(renderer);
 reflectionPmremGenerator.compileCubemapShader();
-const probeEnvironmentManager = createProbeEnvironmentManager({
-  pmremGenerator: reflectionPmremGenerator,
-  boxProjectionConfig: VIEWER_CONFIG.materialPresets.boxProjection,
-});
-const runtimeReflectionProbes = createRuntimeReflectionProbes({
-  renderer,
-  scene,
-  pmremGenerator: reflectionPmremGenerator,
-  config: {
-    ...VIEWER_CONFIG.materialPresets.runtimeProbes,
-    defaultHalfExtent: VIEWER_CONFIG.materialPresets.boxProjection.defaultHalfExtent,
-  },
-});
+const probeEnvironmentManager = createProbeEnvironmentManager({ pmremGenerator: reflectionPmremGenerator });
 const sceneRoots = new Group();
 scene.add(sceneRoots);
 
@@ -339,20 +326,67 @@ function shouldAppendAssetQuery(url) {
 }
 
 const loadingManager = new LoadingManager();
+const smoothProgressState = {
+  target: 0,
+  current: 0,
+  rafId: null,
+  lastTime: 0,
+  finished: false,
+};
+
 function setLoadingProgress(progress, { indeterminate = false } = {}) {
   if (!loadingBarFill) {
     return;
   }
 
   if (indeterminate) {
+    smoothProgressState.target = 0;
+    smoothProgressState.current = 0;
+    smoothProgressState.finished = false;
     loadingBarFill.classList.add("is-indeterminate");
     loadingBarFill.style.removeProperty("--loading-progress");
     return;
   }
 
   const normalizedProgress = Math.min(Math.max(progress, 0), 1);
+  smoothProgressState.target = normalizedProgress;
+  smoothProgressState.finished = normalizedProgress >= 1;
   loadingBarFill.classList.remove("is-indeterminate");
-  loadingBarFill.style.setProperty("--loading-progress", `${(normalizedProgress * 100).toFixed(1)}%`);
+
+  if (!smoothProgressState.rafId) {
+    smoothProgressState.lastTime = performance.now();
+    smoothProgressState.rafId = requestAnimationFrame(tickSmoothProgress);
+  }
+}
+
+function tickSmoothProgress(timestamp) {
+  const dt = Math.min((timestamp - smoothProgressState.lastTime) / 1000, 0.1);
+  smoothProgressState.lastTime = timestamp;
+
+  const remaining = smoothProgressState.target - smoothProgressState.current;
+  if (remaining < 0.0005 && smoothProgressState.finished) {
+    smoothProgressState.current = smoothProgressState.target;
+    applySmoothProgress();
+    smoothProgressState.rafId = null;
+    return;
+  }
+
+  const speed = smoothProgressState.finished
+    ? 6
+    : 2.5;
+  smoothProgressState.current += remaining * (1 - Math.exp(-speed * dt));
+  smoothProgressState.current = Math.min(smoothProgressState.current, smoothProgressState.target);
+  applySmoothProgress();
+
+  smoothProgressState.rafId = requestAnimationFrame(tickSmoothProgress);
+}
+
+function applySmoothProgress() {
+  if (!loadingBarFill) return;
+  loadingBarFill.style.setProperty(
+    "--loading-progress",
+    `${(smoothProgressState.current * 100).toFixed(2)}%`,
+  );
 }
 
 loadingManager.setURLModifier((url) => (
@@ -594,7 +628,6 @@ function setLoadingScreenVisible(visible) {
 }
 
 function renderSceneFrame(delta) {
-  runtimeReflectionProbes.updateFromCamera(camera.position);
   selectiveBloomPipeline.render(delta, selectiveBloomConfig);
 }
 
@@ -770,9 +803,6 @@ const sceneLayerLoader = createSceneLayerLoader({
   onLayersLoaded: (loadedLayers) => {
     selectiveBloomPipeline.syncTargets(loadedLayers, selectiveBloomConfig);
     debugObjectInspector.setLoadedLayers(loadedLayers);
-    if (VIEWER_CONFIG.materialPresets.runtimeProbes.enabled) {
-      runtimeReflectionProbes.captureProbes(sceneRoots);
-    }
   },
   isTouchDevice,
   isWalkMode,
@@ -960,6 +990,10 @@ const viewerLifecycleController = createViewerLifecycle({
   renderSceneFrame,
   updatePerformanceDiagnostics,
   disposeRuntimeResources: () => {
+    if (smoothProgressState.rafId) {
+      cancelAnimationFrame(smoothProgressState.rafId);
+      smoothProgressState.rafId = null;
+    }
     unbindViewerUi?.();
     unbindDebugUi?.();
     unbindNavigationEvents?.();
@@ -969,7 +1003,6 @@ const viewerLifecycleController = createViewerLifecycle({
     debugObjectInspector.dispose?.();
     sceneLayerLoader.dispose();
     clearFallbackScene();
-    runtimeReflectionProbes.dispose();
     reflectionEnvironment.dispose();
     selectiveBloomPipeline.dispose();
     reflectionPmremGenerator.dispose();

@@ -13,13 +13,7 @@ function flipImageVertically(image) {
   return canvas;
 }
 
-const DEFAULT_BOX_HALF_EXTENT = new Vector3(6, 3, 6);
-
-export function createProbeEnvironmentManager({ pmremGenerator, boxProjectionConfig = {} }) {
-  const defaultHalfExtent = boxProjectionConfig.defaultHalfExtent
-    ? new Vector3(...boxProjectionConfig.defaultHalfExtent)
-    : DEFAULT_BOX_HALF_EXTENT;
-
+export function createProbeEnvironmentManager({ pmremGenerator }) {
   const state = {
     probes: [],
   };
@@ -66,15 +60,9 @@ export function createProbeEnvironmentManager({ pmremGenerator, boxProjectionCon
       const pmremTarget = pmremGenerator.fromEquirectangular(texture);
       texture.dispose();
 
-      const probePos = worldPosition.clone();
-      const boxMin = probePos.clone().sub(defaultHalfExtent);
-      const boxMax = probePos.clone().add(defaultHalfExtent);
-
       state.probes.push({
         name: node.name,
-        position: probePos,
-        boxMin,
-        boxMax,
+        position: worldPosition.clone(),
         envMap: pmremTarget.texture,
         target: pmremTarget,
       });
@@ -92,13 +80,13 @@ export function createProbeEnvironmentManager({ pmremGenerator, boxProjectionCon
     console.log(`Loaded ${state.probes.length} probe(s): ${state.probes.map((p) => p.name).join(", ")}.`);
   }
 
-  function findClosestProbe(meshWorldPosition) {
+  function getClosestEnvMap(meshWorldPosition) {
     if (!state.probes.length) {
       return null;
     }
 
     if (state.probes.length === 1) {
-      return state.probes[0];
+      return state.probes[0].envMap;
     }
 
     let closestProbe = state.probes[0];
@@ -112,16 +100,7 @@ export function createProbeEnvironmentManager({ pmremGenerator, boxProjectionCon
       }
     }
 
-    return closestProbe;
-  }
-
-  function getClosestEnvMap(meshWorldPosition) {
-    const probe = findClosestProbe(meshWorldPosition);
-    return probe?.envMap ?? null;
-  }
-
-  function getClosestProbeData(meshWorldPosition) {
-    return findClosestProbe(meshWorldPosition);
+    return closestProbe.envMap;
   }
 
   function hasProbes() {
@@ -138,7 +117,6 @@ export function createProbeEnvironmentManager({ pmremGenerator, boxProjectionCon
   return {
     dispose,
     getClosestEnvMap,
-    getClosestProbeData,
     hasProbes,
     loadProbesFromGltf,
   };

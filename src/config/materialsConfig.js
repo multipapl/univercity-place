@@ -77,17 +77,6 @@ export const MATERIAL_PRESETS = {
     specularIntensity: 1.0,
     envMapRotationDegrees: 90,
   },
-  boxProjection: {
-    defaultHalfExtent: [6, 3, 6],
-  },
-  runtimeProbes: {
-    enabled: true,
-    resolution: 256,
-    probeHeight: 1.5,
-    gridCountX: 3,
-    gridCountZ: 3,
-    updateDistanceThreshold: 0.3,
-  },
   background: {
     hueDegrees: 0,
     saturation: 0.77,

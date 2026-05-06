@@ -8,7 +8,6 @@ export function makeWindowsMaterial({
   findMaterialTweak,
   stampViewerMaterialData,
   applyViewerMaterialPatches,
-  applyBoxProjectionPatch,
 }) {
   const source = sourceMaterial ?? {};
   const tweak = findMaterialTweak(mesh, source);
@@ -30,15 +29,10 @@ export function makeWindowsMaterial({
     mesh.geometry.boundingBox.getCenter(worldCenter);
     mesh.localToWorld(worldCenter);
   }
-  const probeData = reflectionEnvironment.getClosestProbeData(worldCenter);
-  material.envMap = probeData?.envMap ?? reflectionEnvironment.getClosestEnvMap(worldCenter);
+  material.envMap = reflectionEnvironment.getClosestEnvMap(worldCenter);
 
   stampViewerMaterialData(material, source, tweak);
-  material.userData.meshWorldCenter = worldCenter.clone();
   applyViewerMaterialPatches(material, { tweak });
-  if (probeData) {
-    applyBoxProjectionPatch(material, probeData);
-  }
 
   return material;
 }

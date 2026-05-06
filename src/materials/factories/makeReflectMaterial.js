@@ -17,7 +17,6 @@ export function makeReflectMaterial({
   applyTextureChannelOverride,
   stampViewerMaterialData,
   applyViewerMaterialPatches,
-  applyBoxProjectionPatch,
   normalizeTexture,
 }) {
   const source = sourceMaterial ?? {};
@@ -76,12 +75,10 @@ export function makeReflectMaterial({
     mesh.geometry.boundingBox.getCenter(worldCenter);
     mesh.localToWorld(worldCenter);
   }
-  const probeData = reflectionEnvironment.getClosestProbeData(worldCenter);
-  material.envMap = probeData?.envMap ?? reflectionEnvironment.getClosestEnvMap(worldCenter);
+  material.envMap = reflectionEnvironment.getClosestEnvMap(worldCenter);
   material.envMapRotation = new Euler(0, reflectionState.envMapRotationY, 0);
 
   stampViewerMaterialData(material, source, tweak);
-  material.userData.meshWorldCenter = worldCenter.clone();
   material.userData.viewerUvChannels = {
     color: map?.channel ?? colorChannel ?? null,
     roughness: roughnessMap?.channel ?? roughnessChannel ?? null,
@@ -90,9 +87,6 @@ export function makeReflectMaterial({
     normal: normalMap?.channel ?? normalChannel ?? null,
   };
   applyViewerMaterialPatches(material, { tweak });
-  if (probeData) {
-    applyBoxProjectionPatch(material, probeData);
-  }
   reflectionState.materials.add(material);
 
   return material;
