@@ -17,7 +17,9 @@ export function makeBakedMaterial({
   const tintColor = getMaterialTint(source, hasTexture);
   const tweak = findMaterialTweak(mesh, source);
 
-  tuneBakedTexture(map);
+  tuneBakedTexture(map, {
+    anisotropy: tweak?.bakedTextureAnisotropy,
+  });
 
   const material = new MeshBasicMaterial({
     name: source.name || "BakedMaterial",

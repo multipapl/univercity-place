@@ -7,6 +7,12 @@ export const MATERIAL_TWEAKS = [
     saturation: 0.82,
     excludeFromGameplayBounds: true,
   },
+  {
+    id: "floorSurface",
+    materialNameIncludes: ["floor", "parquet", "hardwood", "wood_floor", "woodfloor"],
+    meshNameIncludes: ["floor", "parquet", "hardwood", "wood_floor", "woodfloor"],
+    bakedTextureAnisotropy: 16,
+  },
 ];
 
 export const MATERIAL_PRESETS = {

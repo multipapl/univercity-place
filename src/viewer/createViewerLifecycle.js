@@ -9,6 +9,22 @@ export function createViewerLifecycle({
   updatePerformanceDiagnostics,
   disposeRuntimeResources,
 }) {
+  function handleWindowFocus() {
+    syncRenderMode();
+  }
+
+  function handleWindowBlur() {
+    syncRenderMode();
+  }
+
+  function handleDocumentVisibilityChange() {
+    syncRenderMode();
+  }
+
+  function handlePageShow() {
+    syncRenderMode();
+  }
+
   function clearScheduledTick() {
     if (state.viewerLifecycle.animationFrameId !== null) {
       window.cancelAnimationFrame(state.viewerLifecycle.animationFrameId);
@@ -130,6 +146,10 @@ export function createViewerLifecycle({
 
     state.viewerLifecycle.started = true;
     window.addEventListener("resize", handleResize);
+    window.addEventListener("focus", handleWindowFocus);
+    window.addEventListener("blur", handleWindowBlur);
+    window.addEventListener("pageshow", handlePageShow);
+    document.addEventListener("visibilitychange", handleDocumentVisibilityChange);
     state.viewerLifecycle.renderRequested = true;
     syncRenderMode();
     scheduleTick();
@@ -142,6 +162,10 @@ export function createViewerLifecycle({
 
     state.viewerLifecycle.started = false;
     window.removeEventListener("resize", handleResize);
+    window.removeEventListener("focus", handleWindowFocus);
+    window.removeEventListener("blur", handleWindowBlur);
+    window.removeEventListener("pageshow", handlePageShow);
+    document.removeEventListener("visibilitychange", handleDocumentVisibilityChange);
     clearScheduledTick();
   }
 

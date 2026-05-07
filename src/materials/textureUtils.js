@@ -9,6 +9,15 @@ export function createTextureUtils({
   viewerConfig,
   maxSupportedAnisotropy,
 }) {
+  function resolveTextureAnisotropy(value, fallback = 1) {
+    const normalizedFallback = Number.isFinite(fallback) && fallback > 0 ? fallback : 1;
+    if (!Number.isFinite(value) || value <= 0) {
+      return normalizedFallback;
+    }
+
+    return Math.min(value, maxSupportedAnisotropy || 1);
+  }
+
   function normalizeTexture(texture) {
     if (!texture) {
       return texture;
@@ -130,10 +139,27 @@ export function createTextureUtils({
     return texture;
   }
 
-  function tuneBakedTexture(texture) {
+  function tuneBakedTexture(texture, tuning = null) {
     if (!texture) {
       return texture;
     }
+
+    const nextTuning = tuning && typeof tuning === "object"
+      ? {
+        anisotropy: Number.isFinite(tuning.anisotropy) && tuning.anisotropy > 0
+          ? tuning.anisotropy
+          : null,
+      }
+      : null;
+    const storedTuning = texture.userData.viewerBakedTextureTuning || {};
+    const mergedTuning = nextTuning
+      ? {
+        ...storedTuning,
+        ...nextTuning,
+      }
+      : storedTuning;
+
+    texture.userData.viewerBakedTextureTuning = mergedTuning;
 
     applyTextureSizeCap(texture, viewerConfig.runtimeOptimization.baseTextureMaxSize);
 
@@ -147,6 +173,10 @@ export function createTextureUtils({
       texture.magFilter = LinearFilter;
     }
 
+    texture.anisotropy = resolveTextureAnisotropy(
+      mergedTuning.anisotropy,
+      texture.anisotropy,
+    );
     texture.needsUpdate = true;
     return texture;
   }

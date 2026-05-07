@@ -10,10 +10,19 @@ test("createViewerLifecycle pauses scene updates outside active render mode", ()
   let queuedTimeout = null;
   let renderMode = "active";
   const originalWindow = globalThis.window;
+  const originalDocument = globalThis.document;
+  const windowListeners = new Map();
+  const documentListeners = new Map();
 
   globalThis.window = {
-    addEventListener() {},
-    removeEventListener() {},
+    addEventListener(type, handler) {
+      windowListeners.set(type, handler);
+    },
+    removeEventListener(type, handler) {
+      if (windowListeners.get(type) === handler) {
+        windowListeners.delete(type);
+      }
+    },
     requestAnimationFrame(callback) {
       queuedAnimationFrame = callback;
       nextAnimationFrameId += 1;
@@ -28,6 +37,16 @@ test("createViewerLifecycle pauses scene updates outside active render mode", ()
     },
     clearTimeout() {
       queuedTimeout = null;
+    },
+  };
+  globalThis.document = {
+    addEventListener(type, handler) {
+      documentListeners.set(type, handler);
+    },
+    removeEventListener(type, handler) {
+      if (documentListeners.get(type) === handler) {
+        documentListeners.delete(type);
+      }
     },
   };
 
@@ -136,7 +155,19 @@ test("createViewerLifecycle pauses scene updates outside active render mode", ()
       "clear-ambient",
       "render:0.000",
     ]);
+
+    calls.length = 0;
+    renderMode = "active";
+    windowListeners.get("focus")?.();
+    assert.ok(queuedAnimationFrame);
+
+    queuedAnimationFrame();
+    assert.deepEqual(calls.slice(0, 2), [
+      "fire:on",
+      "clear-ambient",
+    ]);
   } finally {
     globalThis.window = originalWindow;
+    globalThis.document = originalDocument;
   }
 });

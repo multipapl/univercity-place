@@ -71,6 +71,19 @@ export function createGalleryOverlay({ overlay, rendersBaseUrl }) {
     }
   }
 
+  function attemptVideoAutoplay(video) {
+    if (!video) {
+      return;
+    }
+
+    const playPromise = video.play?.();
+    if (playPromise?.catch) {
+      playPromise.catch(() => {
+        // Some browsers can still reject autoplay; keep controls visible for manual resume.
+      });
+    }
+  }
+
   function createMediaElement(item, index) {
     if (item.type === "image") {
       const img = document.createElement("img");
@@ -84,9 +97,19 @@ export function createGalleryOverlay({ overlay, rendersBaseUrl }) {
     const video = document.createElement("video");
     video.className = "gallery-media";
     video.src = item.url;
+    video.autoplay = true;
     video.controls = true;
+    video.muted = true;
+    video.defaultMuted = true;
+    video.setAttribute("autoplay", "");
+    video.setAttribute("muted", "");
+    video.setAttribute("playsinline", "");
+    video.setAttribute("webkit-playsinline", "");
     video.playsInline = true;
     video.preload = "metadata";
+    video.addEventListener("loadeddata", () => {
+      attemptVideoAutoplay(video);
+    }, { once: true });
     return video;
   }
 
@@ -94,7 +117,12 @@ export function createGalleryOverlay({ overlay, rendersBaseUrl }) {
     const oldVideo = stage.querySelector("video");
     if (oldVideo) oldVideo.pause();
     stage.innerHTML = "";
-    stage.appendChild(createMediaElement(item, index));
+    const mediaElement = createMediaElement(item, index);
+    stage.appendChild(mediaElement);
+
+    if (item.type === "video") {
+      attemptVideoAutoplay(mediaElement);
+    }
   }
 
   function showItem(index) {
