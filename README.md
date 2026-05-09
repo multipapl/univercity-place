@@ -2,7 +2,7 @@
 
 Scene-specific architectural viewer built with `three` + `vite`.
 
-This runtime is intentionally narrow. It assumes a fixed layered asset contract, stable naming, and a few specialized material paths. It is a delivery viewer, not a generic editor or engine.
+This runtime is intentionally narrow: fixed scene contract, specialized material paths, web-first delivery, and a lightweight internal debug workflow.
 
 ## Quick Start
 
@@ -19,7 +19,7 @@ npm run build
 npm run preview
 ```
 
-## Scene Asset Delivery
+## Asset Delivery
 
 Default asset base URL:
 
@@ -27,33 +27,27 @@ Default asset base URL:
 /assets/scene
 ```
 
-By default that resolves to local files in:
+Local fallback folder:
 
 ```text
 public/assets/scene/
 ```
 
-You can point the runtime at object storage instead:
+Optional remote base URL:
 
 ```text
 VITE_SCENE_ASSET_BASE_URL=https://assets.example.com/assets/scene
 ```
 
-Current intended deployment shape:
+The app bundle ships with the site, while heavy scene assets can be served from object storage.
 
-- app bundle and `/public/draco` ship with the site
-- heavy scene payload can live in Cloudflare R2 or another public object store
-- if `VITE_SCENE_ASSET_BASE_URL` is unset, the viewer falls back to local `/public/assets/scene`
+## Current Asset Contract
 
-## Asset Contract
-
-All runtime asset paths live in one manifest:
+Single source of truth:
 
 ```text
 src/config/assetsConfig.js
 ```
-
-Each asset entry can define both `localPath` and `remotePath`. The runtime resolves URLs from that manifest instead of hardcoding filenames in loaders.
 
 Required:
 
@@ -61,48 +55,42 @@ Required:
 scene.glb
 ```
 
-Optional:
+Optional scene layers:
 
 ```text
 bg.glb
-BG360.glb
-leaf.glb
+sky.glb
+collision.glb
+translucent.glb
 glass.glb
 reflect.glb
-fx.glb
-fire.mp4
-cubemap.png
+windows.glb
+fire.glb
+emissive.glb
 ```
 
-Layer mapping:
+Related runtime assets:
 
-- `scene.glb` -> baked base scene
-- `bg.glb` -> animated background path
-- `BG360.glb` -> unlit alpha panorama path
-- `leaf.glb` -> alpha-cutout foliage path
-- `glass.glb` -> glass material path
-- `reflect.glb` -> reflective hero-material path
-- `fx.glb` -> FX meshes, including fire-video targets
-- `fire.mp4` -> runtime fire source
-- `cubemap.png` -> reflection environment source
+```text
+probes.glb
+fire.mp4
+```
 
-If the required base scene is missing, the app loads a placeholder room instead of crashing.
+If the required base scene is missing, the app falls back to a placeholder room instead of crashing.
 
 ## Runtime Shape
 
-- `src/main.js` bootstraps the app and renders a startup error shell if init fails.
+- `src/main.js` bootstraps the app.
 - `src/viewer/createViewerApp.js` composes the runtime and owns `init()` / `dispose()`.
-- `src/viewer/createViewerState.js` owns mutable runtime state.
-- `src/config/assetsConfig.js` is the single source of truth for local/remote asset paths and per-layer runtime flags.
-- `src/viewer/createViewerLifecycle.js` owns the render loop, resize handling, and teardown.
+- `src/viewer/createViewerLifecycle.js` owns active / paused / background render behavior.
 - `src/loaders/sceneLayerLoader.js` loads required and optional layers, applies runtime assets, and handles fallback transitions.
 - `src/materials/` contains the specialized material pipeline.
-- `src/ui/` contains the shell, menu structure, help overlay, and viewer/debug bindings.
-- `tests/` contains focused Node tests for state creation, override logic, diagnostics, debug targeting, and disposal helpers.
+- `src/camera/navigationController.js` owns desktop/mobile movement and collision-aware walk behavior.
+- `tests/` contains focused Node tests for state, lifecycle, materials, loaders, diagnostics, and disposal.
 
 ## Query Overrides
 
-Each layer can be overridden from the URL, for example:
+Layer URLs can be overridden from the URL, for example:
 
 ```text
 /?scene=https://example.com/scene.glb
@@ -112,13 +100,16 @@ Supported asset params:
 
 - `scene`
 - `background`
-- `bg360`
+- `sky`
+- `collision`
 - `alpha`
 - `glass`
 - `reflect`
-- `fx`
+- `windows`
+- `fire`
+- `emissive`
+- `probes`
 - `fireVideo`
-- `reflectEnv`
 
 Useful runtime flags:
 
@@ -126,18 +117,17 @@ Useful runtime flags:
 - `assetBust=...`
 - `lowMemoryBase=1`
 - `baseTextureCap=2048`
-
-`assetBust` flows through the asset resolver for top-level scene layers, fire video, and reflection environment URLs. During local dev, the app also timestamps same-origin asset requests automatically to reduce stale caching.
+- `bloom=0`
 
 ## Interaction
 
-- Desktop: click to lock pointer, `WASD` to move, `Shift` to sprint/boost, wheel for speed, `Shift` + wheel for FOV, `Q` / `E` for camera height.
-- Mobile: left joystick moves, right pad looks, boost button accelerates, fly up/down buttons appear in fly mode.
-- `M` toggles the control drawer.
+- Desktop: click to lock pointer, `WASD` move, `Shift` boost, wheel speed, `Shift` + wheel FOV, `Q` / `E` camera height.
+- Mobile: left joystick moves, right pad looks, boost button accelerates.
+- `M` toggles the drawer.
 - `H` toggles help.
 - `Esc` closes overlays or releases pointer lock.
 
-Default locomotion mode is `walk`. There is no collision system.
+Default locomotion mode is `walk`. If `collision.glb` is present, walk mode uses collision-aware movement.
 
 ## Debug Workflow
 
@@ -145,26 +135,25 @@ Enable debug mode with `?debug=1`.
 
 Debug mode adds:
 
-- live layer toggles
+- layer toggles
 - object picking
-- per-target HSV and gamma overrides
-- texture and performance diagnostics
-- local override copy/save flow
-- explicit asset reload
+- per-target HSV / gamma overrides
+- performance diagnostics
+- asset reload helpers
 
-Local override file:
+Local internal files:
 
 ```text
 public/debug.scene-overrides.json
+public/material-settings.json
 ```
 
-During `npm run dev`, `vite.config.js` exposes a dev-only POST endpoint at `/__debug/scene-overrides`.
+During `npm run dev`, `vite.config.js` exposes local save-back routes for both override flows.
 
-## Reading Order
+## Internal Notes
 
-1. `README.md`
-2. `docs/CURRENT_SYSTEM_OVERVIEW.md`
-3. `docs/PROJECT_NOTES.md`
-4. `docs/r2-asset-migration.md`
+Local docs in `docs/` are ignored by git and intentionally kept small. The main ones are:
 
-The files in `docs/` are internal workspace notes in this repo and are currently ignored by git.
+1. `docs/PROJECT_NOTES.md`
+2. `docs/performance-review-2026-05-09.md`
+3. `docs/vr-mode-run-guide.md`
