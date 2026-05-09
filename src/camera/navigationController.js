@@ -38,6 +38,7 @@ export function createNavigationController({
     lastLookX: 0,
     lastLookY: 0,
   };
+  let getMenuMovementAllowed = () => false;
   const sceneMetrics = {
     bounds: new Box3(),
     center: new Vector3(),
@@ -80,6 +81,11 @@ export function createNavigationController({
   const pointerLockState = {
     unlockCooldownMs: 400,
     lastUnlockAt: 0,
+  };
+  const menuLookState = {
+    active: false,
+    lastClientX: 0,
+    lastClientY: 0,
   };
 
   // Плавне регулювання камери
@@ -410,11 +416,13 @@ export function createNavigationController({
   }
 
   function updateMovement(delta, menuOpen) {
-    if (menuOpen) {
+    const allowMenuMovement = getMenuMovementAllowed();
+    const controlsBlockedByMenu = menuOpen && !allowMenuMovement;
+    if (controlsBlockedByMenu) {
       return;
     }
 
-    const canMove = controls.isLocked || isTouchDevice;
+    const canMove = controls.isLocked || isTouchDevice || allowMenuMovement;
     if (!canMove) {
       return;
     }
@@ -496,6 +504,7 @@ export function createNavigationController({
 
   function bindInputEvents({
     getMenuOpen,
+    getMenuMovementAllowed: getMenuMovementAllowedCallback = null,
     onToggleMenu,
     onToggleHelp,
     onCloseMenu,
@@ -509,6 +518,9 @@ export function createNavigationController({
     smoothAdjustState.onHeightChanged = onCameraHeightChanged;
     smoothAdjustState.onFovChanged = onCameraFovChanged;
     smoothAdjustState.onShowDock = onShowDock;
+    getMenuMovementAllowed = typeof getMenuMovementAllowedCallback === "function"
+      ? getMenuMovementAllowedCallback
+      : (() => false);
     const cleanupCallbacks = [];
     const bind = (target, type, handler, options) => {
       target?.addEventListener(type, handler, options);
@@ -516,9 +528,21 @@ export function createNavigationController({
         target?.removeEventListener(type, handler, options);
       });
     };
+    const isMenuNavigationKey = (code) => (
+      code === "KeyW"
+      || code === "KeyA"
+      || code === "KeyS"
+      || code === "KeyD"
+      || code === "ShiftLeft"
+      || code === "ShiftRight"
+      || code === "Space"
+      || code === "KeyC"
+    );
 
     const handleKeyDown = (event) => {
       onResumeFireVideo();
+      const menuOpen = getMenuOpen();
+      const allowMenuMovement = menuOpen && getMenuMovementAllowed();
 
       if (event.code === "KeyM") {
         event.preventDefault();
@@ -532,13 +556,17 @@ export function createNavigationController({
         return;
       }
 
-      if (event.code === "Escape" && getMenuOpen()) {
+      if (event.code === "Escape" && menuOpen) {
         event.preventDefault();
         onCloseMenu();
         return;
       }
 
-      if (getMenuOpen()) {
+      if (menuOpen && !allowMenuMovement) {
+        return;
+      }
+
+      if (menuOpen && !isMenuNavigationKey(event.code)) {
         return;
       }
 
@@ -596,6 +624,7 @@ export function createNavigationController({
       if (!controls.isLocked) {
         pointerLockState.lastUnlockAt = performance.now();
         disengageZoom();
+        menuLookState.active = false;
       }
     };
 
@@ -621,11 +650,25 @@ export function createNavigationController({
     }
 
     const handleMouseMove = (event) => {
-      if (!controls.isLocked || getMenuOpen()) {
+      if (controls.isLocked && !getMenuOpen()) {
+        applyLookDelta(event.movementX, event.movementY);
         return;
       }
 
-      applyLookDelta(event.movementX, event.movementY);
+      if (!getMenuOpen() || !getMenuMovementAllowed() || !menuLookState.active) {
+        return;
+      }
+
+      const deltaX = event.clientX - menuLookState.lastClientX;
+      const deltaY = event.clientY - menuLookState.lastClientY;
+      menuLookState.lastClientX = event.clientX;
+      menuLookState.lastClientY = event.clientY;
+
+      if (deltaX === 0 && deltaY === 0) {
+        return;
+      }
+
+      applyLookDelta(deltaX, deltaY);
     };
 
     const handleFocus = () => {
@@ -635,6 +678,7 @@ export function createNavigationController({
     const handleBlur = () => {
       resetMovementInputs();
       disengageZoom();
+      menuLookState.active = false;
     };
 
     const handleVisibilityChange = () => {
@@ -644,11 +688,28 @@ export function createNavigationController({
     };
 
     const handleMouseDown = (event) => {
+      if (event.button === 1 && getMenuOpen() && getMenuMovementAllowed()) {
+        if (event.target?.closest?.(".hud")) {
+          return;
+        }
+
+        menuLookState.active = true;
+        menuLookState.lastClientX = event.clientX;
+        menuLookState.lastClientY = event.clientY;
+        event.preventDefault();
+        return;
+      }
+
       if (event.button !== 2 || !controls.isLocked || getMenuOpen()) return;
       engageZoom();
     };
 
     const handleMouseUp = (event) => {
+      if (event.button === 1) {
+        menuLookState.active = false;
+        return;
+      }
+
       if (event.button !== 2) return;
       disengageZoom();
     };
@@ -806,6 +867,8 @@ export function createNavigationController({
         cleanup();
       });
       cleanupCallbacks.length = 0;
+      getMenuMovementAllowed = () => false;
+      menuLookState.active = false;
       resetMovementInputs();
     };
   }

@@ -18,6 +18,7 @@ export function createDebugObjectInspector({
   materialPipeline,
   updateStatus,
   getMenuOpen,
+  onPickerArmedChange = null,
   requestRender = null,
   ui,
 }) {
@@ -138,6 +139,10 @@ export function createDebugObjectInspector({
   }
 
   function setPickerArmed(nextValue) {
+    if (state.pickerArmed === nextValue) {
+      return;
+    }
+
     state.pickerArmed = nextValue;
     if (nextValue) {
       if (!hoverHelper.parent) {
@@ -149,6 +154,8 @@ export function createDebugObjectInspector({
 
     if (ui.pickButton) {
       ui.pickButton.textContent = nextValue ? "Picking..." : "Pick Object";
+      ui.pickButton.setAttribute("aria-pressed", nextValue ? "true" : "false");
+      ui.pickButton.classList.toggle("is-active", nextValue);
     }
 
     if (!nextValue) {
@@ -156,6 +163,7 @@ export function createDebugObjectInspector({
       hoverHelper.visible = false;
     }
 
+    onPickerArmedChange?.(nextValue);
     requestRender?.();
   }
 
@@ -200,7 +208,7 @@ export function createDebugObjectInspector({
         ? (state.pickerArmed
             ? "Pick another object."
             : "Object selected.")
-        : "No object selected.";
+        : (state.pickerArmed ? "Pick an object in the scene." : "No object selected.");
     }
 
     if (ui.selectionLayer) {
@@ -391,8 +399,9 @@ export function createDebugObjectInspector({
       return;
     }
 
-    setPickerArmed(true);
-    updateStatus("Pick an object in the scene.");
+    const nextPickerArmed = !state.pickerArmed;
+    setPickerArmed(nextPickerArmed);
+    updateStatus(nextPickerArmed ? "Pick an object in the scene." : "Object picking stopped.");
     setSelectionUi(resolveSelectedEntry());
     requestRender?.();
   }
@@ -411,6 +420,10 @@ export function createDebugObjectInspector({
 
   function handleCanvasPointerDown(event) {
     if (!state.enabled || !state.pickerArmed || !getMenuOpen()) {
+      return;
+    }
+
+    if (event.button !== 0) {
       return;
     }
 
@@ -436,8 +449,7 @@ export function createDebugObjectInspector({
     };
 
     selectEntry(selectedEntry);
-    setPickerArmed(false);
-    updateStatus(`Picked ${target.meshName || "mesh"}.`);
+    updateStatus(`Picked ${target.meshName || "mesh"}. Pick another object or press Pick Object to stop.`);
     requestRender?.();
   }
 
@@ -567,6 +579,7 @@ export function createDebugObjectInspector({
       hoverHelper.geometry?.dispose?.();
       hoverHelper.material?.dispose?.();
     },
+    isPickerArmed: () => state.pickerArmed,
     loadOverrides,
     setLoadedLayers,
     setEnabled(nextEnabled) {

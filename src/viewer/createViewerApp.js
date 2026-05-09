@@ -625,6 +625,7 @@ const updatePerformanceDiagnostics = () => {
   performanceDiagnostics.update();
 };
 let viewerLifecycleController = null;
+let debugObjectInspector = null;
 const requestSceneRender = () => {
   viewerLifecycleController?.requestRender();
 };
@@ -638,7 +639,11 @@ const getRenderMode = () => {
     return "background";
   }
 
-  if (menuController.isOpen() || helpOverlayState.isOpen || galleryOverlay.isOpen()) {
+  if (helpOverlayState.isOpen || galleryOverlay.isOpen()) {
+    return "paused";
+  }
+
+  if (menuController.isOpen() && !debugObjectInspector?.isPickerArmed?.()) {
     return "paused";
   }
 
@@ -647,7 +652,7 @@ const getRenderMode = () => {
 const syncViewerRenderMode = () => {
   viewerLifecycleController?.syncRenderMode();
 };
-const debugObjectInspector = createDebugObjectInspector({
+debugObjectInspector = createDebugObjectInspector({
   enabled: debugMode,
   isDev: import.meta.env.DEV,
   assetQuery,
@@ -657,6 +662,10 @@ const debugObjectInspector = createDebugObjectInspector({
   materialPipeline,
   updateStatus,
   getMenuOpen: () => menuController.isOpen(),
+  onPickerArmedChange: () => {
+    syncViewerRenderMode();
+    requestSceneRender();
+  },
   requestRender: requestSceneRender,
   ui: createDebugInspectorUi(refs),
 });
@@ -1086,6 +1095,7 @@ const sceneLayerLoader = createSceneLayerLoader({
 });
 const unbindNavigationEvents = navigationController.bindInputEvents({
   getMenuOpen: () => menuController.isOpen() || helpOverlayState.isOpen || galleryOverlay.isOpen(),
+  getMenuMovementAllowed: () => menuController.isOpen() && debugObjectInspector.isPickerArmed(),
   onToggleMenu: () => {
     if (galleryOverlay.isOpen()) {
       closeGallery();
@@ -1133,6 +1143,10 @@ const unbindNavigationEvents = navigationController.bindInputEvents({
   },
   onResumeFireVideo: () => sceneLayerLoader.resumeFireVideoPlayback(),
   onMoveStart: () => {
+    if (menuController.isOpen() && debugObjectInspector.isPickerArmed()) {
+      return;
+    }
+
     if (VIEWER_CONFIG.interface.dock.hideOnMovement) {
       hideDock();
     }
