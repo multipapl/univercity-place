@@ -21,25 +21,40 @@ npm run preview
 
 ## Asset Delivery
 
-Default asset base URL:
+Default local asset tree:
 
 ```text
-/assets/scene
+/assets
 ```
 
-Local fallback folder:
+Local folders:
 
 ```text
+public/assets/audio/
+public/assets/renders/
 public/assets/scene/
 ```
 
-Optional remote base URL:
+Preferred remote root override:
+
+```text
+VITE_ASSET_BASE_URL=https://assets.example.com/assets
+```
+
+Backward-compatible scene-only override:
 
 ```text
 VITE_SCENE_ASSET_BASE_URL=https://assets.example.com/assets/scene
 ```
 
-The app bundle ships with the site, while heavy scene assets can be served from object storage.
+Optional per-category overrides:
+
+```text
+VITE_RENDER_ASSET_BASE_URL=https://assets.example.com/assets/renders
+VITE_AUDIO_ASSET_BASE_URL=https://assets.example.com/assets/audio
+```
+
+The app bundle ships with the site, while heavy scene assets, render media, and ambient audio can be served from object storage using the same `/assets/{scene,renders,audio}` structure.
 
 ## Current Asset Contract
 
@@ -74,6 +89,7 @@ Related runtime assets:
 ```text
 probes.glb
 fire.mp4
+atlasaudio-ambient-soft-511880.mp3
 ```
 
 If the required base scene is missing, the app falls back to a placeholder room instead of crashing.
@@ -110,6 +126,7 @@ Supported asset params:
 - `emissive`
 - `probes`
 - `fireVideo`
+- `ambientAudio`
 
 Useful runtime flags:
 

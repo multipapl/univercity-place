@@ -5,10 +5,14 @@ import {
   ACTIVE_SCENE_ASSET_SOURCE,
   AMBIENT_AUDIO_ASSET_CONTRACT,
   FIRE_VIDEO_ASSET_CONTRACT,
+  LOCAL_AUDIO_ASSET_BASE_URL,
+  LOCAL_RENDERS_BASE_URL,
   LOCAL_SCENE_ASSET_BASE_URL,
   PROBES_ASSET_CONTRACT,
   SCENE_LAYER_CONTRACTS,
+  deriveRemoteAssetBaseUrlFromSceneBaseUrl,
   getMissingSceneStatusMessage,
+  resolveConfiguredAssetBaseUrls,
 } from "../src/config/assetsConfig.js";
 
 test("assetsConfig exposes a single manifest for scene layers and runtime assets", () => {
@@ -46,8 +50,36 @@ test("assetsConfig exposes a single manifest for scene layers and runtime assets
   assert.equal(PROBES_ASSET_CONTRACT.urls.local, `${LOCAL_SCENE_ASSET_BASE_URL}/probes.glb`);
   assert.equal(AMBIENT_AUDIO_ASSET_CONTRACT.localPath, "atlasaudio-ambient-soft-511880.mp3");
   assert.equal(
-    AMBIENT_AUDIO_ASSET_CONTRACT.url,
-    "/assets/audio/atlasaudio-ambient-soft-511880.mp3",
+    AMBIENT_AUDIO_ASSET_CONTRACT.urls.local,
+    `${LOCAL_AUDIO_ASSET_BASE_URL}/atlasaudio-ambient-soft-511880.mp3`,
   );
+  assert.equal(LOCAL_RENDERS_BASE_URL, "/assets/renders");
   assert.match(getMissingSceneStatusMessage(), /\/public\/assets\/scene\/scene\.glb/);
+});
+
+test("assetsConfig derives a shared remote asset root from the scene base URL", () => {
+  assert.equal(
+    deriveRemoteAssetBaseUrlFromSceneBaseUrl("https://cdn.example.com/assets/scene"),
+    "https://cdn.example.com/assets",
+  );
+
+  const resolved = resolveConfiguredAssetBaseUrls({
+    VITE_SCENE_ASSET_BASE_URL: "https://cdn.example.com/assets/scene",
+  });
+
+  assert.equal(resolved.remoteAssetBaseUrl, "https://cdn.example.com/assets");
+  assert.equal(resolved.remoteSceneAssetBaseUrl, "https://cdn.example.com/assets/scene");
+  assert.equal(resolved.remoteRendersBaseUrl, "https://cdn.example.com/assets/renders");
+  assert.equal(resolved.remoteAudioAssetBaseUrl, "https://cdn.example.com/assets/audio");
+});
+
+test("assetsConfig supports explicit root and per-category overrides", () => {
+  const resolved = resolveConfiguredAssetBaseUrls({
+    VITE_ASSET_BASE_URL: "https://cdn.example.com/assets",
+    VITE_AUDIO_ASSET_BASE_URL: "https://media.example.com/audio",
+  });
+
+  assert.equal(resolved.remoteSceneAssetBaseUrl, "https://cdn.example.com/assets/scene");
+  assert.equal(resolved.remoteRendersBaseUrl, "https://cdn.example.com/assets/renders");
+  assert.equal(resolved.remoteAudioAssetBaseUrl, "https://media.example.com/audio");
 });

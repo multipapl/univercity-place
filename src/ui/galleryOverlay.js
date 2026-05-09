@@ -1,31 +1,98 @@
-const EXPECTED_CONTENT_TYPES = {
-  jpg: "image/",
-  mp4: "video/",
-};
+function waitForMediaProbeResult(element, assignSource, { successEvents, timeoutMs = 4000 }) {
+  return new Promise((resolve) => {
+    let settled = false;
 
-async function probeNumberedFiles(baseUrl, prefix, extension, padLength, maxCount = 50) {
+    const cleanup = () => {
+      successEvents.forEach((eventName) => {
+        element.removeEventListener(eventName, handleSuccess);
+      });
+      element.removeEventListener("error", handleFailure);
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+      }
+    };
+
+    const finalize = (result) => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      cleanup();
+      resolve(result);
+    };
+
+    const handleSuccess = () => finalize(true);
+    const handleFailure = () => finalize(false);
+    const timeoutId = window.setTimeout(handleFailure, timeoutMs);
+
+    successEvents.forEach((eventName) => {
+      element.addEventListener(eventName, handleSuccess, { once: true });
+    });
+    element.addEventListener("error", handleFailure, { once: true });
+    assignSource();
+  });
+}
+
+async function probeImageUrl(url) {
+  const image = new Image();
+  image.decoding = "async";
+  return waitForMediaProbeResult(image, () => {
+    image.src = url;
+  }, {
+    successEvents: ["load"],
+  });
+}
+
+async function probeVideoUrl(url) {
+  const video = document.createElement("video");
+  video.preload = "metadata";
+  video.muted = true;
+  video.defaultMuted = true;
+  video.playsInline = true;
+  return waitForMediaProbeResult(video, () => {
+    video.src = url;
+    video.load();
+  }, {
+    successEvents: ["loadedmetadata", "loadeddata"],
+  });
+}
+
+async function probeMediaUrl(url, mediaType) {
+  if (mediaType === "video") {
+    return probeVideoUrl(url);
+  }
+
+  return probeImageUrl(url);
+}
+
+async function probeNumberedFiles(
+  baseUrl,
+  prefix,
+  extension,
+  padLength,
+  mediaType,
+  probe = probeMediaUrl,
+  maxCount = 50,
+) {
   const urls = [];
-  const expectedType = EXPECTED_CONTENT_TYPES[extension] || "";
   for (let i = 1; i <= maxCount; i++) {
     const num = String(i).padStart(padLength, "0");
     const url = `${baseUrl}/${prefix}${num}.${extension}`;
-    try {
-      const res = await fetch(url, { method: "HEAD" });
-      if (!res.ok) break;
-      const contentType = res.headers.get("content-type") || "";
-      if (expectedType && !contentType.startsWith(expectedType)) break;
-      urls.push(url);
-    } catch {
+    const exists = await probe(url, mediaType);
+    if (!exists) {
       break;
     }
+
+    urls.push(url);
   }
   return urls;
 }
 
-async function discoverGalleryItems(rendersBaseUrl) {
+export async function discoverGalleryItems(rendersBaseUrl, probe = probeMediaUrl) {
   const [stillUrls, videoUrls] = await Promise.all([
-    probeNumberedFiles(`${rendersBaseUrl}/stills`, "up_still_", "jpg", 3),
-    probeNumberedFiles(`${rendersBaseUrl}/animation`, "up_animation_", "mp4", 2),
+    probeNumberedFiles(`${rendersBaseUrl}/stills`, "up_still_", "jpg", 3, "image", probe),
+    probeNumberedFiles(`${rendersBaseUrl}/animation`, "up_animation_", "mp4", 2, "video", probe),
   ]);
 
   return [
