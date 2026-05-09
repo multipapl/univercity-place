@@ -1,7 +1,8 @@
-import { DoubleSide, MeshPhysicalMaterial, Vector3 } from "three";
+import { DoubleSide, Euler, MeshPhysicalMaterial, Vector3 } from "three";
 
 export function makeWindowsMaterial({
   viewerConfig,
+  reflectionState,
   reflectionEnvironment,
   sourceMaterial,
   mesh,
@@ -30,9 +31,11 @@ export function makeWindowsMaterial({
     mesh.localToWorld(worldCenter);
   }
   material.envMap = reflectionEnvironment.getClosestEnvMap(worldCenter);
+  material.envMapRotation = new Euler(0, reflectionState.envMapRotationY, 0);
 
   stampViewerMaterialData(material, source, tweak);
   applyViewerMaterialPatches(material, { tweak });
+  reflectionState.probeMaterials.add(material);
 
   return material;
 }

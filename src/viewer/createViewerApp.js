@@ -29,6 +29,11 @@ import {
 import { appendAssetQuery } from "../loaders/assetResolver.js";
 import { createNavigationController } from "../camera/navigationController.js";
 import { createDebugObjectInspector } from "../debug/debugObjectInspector.js";
+import {
+  applyMaterialSettingsDocumentToState,
+  createMaterialSettingsDocumentFromState,
+  normalizeMaterialSettingsDocument,
+} from "../debug/materialSettingsStore.js";
 import { createPerformanceDiagnostics } from "../diagnostics/performanceDiagnostics.js";
 import { createSceneLayerLoader } from "../loaders/sceneLayerLoader.js";
 import { createMaterialPipeline } from "../materials/materialPipeline.js";
@@ -151,6 +156,16 @@ const {
   backgroundSaturationValue,
   backgroundValueSlider,
   backgroundValueOutput,
+  backgroundGammaSlider,
+  backgroundGammaValue,
+  skyHueSlider,
+  skyHueValue,
+  skySaturationSlider,
+  skySaturationValue,
+  skyValueSlider,
+  skyValueOutput,
+  skyGammaSlider,
+  skyGammaValue,
   fireHueSlider,
   fireHueValue,
   fireSaturationSlider,
@@ -314,6 +329,7 @@ const {
   viewerConfig,
   diagnosticsState,
   backgroundState,
+  skyState,
   fireState,
   reflectionState,
   viewerLifecycle,
@@ -328,6 +344,11 @@ const assetQuery = debugMode
   : (assetBustValue
       ? `v=${encodeURIComponent(assetBustValue)}`
       : (isLocalAssetDevelopment ? `v=${encodeURIComponent(`${Date.now()}`)}` : ""));
+const materialSettingsPersistenceState = {
+  hasLoaded: false,
+  lastSerialized: "",
+  saveTimeoutId: null,
+};
 
 try {
   window.localStorage.removeItem("viewer.debugMode");
@@ -445,6 +466,92 @@ const updateStatus = (message) => {
     loadingStatusLine.textContent = message;
   }
 };
+
+function getMaterialSettingsUrl() {
+  const suffix = assetQuery ? `?${assetQuery}` : "";
+  return `/material-settings.json${suffix}`;
+}
+
+async function loadMaterialSettings() {
+  const fallbackDocument = normalizeMaterialSettingsDocument(null, viewerConfig);
+
+  try {
+    const response = await fetch(getMaterialSettingsUrl(), { cache: "no-store" });
+    if (!response.ok) {
+      throw new Error(`Material settings load failed with ${response.status}.`);
+    }
+
+    const documentValue = normalizeMaterialSettingsDocument(await response.json(), viewerConfig);
+    applyMaterialSettingsDocumentToState(documentValue, {
+      backgroundState,
+      skyState,
+      reflectionState,
+    });
+    materialSettingsPersistenceState.lastSerialized = JSON.stringify(documentValue);
+    materialSettingsPersistenceState.hasLoaded = true;
+  } catch (error) {
+    console.warn("Material settings file could not be loaded, using current defaults.", error);
+    applyMaterialSettingsDocumentToState(fallbackDocument, {
+      backgroundState,
+      skyState,
+      reflectionState,
+    });
+    materialSettingsPersistenceState.lastSerialized = JSON.stringify(fallbackDocument);
+    materialSettingsPersistenceState.hasLoaded = true;
+  }
+}
+
+async function saveMaterialSettings() {
+  if (!import.meta.env.DEV || !materialSettingsPersistenceState.hasLoaded) {
+    return;
+  }
+
+  const documentValue = normalizeMaterialSettingsDocument(
+    createMaterialSettingsDocumentFromState({
+      backgroundState,
+      skyState,
+      reflectionState,
+    }),
+    viewerConfig,
+  );
+  const serialized = JSON.stringify(documentValue);
+  if (serialized === materialSettingsPersistenceState.lastSerialized) {
+    return;
+  }
+
+  try {
+    const response = await fetch("/__debug/material-settings", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: `${JSON.stringify(documentValue, null, 2)}\n`,
+    });
+
+    if (!response.ok) {
+      throw new Error(`Material settings save failed with ${response.status}.`);
+    }
+
+    materialSettingsPersistenceState.lastSerialized = serialized;
+  } catch (error) {
+    console.warn("Material settings could not be saved.", error);
+  }
+}
+
+function scheduleMaterialSettingsSave() {
+  if (!import.meta.env.DEV || !materialSettingsPersistenceState.hasLoaded) {
+    return;
+  }
+
+  if (materialSettingsPersistenceState.saveTimeoutId) {
+    clearTimeout(materialSettingsPersistenceState.saveTimeoutId);
+  }
+
+  materialSettingsPersistenceState.saveTimeoutId = window.setTimeout(() => {
+    materialSettingsPersistenceState.saveTimeoutId = null;
+    saveMaterialSettings();
+  }, 180);
+}
 const reflectionEnvironment = createReflectionEnvironmentManager({
   reflectionPmremGenerator,
   scene,
@@ -454,6 +561,7 @@ const materialPipeline = createMaterialPipeline({
   viewerConfig,
   maxSupportedAnisotropy,
   backgroundState,
+  skyState,
   fireState,
   reflectionState,
   reflectionEnvironment,
@@ -511,6 +619,7 @@ const debugObjectInspector = createDebugObjectInspector({
   materialPipeline,
   updateStatus,
   getMenuOpen: () => menuController.isOpen(),
+  requestRender: requestSceneRender,
   ui: createDebugInspectorUi(refs),
 });
 const navigationController = createNavigationController({
@@ -529,6 +638,7 @@ const navigationController = createNavigationController({
   cameraMotionState,
   updateStatus,
 });
+navigationController.setCollisionRoots([]);
 const toneMappingModes = {
   standard: LinearToneMapping,
   none: NoToneMapping,
@@ -580,9 +690,12 @@ const uiController = createViewerUiController({
     interfaceState,
     cameraMotionState,
     backgroundState,
+    skyState,
     fireState,
     reflectionState,
   },
+  viewerConfig,
+  materialPipeline,
   renderer,
   toneMappingModes,
   selectiveBloomConfig,
@@ -815,7 +928,16 @@ function setBaseTextureCap(nextCap) {
   updateStatus(cap ? `Base texture cap set to ${cap}px.` : "Base texture cap disabled.");
 }
 
-function positionCameraAtSpawn(root) {
+function positionCameraAtSpawn(root, loadedLayers = []) {
+  const startMarker = loadedLayers
+    .map((entry) => entry.root?.getObjectByName?.("Start"))
+    .find(Boolean);
+
+  if (startMarker) {
+    navigationController.positionCameraAtMarker(startMarker);
+    return;
+  }
+
   navigationController.positionCameraAtSpawn(root, materialPipeline.isGameplayMesh);
 }
 
@@ -873,6 +995,7 @@ const sceneLayerLoader = createSceneLayerLoader({
   renderLayerControls: () => layerControlsRenderer.render(),
   clearFallbackScene,
   applyBackgroundColorSettings: uiController.applyBackgroundColorSettings,
+  applySkyColorSettings: uiController.applySkyColorSettings,
   applyFireColorSettings: uiController.applyFireColorSettings,
   applyReflectMaterialSettings: uiController.applyReflectMaterialSettings,
   applyRuntimeTextureOptimizations,
@@ -883,12 +1006,18 @@ const sceneLayerLoader = createSceneLayerLoader({
   onLayersLoaded: (loadedLayers) => {
     selectiveBloomPipeline.syncTargets(loadedLayers, selectiveBloomConfig);
     debugObjectInspector.setLoadedLayers(loadedLayers);
+    navigationController.setCollisionRoots(
+      loadedLayers
+        .filter((entry) => entry.layer.runtime?.registerAsCollisionRoot)
+        .map((entry) => entry.root),
+    );
     requestSceneRender();
   },
   isTouchDevice,
   isWalkMode,
   trackedMaterialSets: [
     backgroundState.materials,
+    skyState.materials,
     fireState.materials,
     reflectionState.materials,
   ],
@@ -996,16 +1125,59 @@ const unbindViewerUi = bindViewerUiEvents({
     backgroundState.hueDegrees = value;
     uiController.applyBackgroundColorSettings();
     requestSceneRender();
+    scheduleMaterialSettingsSave();
   },
   onBackgroundSaturationChange: (value) => {
     backgroundState.saturation = value;
     uiController.applyBackgroundColorSettings();
     requestSceneRender();
+    scheduleMaterialSettingsSave();
   },
   onBackgroundValueChange: (value) => {
     backgroundState.value = value;
     uiController.applyBackgroundColorSettings();
     requestSceneRender();
+    scheduleMaterialSettingsSave();
+  },
+  onBackgroundGammaChange: (value) => {
+    backgroundState.gamma = value;
+    uiController.applyBackgroundColorSettings();
+    requestSceneRender();
+    scheduleMaterialSettingsSave();
+  },
+  onBackgroundReset: () => {
+    uiController.resetBackgroundColorSettings();
+    requestSceneRender();
+    scheduleMaterialSettingsSave();
+  },
+  onSkyHueChange: (value) => {
+    skyState.hueDegrees = value;
+    uiController.applySkyColorSettings();
+    requestSceneRender();
+    scheduleMaterialSettingsSave();
+  },
+  onSkySaturationChange: (value) => {
+    skyState.saturation = value;
+    uiController.applySkyColorSettings();
+    requestSceneRender();
+    scheduleMaterialSettingsSave();
+  },
+  onSkyValueChange: (value) => {
+    skyState.value = value;
+    uiController.applySkyColorSettings();
+    requestSceneRender();
+    scheduleMaterialSettingsSave();
+  },
+  onSkyGammaChange: (value) => {
+    skyState.gamma = value;
+    uiController.applySkyColorSettings();
+    requestSceneRender();
+    scheduleMaterialSettingsSave();
+  },
+  onSkyReset: () => {
+    uiController.resetSkyColorSettings();
+    requestSceneRender();
+    scheduleMaterialSettingsSave();
   },
   onFireHueChange: (value) => {
     fireState.hueDegrees = value;
@@ -1026,26 +1198,36 @@ const unbindViewerUi = bindViewerUiEvents({
     reflectionState.envMapIntensity = value;
     uiController.applyReflectMaterialSettings();
     requestSceneRender();
+    scheduleMaterialSettingsSave();
   },
   onReflectIorChange: (value) => {
     reflectionState.ior = value;
     uiController.applyReflectMaterialSettings();
     requestSceneRender();
+    scheduleMaterialSettingsSave();
   },
   onReflectSpecularChange: (value) => {
     reflectionState.specularIntensity = value;
     uiController.applyReflectMaterialSettings();
     requestSceneRender();
+    scheduleMaterialSettingsSave();
   },
   onReflectMetalnessChange: (value) => {
     reflectionState.metalness = value;
     uiController.applyReflectMaterialSettings();
     requestSceneRender();
+    scheduleMaterialSettingsSave();
   },
   onReflectEnvRotationYChange: (value) => {
     reflectionState.envMapRotationY = value * Math.PI / 180;
     uiController.applyReflectMaterialSettings();
     requestSceneRender();
+    scheduleMaterialSettingsSave();
+  },
+  onReflectReset: () => {
+    uiController.resetReflectMaterialSettings();
+    requestSceneRender();
+    scheduleMaterialSettingsSave();
   },
   onBaseLowMemoryToggle: (checked) => {
     setBaseLowMemoryMode(checked);
@@ -1093,6 +1275,10 @@ viewerLifecycleController = createViewerLifecycle({
       cancelAnimationFrame(smoothProgressState.rafId);
       smoothProgressState.rafId = null;
     }
+    if (materialSettingsPersistenceState.saveTimeoutId) {
+      clearTimeout(materialSettingsPersistenceState.saveTimeoutId);
+      materialSettingsPersistenceState.saveTimeoutId = null;
+    }
     unbindViewerUi?.();
     unbindDebugUi?.();
     unbindNavigationEvents?.();
@@ -1111,6 +1297,7 @@ viewerLifecycleController = createViewerLifecycle({
 });
 
   async function init() {
+    await loadMaterialSettings();
     debugObjectInspector.setEnabled(debugMode);
     navigationController.syncLookStateFromCamera();
     uiController.applyViewportColorSettings();
@@ -1121,6 +1308,7 @@ viewerLifecycleController = createViewerLifecycle({
     uiController.applyInterfaceSettings();
     uiController.applyDebugModeSettings();
     uiController.applyBackgroundColorSettings();
+    uiController.applySkyColorSettings();
     uiController.applyFireColorSettings();
     uiController.applyReflectMaterialSettings();
 

@@ -34,6 +34,15 @@ export function makeReflectMaterial({
   const aoChannel = getFallbackTextureChannel(mesh, reflectUvChannels.ao);
   const normalChannel = getFallbackTextureChannel(mesh, reflectUvChannels.normal);
   const reflectPreset = viewerConfig.materialPresets.reflectMaterial;
+  const baseColorBoost = Number.isFinite(reflectPreset.baseColorBoost)
+    ? reflectPreset.baseColorBoost
+    : 1;
+  const roughness = Number.isFinite(source.roughness)
+    ? source.roughness
+    : reflectPreset.defaultRoughness;
+  const metalness = Number.isFinite(source.metalness)
+    ? source.metalness
+    : reflectPreset.defaultMetalness;
 
   applyTextureChannelOverride(map, colorChannel);
   applyTextureChannelOverride(roughnessMap, roughnessChannel);
@@ -45,10 +54,10 @@ export function makeReflectMaterial({
     name: source.name || "ReflectMaterial",
     map,
     color: getMaterialTint(source, hasTexture),
-    roughness: reflectPreset.defaultRoughness,
-    roughnessMap: null,
-    metalness: reflectPreset.defaultMetalness,
-    metalnessMap: null,
+    roughness,
+    roughnessMap,
+    metalness,
+    metalnessMap,
     normalMap,
     normalScale: source.normalScale?.clone?.() ?? new Vector2(1, 1),
     aoMap,
@@ -79,6 +88,8 @@ export function makeReflectMaterial({
   material.envMapRotation = new Euler(0, reflectionState.envMapRotationY, 0);
 
   stampViewerMaterialData(material, source, tweak);
+  material.userData.viewerReflectBaseMetalness = metalness;
+  material.userData.viewerReflectBaseColorBoost = baseColorBoost;
   material.userData.viewerUvChannels = {
     color: map?.channel ?? colorChannel ?? null,
     roughness: roughnessMap?.channel ?? roughnessChannel ?? null,
@@ -86,8 +97,14 @@ export function makeReflectMaterial({
     ao: aoMap?.channel ?? aoChannel ?? null,
     normal: normalMap?.channel ?? normalChannel ?? null,
   };
-  applyViewerMaterialPatches(material, { tweak });
+  applyViewerMaterialPatches(material, {
+    tweak: {
+      ...(tweak ?? {}),
+      brightness: (Number.isFinite(tweak?.brightness) ? tweak.brightness : 1) * baseColorBoost,
+    },
+  });
   reflectionState.materials.add(material);
+  reflectionState.probeMaterials?.add(material);
 
   return material;
 }

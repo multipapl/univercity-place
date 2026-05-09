@@ -2,6 +2,21 @@ export function createViewerState({
   baseViewerConfig,
   initialRuntimeOptimizationState,
 }) {
+  const backgroundPreset = {
+    hueDegrees: 0,
+    saturation: 1,
+    value: 1,
+    gamma: 1,
+    rotationDegreesPerMinute: 0,
+    ...(baseViewerConfig.materialPresets?.background ?? {}),
+  };
+  const skyPreset = {
+    hueDegrees: 0,
+    saturation: 1,
+    value: 1,
+    gamma: 1,
+    ...(baseViewerConfig.materialPresets?.sky ?? {}),
+  };
   const runtimeOptimizationState = {
     lowMemoryBaseMipmaps: initialRuntimeOptimizationState.lowMemoryBaseMipmaps,
     baseTextureMaxSize: initialRuntimeOptimizationState.baseTextureMaxSize,
@@ -43,14 +58,22 @@ export function createViewerState({
     lastUpdateAt: 0,
   };
   const backgroundState = {
-    hueDegrees: baseViewerConfig.materialPresets.background.hueDegrees,
-    saturation: baseViewerConfig.materialPresets.background.saturation,
-    value: baseViewerConfig.materialPresets.background.value,
+    hueDegrees: backgroundPreset.hueDegrees,
+    saturation: backgroundPreset.saturation,
+    value: backgroundPreset.value,
+    gamma: backgroundPreset.gamma,
     materials: new Set(),
     roots: new Set(),
     motionTime: 0,
     rotationRadiansPerSecond:
-      (baseViewerConfig.materialPresets.background.rotationDegreesPerMinute * Math.PI / 180) / 60,
+      (backgroundPreset.rotationDegreesPerMinute * Math.PI / 180) / 60,
+  };
+  const skyState = {
+    hueDegrees: skyPreset.hueDegrees,
+    saturation: skyPreset.saturation,
+    value: skyPreset.value,
+    gamma: skyPreset.gamma,
+    materials: new Set(),
   };
   const fireState = {
     hueDegrees: baseViewerConfig.materialPresets.fireVideo.hueDegrees,
@@ -65,6 +88,7 @@ export function createViewerState({
     metalness: baseViewerConfig.materialPresets.reflectMaterial.defaultMetalness,
     envMapRotationY: baseViewerConfig.materialPresets.reflectMaterial.envMapRotationDegrees * Math.PI / 180,
     materials: new Set(),
+    probeMaterials: new Set(),
   };
   const viewerLifecycle = {
     animationFrameId: null,
@@ -90,6 +114,7 @@ export function createViewerState({
     viewerConfig,
     diagnosticsState,
     backgroundState,
+    skyState,
     fireState,
     reflectionState,
     viewerLifecycle,

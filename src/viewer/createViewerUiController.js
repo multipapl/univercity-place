@@ -1,7 +1,11 @@
+import { Euler } from "three";
+
 export function createViewerUiController({
   refs,
   nodes,
   state,
+  viewerConfig,
+  materialPipeline,
   renderer,
   toneMappingModes,
   selectiveBloomConfig,
@@ -138,6 +142,12 @@ export function createViewerUiController({
     }
   }
 
+  function applyColorCorrection(materials, correction) {
+    materials.forEach((material) => {
+      materialPipeline.applyDebugColorCorrection(material, correction);
+    });
+  }
+
   function applyBackgroundColorSettings() {
     syncSliderValue(refs.backgroundHueSlider, state.backgroundState.hueDegrees.toFixed(0));
     syncTextValue(refs.backgroundHueValue, `${state.backgroundState.hueDegrees.toFixed(0)}°`);
@@ -145,17 +155,32 @@ export function createViewerUiController({
     syncTextValue(refs.backgroundSaturationValue, state.backgroundState.saturation.toFixed(2));
     syncSliderValue(refs.backgroundValueSlider, state.backgroundState.value.toFixed(2));
     syncTextValue(refs.backgroundValueOutput, state.backgroundState.value.toFixed(2));
+    syncSliderValue(refs.backgroundGammaSlider, state.backgroundState.gamma.toFixed(2));
+    syncTextValue(refs.backgroundGammaValue, state.backgroundState.gamma.toFixed(2));
 
-    state.backgroundState.materials.forEach((material) => {
-      const uniforms = material.uniforms ?? material.userData.viewerBackgroundUniforms;
-      if (!uniforms) {
-        return;
-      }
+    applyColorCorrection(state.backgroundState.materials, {
+      hue: state.backgroundState.hueDegrees,
+      saturation: state.backgroundState.saturation,
+      value: state.backgroundState.value,
+      gamma: state.backgroundState.gamma,
+    });
+  }
 
-      uniforms.viewerBackgroundHue.value = state.backgroundState.hueDegrees / 360;
-      uniforms.viewerBackgroundSaturation.value = state.backgroundState.saturation;
-      uniforms.viewerBackgroundValue.value = state.backgroundState.value;
-      material.uniformsNeedUpdate = true;
+  function applySkyColorSettings() {
+    syncSliderValue(refs.skyHueSlider, state.skyState.hueDegrees.toFixed(0));
+    syncTextValue(refs.skyHueValue, `${state.skyState.hueDegrees.toFixed(0)}°`);
+    syncSliderValue(refs.skySaturationSlider, state.skyState.saturation.toFixed(2));
+    syncTextValue(refs.skySaturationValue, state.skyState.saturation.toFixed(2));
+    syncSliderValue(refs.skyValueSlider, state.skyState.value.toFixed(2));
+    syncTextValue(refs.skyValueOutput, state.skyState.value.toFixed(2));
+    syncSliderValue(refs.skyGammaSlider, state.skyState.gamma.toFixed(2));
+    syncTextValue(refs.skyGammaValue, state.skyState.gamma.toFixed(2));
+
+    applyColorCorrection(state.skyState.materials, {
+      hue: state.skyState.hueDegrees,
+      saturation: state.skyState.saturation,
+      value: state.skyState.value,
+      gamma: state.skyState.gamma,
     });
   }
 
@@ -210,13 +235,16 @@ export function createViewerUiController({
     syncSliderValue(refs.reflectMetalnessSlider, state.reflectionState.metalness.toFixed(2));
     syncTextValue(refs.reflectMetalnessValue, state.reflectionState.metalness.toFixed(2));
     const rotDeg = (state.reflectionState.envMapRotationY * 180 / Math.PI).toFixed(0);
-    syncSliderValue(refs.reflectEnvRotationZSlider, rotDeg);
-    syncTextValue(refs.reflectEnvRotationZValue, `${rotDeg}°`);
+    syncSliderValue(refs.reflectEnvRotationYSlider, rotDeg);
+    syncTextValue(refs.reflectEnvRotationYValue, `${rotDeg}°`);
 
     state.reflectionState.materials.forEach((material) => {
+      const baseMetalness = Number.isFinite(material.userData?.viewerReflectBaseMetalness)
+        ? material.userData.viewerReflectBaseMetalness
+        : 1;
+
       material.envMapIntensity = state.reflectionState.envMapIntensity;
-      material.metalness = state.reflectionState.metalness;
-      material.envMapRotation.y = state.reflectionState.envMapRotationY;
+      material.metalness = Math.min(1, Math.max(0, baseMetalness * state.reflectionState.metalness));
 
       if (material.isMeshPhysicalMaterial) {
         material.ior = state.reflectionState.ior;
@@ -225,6 +253,44 @@ export function createViewerUiController({
 
       material.needsUpdate = true;
     });
+
+    state.reflectionState.probeMaterials.forEach((material) => {
+      if (!material?.isMaterial) {
+        return;
+      }
+
+      material.envMapRotation ??= new Euler();
+      material.envMapRotation.y = state.reflectionState.envMapRotationY;
+      material.needsUpdate = true;
+    });
+  }
+
+  function resetBackgroundColorSettings() {
+    const defaults = viewerConfig.materialPresets.background;
+    state.backgroundState.hueDegrees = defaults.hueDegrees;
+    state.backgroundState.saturation = defaults.saturation;
+    state.backgroundState.value = defaults.value;
+    state.backgroundState.gamma = defaults.gamma;
+    applyBackgroundColorSettings();
+  }
+
+  function resetSkyColorSettings() {
+    const defaults = viewerConfig.materialPresets.sky;
+    state.skyState.hueDegrees = defaults.hueDegrees;
+    state.skyState.saturation = defaults.saturation;
+    state.skyState.value = defaults.value;
+    state.skyState.gamma = defaults.gamma;
+    applySkyColorSettings();
+  }
+
+  function resetReflectMaterialSettings() {
+    const defaults = viewerConfig.materialPresets.reflectMaterial;
+    state.reflectionState.envMapIntensity = defaults.envMapIntensity;
+    state.reflectionState.ior = defaults.ior;
+    state.reflectionState.specularIntensity = defaults.specularIntensity;
+    state.reflectionState.metalness = defaults.defaultMetalness;
+    state.reflectionState.envMapRotationY = defaults.envMapRotationDegrees * Math.PI / 180;
+    applyReflectMaterialSettings();
   }
 
   return {
@@ -238,9 +304,13 @@ export function createViewerUiController({
     applyInterfaceSettings,
     applyDebugModeSettings,
     applyBackgroundColorSettings,
+    applySkyColorSettings,
     updateBackgroundMotion,
     applyFireColorSettings,
     applyReflectMaterialSettings,
+    resetBackgroundColorSettings,
+    resetSkyColorSettings,
+    resetReflectMaterialSettings,
     syncQuickReadouts,
     syncCameraFovReadouts,
     syncCameraHeightReadouts,

@@ -18,6 +18,7 @@ export function createDebugObjectInspector({
   materialPipeline,
   updateStatus,
   getMenuOpen,
+  requestRender = null,
   ui,
 }) {
   const raycaster = new Raycaster();
@@ -40,7 +41,13 @@ export function createDebugObjectInspector({
     selectedTargetKey: "",
     hasLoadedOverrides: false,
     uiCleanup: null,
+    saveTimeoutId: null,
+    lastSavedSerialized: "",
   };
+
+  function isExcludedLayerId(layerId) {
+    return ["background", "sky", "collision", "glass", "windows"].includes(layerId);
+  }
 
   function getOverridesUrl() {
     const suffix = assetQuery ? `?${assetQuery}` : "";
@@ -111,6 +118,7 @@ export function createDebugObjectInspector({
         intersection.object?.isMesh
         && intersection.object.visible
         && !intersection.object.userData.viewerDebugHelper
+        && !isExcludedLayerId(intersection.object.userData?.viewerLayerId || "")
       ));
   }
 
@@ -147,6 +155,8 @@ export function createDebugObjectInspector({
       state.hoveredMesh = null;
       hoverHelper.visible = false;
     }
+
+    requestRender?.();
   }
 
   function setControlDisabled(disabled) {
@@ -207,7 +217,9 @@ export function createDebugObjectInspector({
 
     if (ui.selectionSupport) {
       ui.selectionSupport.textContent = entry
-        ? (materialPipeline.canApplyDebugColorCorrection(entry.material) ? "HSV + gamma ready" : "Shader override unavailable")
+        ? (isExcludedLayerId(entry.target.layerId)
+            ? "Excluded for now"
+            : (materialPipeline.canApplyDebugColorCorrection(entry.material) ? "HSV + gamma ready" : "Shader override unavailable"))
         : "No target";
     }
 
@@ -233,7 +245,7 @@ export function createDebugObjectInspector({
     updateSliderOutput(ui.gammaSlider, ui.gammaValue, (value) => value.toFixed(2));
 
     setControlDisabled(!entry);
-    if (entry && !materialPipeline.canApplyDebugColorCorrection(entry.material)) {
+    if (entry && (isExcludedLayerId(entry.target.layerId) || !materialPipeline.canApplyDebugColorCorrection(entry.material))) {
       [
         ui.hueSlider,
         ui.saturationSlider,
@@ -254,9 +266,17 @@ export function createDebugObjectInspector({
     }
   }
 
+  function getSerializedOverridesDocument() {
+    return JSON.stringify(state.overridesStore.getDocument());
+  }
+
   function applyOverridesToLoadedLayers() {
     const entries = getMaterialEntries();
     entries.forEach((entry) => {
+      if (isExcludedLayerId(entry.target.layerId)) {
+        return;
+      }
+
       const override = findOverrideByKey(entry.key);
       if (override) {
         materialPipeline.applyDebugColorCorrection(entry.material, override);
@@ -266,21 +286,47 @@ export function createDebugObjectInspector({
     });
 
     setSelectionUi(resolveSelectedEntry());
+    requestRender?.();
   }
 
   function selectEntry(entry) {
     state.selectedEntry = entry ?? null;
     state.selectedTargetKey = entry?.key ?? "";
     setSelectionUi(state.selectedEntry);
+    requestRender?.();
   }
 
   function upsertOverride(targetOverride) {
     state.overridesStore.upsertOverride(targetOverride);
   }
 
+  function scheduleOverridesSave() {
+    if (!isDev || !state.hasLoadedOverrides) {
+      return;
+    }
+
+    if (state.saveTimeoutId) {
+      clearTimeout(state.saveTimeoutId);
+    }
+
+    state.saveTimeoutId = window.setTimeout(async () => {
+      state.saveTimeoutId = null;
+      const serialized = getSerializedOverridesDocument();
+      if (serialized === state.lastSavedSerialized) {
+        return;
+      }
+
+      await saveOverrides({ silent: true });
+    }, 180);
+  }
+
   function updateSelectedOverride(mutator) {
     const selectedEntry = resolveSelectedEntry();
-    if (!selectedEntry || !materialPipeline.canApplyDebugColorCorrection(selectedEntry.material)) {
+    if (
+      !selectedEntry
+      || isExcludedLayerId(selectedEntry.target.layerId)
+      || !materialPipeline.canApplyDebugColorCorrection(selectedEntry.material)
+    ) {
       return;
     }
 
@@ -291,6 +337,7 @@ export function createDebugObjectInspector({
     const nextOverride = normalizeTargetOverride(mutator({ ...currentOverride }));
     upsertOverride(nextOverride);
     applyOverridesToLoadedLayers();
+    scheduleOverridesSave();
   }
 
   async function copyOverrides() {
@@ -303,11 +350,10 @@ export function createDebugObjectInspector({
     } catch {
       updateSaveStatus("Clipboard copy failed.");
       updateStatus("Clipboard copy failed.");
-      console.log(payload);
     }
   }
 
-  async function saveOverrides() {
+  async function saveOverrides({ silent = false } = {}) {
     if (!isDev) {
       updateSaveStatus("Save works only in local dev.");
       return;
@@ -326,12 +372,17 @@ export function createDebugObjectInspector({
         throw new Error(`Save request failed with ${response.status}.`);
       }
 
-      updateSaveStatus("Overrides saved.");
-      updateStatus("Overrides saved.");
+      state.lastSavedSerialized = getSerializedOverridesDocument();
+      updateSaveStatus(silent ? "Overrides autosaved." : "Overrides saved.");
+      if (!silent) {
+        updateStatus("Overrides saved.");
+      }
     } catch (error) {
       console.error(error);
-      updateSaveStatus("Save failed.");
-      updateStatus("Save failed.");
+      updateSaveStatus(silent ? "Override autosave failed." : "Save failed.");
+      if (!silent) {
+        updateStatus("Save failed.");
+      }
     }
   }
 
@@ -343,17 +394,19 @@ export function createDebugObjectInspector({
     setPickerArmed(true);
     updateStatus("Pick an object in the scene.");
     setSelectionUi(resolveSelectedEntry());
+    requestRender?.();
   }
 
   function resetSelectedOverride() {
     const selectedEntry = resolveSelectedEntry();
-    if (!selectedEntry) {
+    if (!selectedEntry || isExcludedLayerId(selectedEntry.target.layerId)) {
       return;
     }
 
     state.overridesStore.resetOverride(selectedEntry.target);
     applyOverridesToLoadedLayers();
     updateSaveStatus(`Reset override for ${selectedEntry.target.meshName || selectedEntry.target.layerId}.`);
+    scheduleOverridesSave();
   }
 
   function handleCanvasPointerDown(event) {
@@ -365,6 +418,7 @@ export function createDebugObjectInspector({
 
     if (!intersections.length) {
       updateStatus("No object hit.");
+      requestRender?.();
       return;
     }
 
@@ -384,6 +438,7 @@ export function createDebugObjectInspector({
     selectEntry(selectedEntry);
     setPickerArmed(false);
     updateStatus(`Picked ${target.meshName || "mesh"}.`);
+    requestRender?.();
   }
 
   function handleCanvasPointerMove(event) {
@@ -391,6 +446,7 @@ export function createDebugObjectInspector({
       if (state.hoveredMesh || hoverHelper.visible) {
         state.hoveredMesh = null;
         hoverHelper.visible = false;
+        requestRender?.();
       }
       return;
     }
@@ -400,6 +456,7 @@ export function createDebugObjectInspector({
     if (!hoveredMesh) {
       state.hoveredMesh = null;
       hoverHelper.visible = false;
+      requestRender?.();
       return;
     }
 
@@ -411,6 +468,7 @@ export function createDebugObjectInspector({
     }
 
     hoverHelper.visible = true;
+    requestRender?.();
   }
 
   async function loadOverrides() {
@@ -426,12 +484,14 @@ export function createDebugObjectInspector({
 
       state.overridesStore.setDocument(normalizeOverridesDocument(await response.json()));
       state.hasLoadedOverrides = true;
+      state.lastSavedSerialized = getSerializedOverridesDocument();
       applyOverridesToLoadedLayers();
       updateSaveStatus(`Loaded ${state.overridesStore.getDocument().targets.length} overrides.`);
     } catch (error) {
       console.warn("Debug override file could not be loaded.", error);
       state.overridesStore.setDocument(createDefaultOverridesDocument());
       state.hasLoadedOverrides = true;
+      state.lastSavedSerialized = getSerializedOverridesDocument();
       applyOverridesToLoadedLayers();
       updateSaveStatus("No saved overrides.");
     }
@@ -497,6 +557,10 @@ export function createDebugObjectInspector({
   return {
     bindUi,
     dispose() {
+      if (state.saveTimeoutId) {
+        clearTimeout(state.saveTimeoutId);
+        state.saveTimeoutId = null;
+      }
       state.uiCleanup?.();
       hoverHelper.visible = false;
       hoverHelper.parent?.remove(hoverHelper);
@@ -511,6 +575,7 @@ export function createDebugObjectInspector({
         setPickerArmed(false);
         state.hoveredMesh = null;
         hoverHelper.visible = false;
+        requestRender?.();
         return;
       }
 

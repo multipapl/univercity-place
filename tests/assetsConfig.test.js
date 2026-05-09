@@ -15,6 +15,7 @@ test("assetsConfig exposes a single manifest for scene layers and runtime assets
 
   const baseLayer = SCENE_LAYER_CONTRACTS.find((layer) => layer.runtime?.preferAsSpawnRoot);
   const backgroundLayer = SCENE_LAYER_CONTRACTS.find((layer) => layer.runtime?.registerAsBackgroundRoot);
+  const collisionLayer = SCENE_LAYER_CONTRACTS.find((layer) => layer.runtime?.registerAsCollisionRoot);
   const bloomLayers = SCENE_LAYER_CONTRACTS.filter((layer) => layer.runtime?.enableBloom);
 
   assert.ok(baseLayer);
@@ -24,6 +25,9 @@ test("assetsConfig exposes a single manifest for scene layers and runtime assets
 
   assert.ok(backgroundLayer);
   assert.equal(backgroundLayer.localPath, "bg.glb");
+
+  assert.ok(collisionLayer);
+  assert.equal(collisionLayer.localPath, "collision.glb");
 
   assert.ok(bloomLayers.length >= 1);
   const fireLayer = bloomLayers.find((l) => l.id === "fire");

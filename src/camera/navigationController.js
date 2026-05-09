@@ -1,4 +1,10 @@
 import { Box3, MathUtils, Vector3 } from "three";
+import {
+  buildCollisionBoxes,
+  collectCollisionMeshes,
+  resolvePointCollisionMovement,
+  resolveWalkCollisionMovement,
+} from "./collisionResolver.js";
 
 export function createNavigationController({
   camera,
@@ -38,10 +44,21 @@ export function createNavigationController({
     groundY: 0,
     walkY: viewerConfig.locomotion.eyeHeight,
   };
+  const collisionState = {
+    roots: [],
+    boxes: [],
+    meshes: [],
+    radius: viewerConfig.locomotion.collisionRadius ?? 0.2,
+    height: viewerConfig.locomotion.collisionHeight ?? 1.75,
+    skin: viewerConfig.locomotion.collisionSkin ?? 0.02,
+    maxStepLength: viewerConfig.locomotion.collisionStepLength ?? 0.08,
+  };
   const tmpForward = new Vector3();
   const tmpRight = new Vector3();
   const tmpUp = new Vector3();
   const velocity = new Vector3();
+  const desiredMovementDelta = new Vector3();
+  const resolvedMovementPosition = new Vector3();
   const tmpBox = new Box3();
   const lookState = {
     pitch: 0,
@@ -365,12 +382,30 @@ export function createNavigationController({
     controls.unlock();
   }
 
+  function positionCameraAtMarker(marker) {
+    if (!marker) {
+      return;
+    }
+
+    marker.updateWorldMatrix?.(true, false);
+    marker.getWorldPosition(camera.position);
+    marker.getWorldQuaternion(camera.quaternion);
+    syncLookStateFromCamera();
+    controls.unlock();
+  }
+
   function handleResize() {
     const { width, height } = getViewportDimensions();
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     renderer.setSize(width, height);
+  }
+
+  function setCollisionRoots(roots = []) {
+    collisionState.roots = roots.filter(Boolean);
+    collisionState.boxes = buildCollisionBoxes(collisionState.roots);
+    collisionState.meshes = collectCollisionMeshes(collisionState.roots);
   }
 
   function updateMovement(delta, menuOpen) {
@@ -419,10 +454,43 @@ export function createNavigationController({
     }
     tmpUp.set(0, 1, 0);
 
-    camera.position
+    desiredMovementDelta.set(0, 0, 0)
       .addScaledVector(tmpForward, velocity.z * currentSpeed * delta)
       .addScaledVector(tmpRight, velocity.x * currentSpeed * delta)
       .addScaledVector(tmpUp, velocity.y * currentSpeed * delta);
+
+    if (isWalkMode && collisionState.meshes.length) {
+      const feetY = camera.position.y - cameraState.height;
+      const bodyMinY = feetY + Math.max(collisionState.skin, 0.04);
+      const bodyMaxY = feetY + Math.max(collisionState.height - collisionState.skin, bodyMinY + 0.2);
+      resolvedMovementPosition.copy(resolveWalkCollisionMovement(
+        camera.position,
+        desiredMovementDelta,
+        collisionState.meshes,
+        {
+          radius: collisionState.radius,
+          bodyMinY,
+          bodyMaxY,
+          maxStepLength: collisionState.maxStepLength,
+          skin: collisionState.skin,
+        },
+      ));
+      camera.position.copy(resolvedMovementPosition);
+      return;
+    }
+
+    if (!isWalkMode && collisionState.boxes.length) {
+      resolvedMovementPosition.copy(resolvePointCollisionMovement(
+        camera.position,
+        desiredMovementDelta,
+        collisionState.boxes,
+        collisionState.maxStepLength,
+      ));
+      camera.position.copy(resolvedMovementPosition);
+      return;
+    }
+
+    camera.position.add(desiredMovementDelta);
   }
 
   function bindInputEvents({
@@ -750,8 +818,10 @@ export function createNavigationController({
     applyLookState,
     bindInputEvents,
     handleResize,
+    positionCameraAtMarker,
     positionCameraAtSpawn,
     resetMovementInputs,
+    setCollisionRoots,
     syncLookStateFromCamera,
     updateMovement,
     updateSmoothAdjustments,

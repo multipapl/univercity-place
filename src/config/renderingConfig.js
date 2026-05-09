@@ -1,6 +1,6 @@
 export const COLOR_PIPELINE_CONFIG = {
-  toneMapping: "standard",
-  exposure: 0.95,
+  toneMapping: "none",
+  exposure: 1.0,
 };
 
 export const POST_PROCESSING_CONFIG = {

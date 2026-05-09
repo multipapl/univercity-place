@@ -46,30 +46,6 @@ export const DOCK_CATEGORIES = [
           </div>
         `,
       },
-      {
-        id: "background",
-        label: "Background",
-        modes: ["debug"],
-        render: ({ viewerConfig }) => `
-          <div class="color-tools">
-            <label class="field field-range">
-              <span>Hue</span>
-              <input type="range" name="background-hue" min="-180" max="180" step="1" value="${viewerConfig.materialPresets.background.hueDegrees}" data-background-hue />
-              <output data-background-hue-value>${viewerConfig.materialPresets.background.hueDegrees.toFixed(0)}&deg;</output>
-            </label>
-            <label class="field field-range">
-              <span>Saturation</span>
-              <input type="range" name="background-saturation" min="0" max="2" step="0.01" value="${viewerConfig.materialPresets.background.saturation}" data-background-saturation />
-              <output data-background-saturation-value>${viewerConfig.materialPresets.background.saturation.toFixed(2)}</output>
-            </label>
-            <label class="field field-range">
-              <span>Value</span>
-              <input type="range" name="background-value" min="0" max="2" step="0.01" value="${viewerConfig.materialPresets.background.value}" data-background-value />
-              <output data-background-value-output>${viewerConfig.materialPresets.background.value.toFixed(2)}</output>
-            </label>
-          </div>
-        `,
-      },
     ],
   },
   {
@@ -117,7 +93,6 @@ export const DOCK_CATEGORIES = [
             </div>
             <div class="button-row">
               <button type="button" class="action-button" data-copy-object-overrides>Copy Overrides JSON</button>
-              <button type="button" class="action-button is-secondary" data-save-object-overrides>Save Overrides JSON</button>
             </div>
             <p class="debug-note" data-object-overrides-status>Overrides ready.</p>
           </div>
@@ -140,25 +115,65 @@ export const DOCK_CATEGORIES = [
     label: "Materials",
     items: [
       {
-        id: "fire",
-        label: "Fire",
+        id: "background",
+        label: "Background",
         modes: ["debug"],
         render: ({ viewerConfig }) => `
+          <div class="button-row">
+            <button type="button" class="action-button is-secondary" data-background-reset>Reset</button>
+          </div>
           <div class="color-tools">
             <label class="field field-range">
               <span>Hue</span>
-              <input type="range" name="fire-hue" min="-180" max="180" step="1" value="${viewerConfig.materialPresets.fireVideo.hueDegrees}" data-fire-hue />
-              <output data-fire-hue-value>${viewerConfig.materialPresets.fireVideo.hueDegrees.toFixed(0)}&deg;</output>
+              <input type="range" name="background-hue" min="-180" max="180" step="1" value="${viewerConfig.materialPresets.background.hueDegrees}" data-background-hue />
+              <output data-background-hue-value>${viewerConfig.materialPresets.background.hueDegrees.toFixed(0)}&deg;</output>
             </label>
             <label class="field field-range">
               <span>Saturation</span>
-              <input type="range" name="fire-saturation" min="0" max="2" step="0.01" value="${viewerConfig.materialPresets.fireVideo.saturation}" data-fire-saturation />
-              <output data-fire-saturation-value>${viewerConfig.materialPresets.fireVideo.saturation.toFixed(2)}</output>
+              <input type="range" name="background-saturation" min="0" max="2" step="0.01" value="${viewerConfig.materialPresets.background.saturation}" data-background-saturation />
+              <output data-background-saturation-value>${viewerConfig.materialPresets.background.saturation.toFixed(2)}</output>
             </label>
             <label class="field field-range">
               <span>Value</span>
-              <input type="range" name="fire-value" min="0" max="2" step="0.01" value="${viewerConfig.materialPresets.fireVideo.value}" data-fire-value />
-              <output data-fire-value-output>${viewerConfig.materialPresets.fireVideo.value.toFixed(2)}</output>
+              <input type="range" name="background-value" min="0" max="2" step="0.01" value="${viewerConfig.materialPresets.background.value}" data-background-value />
+              <output data-background-value-output>${viewerConfig.materialPresets.background.value.toFixed(2)}</output>
+            </label>
+            <label class="field field-range">
+              <span>Gamma</span>
+              <input type="range" name="background-gamma" min="0.25" max="4" step="0.02" value="${viewerConfig.materialPresets.background.gamma}" data-background-gamma />
+              <output data-background-gamma-value>${viewerConfig.materialPresets.background.gamma.toFixed(2)}</output>
+            </label>
+          </div>
+        `,
+      },
+      {
+        id: "sky",
+        label: "Sky",
+        modes: ["debug"],
+        render: ({ viewerConfig }) => `
+          <div class="button-row">
+            <button type="button" class="action-button is-secondary" data-sky-reset>Reset</button>
+          </div>
+          <div class="color-tools">
+            <label class="field field-range">
+              <span>Hue</span>
+              <input type="range" name="sky-hue" min="-180" max="180" step="1" value="${viewerConfig.materialPresets.sky.hueDegrees}" data-sky-hue />
+              <output data-sky-hue-value>${viewerConfig.materialPresets.sky.hueDegrees.toFixed(0)}&deg;</output>
+            </label>
+            <label class="field field-range">
+              <span>Saturation</span>
+              <input type="range" name="sky-saturation" min="0" max="2" step="0.01" value="${viewerConfig.materialPresets.sky.saturation}" data-sky-saturation />
+              <output data-sky-saturation-value>${viewerConfig.materialPresets.sky.saturation.toFixed(2)}</output>
+            </label>
+            <label class="field field-range">
+              <span>Value</span>
+              <input type="range" name="sky-value" min="0" max="2" step="0.01" value="${viewerConfig.materialPresets.sky.value}" data-sky-value />
+              <output data-sky-value-output>${viewerConfig.materialPresets.sky.value.toFixed(2)}</output>
+            </label>
+            <label class="field field-range">
+              <span>Gamma</span>
+              <input type="range" name="sky-gamma" min="0.25" max="4" step="0.02" value="${viewerConfig.materialPresets.sky.gamma}" data-sky-gamma />
+              <output data-sky-gamma-value>${viewerConfig.materialPresets.sky.gamma.toFixed(2)}</output>
             </label>
           </div>
         `,
@@ -168,6 +183,9 @@ export const DOCK_CATEGORIES = [
         label: "Reflect",
         modes: ["debug"],
         render: ({ viewerConfig }) => `
+          <div class="button-row">
+            <button type="button" class="action-button is-secondary" data-reflect-reset>Reset</button>
+          </div>
           <div class="color-tools">
             <label class="field field-range">
               <span>Env Intensity</span>
@@ -190,7 +208,7 @@ export const DOCK_CATEGORIES = [
               <output data-reflect-metalness-value>${viewerConfig.materialPresets.reflectMaterial.defaultMetalness.toFixed(2)}</output>
             </label>
             <label class="field field-range">
-              <span>Env Rotation Y</span>
+              <span>Probe Rotation Y</span>
               <input type="range" name="reflect-env-rotation-y" min="-180" max="180" step="1" value="${viewerConfig.materialPresets.reflectMaterial.envMapRotationDegrees}" data-reflect-env-rotation-y />
               <output data-reflect-env-rotation-y-value>${viewerConfig.materialPresets.reflectMaterial.envMapRotationDegrees.toFixed(0)}&deg;</output>
             </label>

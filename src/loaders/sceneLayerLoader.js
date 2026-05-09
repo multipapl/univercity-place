@@ -71,6 +71,7 @@ export function createSceneLayerLoader({
   renderLayerControls,
   clearFallbackScene,
   applyBackgroundColorSettings,
+  applySkyColorSettings = () => {},
   applyFireColorSettings,
   applyReflectMaterialSettings,
   applyRuntimeTextureOptimizations,
@@ -294,6 +295,7 @@ export function createSceneLayerLoader({
       root.userData.viewerLayerId = layer.id;
 
       if (layer.materialMode === "alphaCutout" && setTranslucencySunDirection) {
+        root.updateMatrixWorld(true);
         const sunNode = root.getObjectByName("Sun");
         if (sunNode) {
           const forward = new Vector3(0, 0, -1);
@@ -301,7 +303,7 @@ export function createSceneLayerLoader({
           sunNode.getWorldQuaternion(worldQuaternion);
           forward.applyQuaternion(worldQuaternion).normalize();
           setTranslucencySunDirection(forward);
-          root.remove(sunNode);
+          sunNode.removeFromParent();
         }
       }
 
@@ -474,6 +476,7 @@ export function createSceneLayerLoader({
       diagnosticsState.loadedLayers = loadedLayers;
       renderLayerControls();
       applyBackgroundColorSettings();
+      applySkyColorSettings();
       applyFireColorSettings();
       applyReflectMaterialSettings();
       applyRuntimeTextureOptimizations();
@@ -482,7 +485,7 @@ export function createSceneLayerLoader({
 
       const spawnRoot = loadedLayers.find((entry) => entry.layer.runtime?.preferAsSpawnRoot)?.root
         ?? loadedLayers[0].root;
-      positionCameraAtSpawn(spawnRoot);
+      positionCameraAtSpawn(spawnRoot, loadedLayers);
       applyCameraSettings();
 
       const loadedSummary = loadedLayers.map((entry) => entry.layer.label).join(", ");

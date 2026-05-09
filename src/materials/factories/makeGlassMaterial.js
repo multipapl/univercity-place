@@ -1,4 +1,4 @@
-import { CanvasTexture, DoubleSide, MeshPhysicalMaterial, RepeatWrapping, Vector2, Vector3 } from "three";
+import { CanvasTexture, DoubleSide, Euler, MeshPhysicalMaterial, RepeatWrapping, Vector2, Vector3 } from "three";
 
 // Procedural bump for glass test — remove when real textures are ready
 let _sharedBumpTexture = null;
@@ -28,6 +28,7 @@ function getProceduralGlassBump() {
 
 export function makeGlassMaterial({
   viewerConfig,
+  reflectionState,
   reflectionEnvironment,
   sourceMaterial,
   mesh,
@@ -80,6 +81,7 @@ export function makeGlassMaterial({
     mesh.localToWorld(worldCenter);
   }
   material.envMap = reflectionEnvironment.getClosestEnvMap(worldCenter);
+  material.envMapRotation = new Euler(0, reflectionState.envMapRotationY, 0);
   material.bumpMap = normalMap ? null : getProceduralGlassBump();
   material.bumpScale = 0.5;
 
@@ -90,6 +92,7 @@ export function makeGlassMaterial({
     normal: normalMap?.channel ?? normalChannel ?? null,
   };
   applyViewerMaterialPatches(material, { tweak });
+  reflectionState.probeMaterials.add(material);
 
   return material;
 }

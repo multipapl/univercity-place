@@ -111,6 +111,17 @@ export const SCENE_LAYER_CONTRACTS = [
     },
   }),
   createAssetContract({
+    id: "collision",
+    label: "Collision",
+    searchParam: "collision",
+    materialMode: "collision",
+    required: false,
+    localPath: "collision.glb",
+    runtime: {
+      registerAsCollisionRoot: true,
+    },
+  }),
+  createAssetContract({
     id: "alpha",
     label: "Alpha",
     searchParam: "alpha",

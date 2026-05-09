@@ -27,8 +27,13 @@ export function createDebugMaterialOverrides({
       && Math.abs((override.gamma ?? 1) - DEBUG_COLOR_DEFAULTS.gamma) < 0.0001;
   }
 
+  function isViewerBackgroundDebugMaterial(material) {
+    return Boolean(material?.isShaderMaterial && material?.userData?.viewerBackgroundUniforms);
+  }
+
   function canApplyDebugColorCorrection(material) {
-    return Boolean(material?.isMaterial) && !material?.isShaderMaterial;
+    return Boolean(material?.isMaterial)
+      && (!material?.isShaderMaterial || isViewerBackgroundDebugMaterial(material));
   }
 
   function syncDebugColorUniforms(material) {
@@ -47,6 +52,16 @@ export function createDebugMaterialOverrides({
   function ensureDebugColorHook(material) {
     if (!canApplyDebugColorCorrection(material)) {
       return false;
+    }
+
+    if (isViewerBackgroundDebugMaterial(material)) {
+      material.userData.viewerDebugColorUniforms = material.userData.viewerDebugColorUniforms ?? {
+        viewerDebugHue: material.userData.viewerBackgroundUniforms.viewerDebugHue,
+        viewerDebugSaturation: material.userData.viewerBackgroundUniforms.viewerDebugSaturation,
+        viewerDebugValue: material.userData.viewerBackgroundUniforms.viewerDebugValue,
+        viewerDebugGamma: material.userData.viewerBackgroundUniforms.viewerDebugGamma,
+      };
+      return true;
     }
 
     const hookState = getMaterialCompileHookState(material);
@@ -103,6 +118,15 @@ vec3 viewerDebugApplyColorCorrection(vec3 color) {
       return;
     }
 
+    if (isViewerBackgroundDebugMaterial(material)) {
+      material.userData.viewerDebugColorOverride = { ...DEBUG_COLOR_DEFAULTS };
+      ensureDebugColorHook(material);
+      syncDebugColorUniforms(material);
+      delete material.userData.viewerDebugColorOverride;
+      material.needsUpdate = true;
+      return;
+    }
+
     delete material.userData.viewerDebugColorOverride;
     delete material.userData.viewerDebugColorUniforms;
     setMaterialCompileHook(material, "viewerDebugColorCorrection", null);
@@ -122,6 +146,7 @@ vec3 viewerDebugApplyColorCorrection(vec3 color) {
     material.userData.viewerDebugColorOverride = normalizedOverride;
     ensureDebugColorHook(material);
     syncDebugColorUniforms(material);
+    material.needsUpdate = true;
     return true;
   }
 

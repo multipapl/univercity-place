@@ -10,6 +10,13 @@ export function bindViewerUiEvents({
   onBackgroundHueChange,
   onBackgroundSaturationChange,
   onBackgroundValueChange,
+  onBackgroundGammaChange,
+  onBackgroundReset,
+  onSkyHueChange,
+  onSkySaturationChange,
+  onSkyValueChange,
+  onSkyGammaChange,
+  onSkyReset,
   onFireHueChange,
   onFireSaturationChange,
   onFireValueChange,
@@ -18,6 +25,7 @@ export function bindViewerUiEvents({
   onReflectSpecularChange,
   onReflectMetalnessChange,
   onReflectEnvRotationYChange,
+  onReflectReset,
   onBaseLowMemoryToggle,
   onBaseTextureCapChange,
   onMenuToggle,
@@ -73,6 +81,34 @@ export function bindViewerUiEvents({
     onBackgroundValueChange(Number(event.target.value));
   };
 
+  const handleBackgroundGammaInput = (event) => {
+    onBackgroundGammaChange(Number(event.target.value));
+  };
+
+  const handleBackgroundResetClick = () => {
+    onBackgroundReset();
+  };
+
+  const handleSkyHueInput = (event) => {
+    onSkyHueChange(Number(event.target.value));
+  };
+
+  const handleSkySaturationInput = (event) => {
+    onSkySaturationChange(Number(event.target.value));
+  };
+
+  const handleSkyValueInput = (event) => {
+    onSkyValueChange(Number(event.target.value));
+  };
+
+  const handleSkyGammaInput = (event) => {
+    onSkyGammaChange(Number(event.target.value));
+  };
+
+  const handleSkyResetClick = () => {
+    onSkyReset();
+  };
+
   const handleFireHueInput = (event) => {
     onFireHueChange(Number(event.target.value));
   };
@@ -103,6 +139,10 @@ export function bindViewerUiEvents({
 
   const handleReflectEnvRotationYInput = (event) => {
     onReflectEnvRotationYChange(Number(event.target.value));
+  };
+
+  const handleReflectResetClick = () => {
+    onReflectReset();
   };
 
   const handleBaseLowMemoryChange = (event) => {
@@ -148,6 +188,13 @@ export function bindViewerUiEvents({
   bind(refs.backgroundHueSlider, "input", handleBackgroundHueInput);
   bind(refs.backgroundSaturationSlider, "input", handleBackgroundSaturationInput);
   bind(refs.backgroundValueSlider, "input", handleBackgroundValueInput);
+  bind(refs.backgroundGammaSlider, "input", handleBackgroundGammaInput);
+  bind(refs.backgroundResetButton, "click", handleBackgroundResetClick);
+  bind(refs.skyHueSlider, "input", handleSkyHueInput);
+  bind(refs.skySaturationSlider, "input", handleSkySaturationInput);
+  bind(refs.skyValueSlider, "input", handleSkyValueInput);
+  bind(refs.skyGammaSlider, "input", handleSkyGammaInput);
+  bind(refs.skyResetButton, "click", handleSkyResetClick);
   bind(refs.fireHueSlider, "input", handleFireHueInput);
   bind(refs.fireSaturationSlider, "input", handleFireSaturationInput);
   bind(refs.fireValueSlider, "input", handleFireValueInput);
@@ -156,6 +203,7 @@ export function bindViewerUiEvents({
   bind(refs.reflectSpecularSlider, "input", handleReflectSpecularInput);
   bind(refs.reflectMetalnessSlider, "input", handleReflectMetalnessInput);
   bind(refs.reflectEnvRotationYSlider, "input", handleReflectEnvRotationYInput);
+  bind(refs.reflectResetButton, "click", handleReflectResetClick);
   bind(refs.baseLowMemoryToggle, "change", handleBaseLowMemoryChange);
   bind(refs.baseTextureCapSelect, "change", handleBaseTextureCapChange);
   bind(refs.menuToggleButton, "click", handleMenuToggleClick);

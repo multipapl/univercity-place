@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "background": {
+    "hueDegrees": 1,
+    "saturation": 1.03,
+    "value": 0.92,
+    "gamma": 2.25
+  },
+  "sky": {
+    "hueDegrees": 0,
+    "saturation": 0.77,
+    "value": 1.15,
+    "gamma": 3.27
+  },
+  "reflect": {
+    "envMapIntensity": 1,
+    "ior": 1.5,
+    "specularIntensity": 1,
+    "metalness": 1,
+    "probeRotationYDegrees": 90
+  }
+}

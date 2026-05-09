@@ -19,6 +19,7 @@ export function createMaterialPipeline({
   viewerConfig,
   maxSupportedAnisotropy,
   backgroundState,
+  skyState,
   fireState,
   reflectionState,
   reflectionEnvironment,
@@ -127,6 +128,8 @@ export function createMaterialPipeline({
   }
 
   function getMaterialAlphaTexture(source) {
+    // Translucent foliage exports may route the opacity mask through roughness
+    // because glTF does not preserve a separate Alpha socket texture reliably.
     return normalizeDataTexture(source.alphaMap || source.roughnessMap || null);
   }
 
@@ -202,6 +205,7 @@ export function createMaterialPipeline({
           backgroundState,
           sourceMaterial,
           getMaterialTexture,
+          getMaterialAlphaTexture,
           getMaterialTint,
         });
       case "unlitAlpha":
@@ -234,6 +238,7 @@ export function createMaterialPipeline({
       case "glass":
         return makeGlassMaterial({
           viewerConfig,
+          reflectionState,
           reflectionEnvironment,
           sourceMaterial,
           mesh,
@@ -270,6 +275,7 @@ export function createMaterialPipeline({
       case "windows":
         return makeWindowsMaterial({
           viewerConfig,
+          reflectionState,
           reflectionEnvironment,
           sourceMaterial,
           mesh,
@@ -326,6 +332,15 @@ export function createMaterialPipeline({
   }
 
   function convertMeshForLayer(mesh, materialMode) {
+    if (materialMode === "collision") {
+      mesh.visible = false;
+      mesh.castShadow = false;
+      mesh.receiveShadow = false;
+      mesh.frustumCulled = false;
+      mesh.userData.viewerCollisionMesh = true;
+      return;
+    }
+
     const sourceMaterials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
     const nextMaterials = sourceMaterials.map((material) => makeViewerMaterial(material, mesh, materialMode));
 
@@ -342,21 +357,28 @@ export function createMaterialPipeline({
 
     if (materialMode === "background") {
       mesh.onBeforeRender = (_renderer, _scene, _camera, _geometry, renderMaterial) => {
-        const uniforms = renderMaterial?.userData?.viewerBackgroundShader?.uniforms;
+        const uniforms = renderMaterial?.userData?.viewerBackgroundUniforms;
         if (!uniforms) {
           return;
         }
 
-        uniforms.viewerBackgroundHue.value = backgroundState.hueDegrees / 360;
-        uniforms.viewerBackgroundSaturation.value = backgroundState.saturation;
-        uniforms.viewerBackgroundValue.value = backgroundState.value;
+        uniforms.viewerBackgroundHue.value = 0;
+        uniforms.viewerBackgroundSaturation.value = 1;
+        uniforms.viewerBackgroundValue.value = 1;
       };
-      mesh.renderOrder = -1000;
+      mesh.renderOrder = -800;
       return;
     }
 
     if (materialMode === "unlitAlpha") {
-      mesh.renderOrder = -900;
+      if (mesh.userData.viewerLayerId === "sky") {
+        nextMaterials.forEach((material) => {
+          if (material?.isMaterial) {
+            skyState.materials.add(material);
+          }
+        });
+      }
+      mesh.renderOrder = -1000;
     }
   }
 

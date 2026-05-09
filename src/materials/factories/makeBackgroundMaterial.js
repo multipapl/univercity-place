@@ -6,19 +6,35 @@ export function makeBackgroundMaterial({
   backgroundState,
   sourceMaterial,
   getMaterialTexture,
+  getMaterialAlphaTexture,
   getMaterialTint,
 }) {
   const source = sourceMaterial ?? {};
   const map = getMaterialTexture(source);
+  const alphaMap = getMaterialAlphaTexture(source);
   const hasTexture = Boolean(map);
   const tint = getMaterialTint(source, hasTexture);
+  const alphaCutoff = Number.isFinite(source.alphaTest) && source.alphaTest > 0
+    ? source.alphaTest
+    : (viewerConfig.materialPresets.alphaCutoff ?? 0.5);
+  const usesAlphaCutout = Boolean(alphaMap) || hasTexture;
+  const hasExplicitAlpha = Boolean(alphaMap)
+    || (source.opacity ?? 1) < 1
+    || (source.alphaTest ?? 0) > 0;
   const backgroundUniforms = {
     viewerBackgroundMap: { value: map },
+    viewerBackgroundAlphaMap: { value: alphaMap },
+    viewerBackgroundHasAlphaMap: { value: Boolean(alphaMap) ? 1 : 0 },
+    viewerBackgroundAlphaCutoff: { value: alphaCutoff },
+    viewerDebugHue: { value: 0 },
+    viewerDebugSaturation: { value: 1 },
+    viewerDebugValue: { value: 1 },
+    viewerDebugGamma: { value: 1 },
     viewerBackgroundTint: { value: tint },
     viewerBackgroundOpacity: { value: source.opacity ?? 1 },
-    viewerBackgroundHue: { value: backgroundState.hueDegrees / 360 },
-    viewerBackgroundSaturation: { value: backgroundState.saturation },
-    viewerBackgroundValue: { value: backgroundState.value },
+    viewerBackgroundHue: { value: 0 },
+    viewerBackgroundSaturation: { value: 1 },
+    viewerBackgroundValue: { value: 1 },
     viewerBackgroundTime: { value: backgroundState.motionTime },
     viewerBackgroundWarpStrength: { value: viewerConfig.materialPresets.background.warpStrength },
     viewerBackgroundWarpScale: { value: viewerConfig.materialPresets.background.warpScale },
@@ -39,6 +55,13 @@ void main() {
 }`,
     fragmentShader: `
 uniform sampler2D viewerBackgroundMap;
+uniform sampler2D viewerBackgroundAlphaMap;
+uniform float viewerBackgroundHasAlphaMap;
+uniform float viewerBackgroundAlphaCutoff;
+uniform float viewerDebugHue;
+uniform float viewerDebugSaturation;
+uniform float viewerDebugValue;
+uniform float viewerDebugGamma;
 uniform vec3 viewerBackgroundTint;
 uniform float viewerBackgroundOpacity;
 uniform float viewerBackgroundHue;
@@ -53,6 +76,15 @@ uniform float viewerBackgroundShimmerSpeed;
 varying vec2 vViewerUv;
 ${buildHsvConversionGlsl("viewer")}
 
+vec3 viewerDebugApplyColorCorrection(vec3 color) {
+  vec3 hsv = viewerRgbToHsv(max(color, vec3(0.0)));
+  hsv.x = fract(hsv.x + viewerDebugHue);
+  hsv.y = clamp(hsv.y * viewerDebugSaturation, 0.0, 4.0);
+  hsv.z = clamp(hsv.z * viewerDebugValue, 0.0, 8.0);
+  vec3 corrected = viewerHsvToRgb(hsv);
+  return pow(max(corrected, vec3(0.0)), vec3(1.0 / max(viewerDebugGamma, 0.0001)));
+}
+
 void main() {
   float warpTime = viewerBackgroundTime * viewerBackgroundWarpSpeed;
   vec2 warpedUv = vViewerUv;
@@ -66,6 +98,13 @@ void main() {
   warpedUv = clamp(warpedUv, vec2(0.001), vec2(0.999));
 
   vec4 sampled = texture2D(viewerBackgroundMap, warpedUv);
+  float sampledAlpha = sampled.a;
+  if (viewerBackgroundHasAlphaMap > 0.5) {
+    sampledAlpha = texture2D(viewerBackgroundAlphaMap, warpedUv).g;
+  }
+  if (sampledAlpha <= viewerBackgroundAlphaCutoff) {
+    discard;
+  }
   vec3 color = sampled.rgb * viewerBackgroundTint;
   vec3 hsv = viewerRgbToHsv(color);
   hsv.x = fract(hsv.x + viewerBackgroundHue);
@@ -75,20 +114,27 @@ void main() {
     + viewerBackgroundTime * viewerBackgroundShimmerSpeed
   ) * viewerBackgroundShimmerStrength;
   hsv.z = clamp(hsv.z * viewerBackgroundValue * shimmer, 0.0, 2.0);
-  gl_FragColor = vec4(viewerHsvToRgb(hsv), sampled.a * viewerBackgroundOpacity);
+  gl_FragColor = vec4(viewerDebugApplyColorCorrection(viewerHsvToRgb(hsv)), sampledAlpha * viewerBackgroundOpacity);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
 }`,
     side: DoubleSide,
-    transparent: Boolean(source.transparent) || (source.opacity ?? 1) < 1,
+    transparent: hasExplicitAlpha && !usesAlphaCutout,
     depthWrite: false,
     fog: false,
   });
 
+  material.alphaTest = usesAlphaCutout ? alphaCutoff : 0;
   material.toneMapped = true;
   material.userData.sourceMaterialName = source.name || "";
   material.userData.viewerTweakId = null;
   material.userData.viewerBackgroundUniforms = backgroundUniforms;
+  material.userData.viewerDebugColorUniforms = {
+    viewerDebugHue: backgroundUniforms.viewerDebugHue,
+    viewerDebugSaturation: backgroundUniforms.viewerDebugSaturation,
+    viewerDebugValue: backgroundUniforms.viewerDebugValue,
+    viewerDebugGamma: backgroundUniforms.viewerDebugGamma,
+  };
   material.uniformsNeedUpdate = true;
   backgroundState.materials.add(material);
 
