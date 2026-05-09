@@ -77,7 +77,6 @@ export function createProbeEnvironmentManager({ pmremGenerator }) {
       }
     });
 
-    console.log(`Loaded ${state.probes.length} probe(s): ${state.probes.map((p) => p.name).join(", ")}.`);
   }
 
   function getClosestEnvMap(meshWorldPosition) {
