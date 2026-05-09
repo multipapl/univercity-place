@@ -33,6 +33,7 @@ export function createDebugObjectInspector({
 
   const state = {
     enabled,
+    pickerContextActive: false,
     pickerArmed: false,
     hoveredMesh: null,
     loadedLayers: [],
@@ -165,6 +166,18 @@ export function createDebugObjectInspector({
 
     onPickerArmedChange?.(nextValue);
     requestRender?.();
+  }
+
+  function setPickerContextActive(nextValue) {
+    const normalizedNextValue = Boolean(nextValue);
+    if (state.pickerContextActive === normalizedNextValue) {
+      return;
+    }
+
+    state.pickerContextActive = normalizedNextValue;
+    if (!normalizedNextValue) {
+      setPickerArmed(false);
+    }
   }
 
   function setControlDisabled(disabled) {
@@ -395,7 +408,7 @@ export function createDebugObjectInspector({
   }
 
   function armPicker() {
-    if (!state.enabled) {
+    if (!state.enabled || !state.pickerContextActive) {
       return;
     }
 
@@ -419,7 +432,7 @@ export function createDebugObjectInspector({
   }
 
   function handleCanvasPointerDown(event) {
-    if (!state.enabled || !state.pickerArmed || !getMenuOpen()) {
+    if (!state.enabled || !state.pickerContextActive || !state.pickerArmed || !getMenuOpen()) {
       return;
     }
 
@@ -454,7 +467,7 @@ export function createDebugObjectInspector({
   }
 
   function handleCanvasPointerMove(event) {
-    if (!state.enabled || !state.pickerArmed || !getMenuOpen()) {
+    if (!state.enabled || !state.pickerContextActive || !state.pickerArmed || !getMenuOpen()) {
       if (state.hoveredMesh || hoverHelper.visible) {
         state.hoveredMesh = null;
         hoverHelper.visible = false;
@@ -581,6 +594,7 @@ export function createDebugObjectInspector({
     },
     isPickerArmed: () => state.pickerArmed,
     loadOverrides,
+    setPickerContextActive,
     setLoadedLayers,
     setEnabled(nextEnabled) {
       state.enabled = Boolean(nextEnabled);

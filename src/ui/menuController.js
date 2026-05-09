@@ -28,6 +28,7 @@ export function createMenuController({
   updateStatus,
   onDebugToggleRequest,
   onGalleryToggle,
+  onStateChange = null,
 }) {
   const state = {
     isOpen: false,
@@ -60,6 +61,15 @@ export function createMenuController({
     updateBottomDockActiveCategory(bottomDock, highlightCategoryId);
   }
 
+  function emitStateChange() {
+    onStateChange?.({
+      activeCategoryId: state.activeCategoryId,
+      isOpen: state.isOpen,
+      isSidebarOpen: leftSidebar?.classList.contains("is-open") ?? false,
+      mode: state.mode,
+    });
+  }
+
   function setCategory(nextCategoryId) {
     if (!nextCategoryId || !isDockCategoryVisible(nextCategoryId, state.mode)) {
       return;
@@ -69,6 +79,7 @@ export function createMenuController({
     if (state.activeCategoryId === nextCategoryId && sidebarIsOpen) {
       setSidebarOpen(leftSidebar, false);
       syncVisualState();
+      emitStateChange();
       return;
     }
 
@@ -76,6 +87,7 @@ export function createMenuController({
     syncSidebarContent();
     setSidebarOpen(leftSidebar, true);
     syncVisualState();
+    emitStateChange();
   }
 
   function setOpen(nextOpen) {
@@ -97,6 +109,7 @@ export function createMenuController({
       syncDockButtons();
       setSidebarOpen(leftSidebar, false);
       syncVisualState();
+      emitStateChange();
       state.relockAfterClose = navigationController.controls.isLocked && !isTouchDevice;
       navigationController.controls.unlock();
       navigationController.resetMovementInputs();
@@ -106,6 +119,7 @@ export function createMenuController({
 
     setSidebarOpen(leftSidebar, false);
     syncVisualState();
+    emitStateChange();
 
     if (state.relockAfterClose && !isTouchDevice) {
       requestAnimationFrame(() => {
@@ -132,6 +146,7 @@ export function createMenuController({
     }
 
     syncVisualState();
+    emitStateChange();
   }
 
   function handleDockClick(event) {
@@ -147,6 +162,7 @@ export function createMenuController({
     if (categoryId === "gallery") {
       setSidebarOpen(leftSidebar, false);
       syncVisualState();
+      emitStateChange();
       onGalleryToggle?.();
       return;
     }
@@ -173,13 +189,16 @@ export function createMenuController({
   bottomDock?.addEventListener("auxclick", handleDockAuxClick);
   syncDockButtons();
   syncVisualState();
+  emitStateChange();
 
   return {
     dispose() {
       bottomDock?.removeEventListener("click", handleDockClick);
       bottomDock?.removeEventListener("auxclick", handleDockAuxClick);
     },
+    getActiveCategoryId: () => state.activeCategoryId,
     isOpen: () => state.isOpen,
+    isSidebarOpen: () => leftSidebar?.classList.contains("is-open") ?? false,
     setOpen,
     setMode,
   };

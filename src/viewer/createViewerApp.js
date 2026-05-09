@@ -290,8 +290,6 @@ function parseNonNegativeInteger(value) {
 
   return parsed;
 }
-
-
 const state = createViewerState({
   baseViewerConfig: VIEWER_CONFIG,
   initialRuntimeOptimizationState: {
@@ -639,6 +637,21 @@ const getRenderMode = () => {
 const syncViewerRenderMode = () => {
   viewerLifecycleController?.syncRenderMode();
 };
+const syncObjectPickerContext = ({
+  activeCategoryId = null,
+  isOpen = false,
+  isSidebarOpen = false,
+  mode = "viewer",
+} = {}) => {
+  debugObjectInspector?.setPickerContextActive(
+    mode === "debug"
+      && isOpen
+      && isSidebarOpen
+      && activeCategoryId === "objects",
+  );
+  syncViewerRenderMode();
+  requestSceneRender();
+};
 debugObjectInspector = createDebugObjectInspector({
   enabled: debugMode,
   isDev: import.meta.env.DEV,
@@ -692,6 +705,7 @@ const menuController = createMenuController({
   onGalleryToggle: () => {
     openGallery();
   },
+  onStateChange: syncObjectPickerContext,
 });
 const galleryOverlay = createGalleryOverlay({
   overlay: galleryOverlayRef,
@@ -944,7 +958,6 @@ function setBaseLowMemoryMode(enabled) {
   requestSceneRender();
   updateStatus(`Low-memory base textures ${enabled ? "enabled" : "disabled"}.`);
 }
-
 
 function setRenderScale(nextScale) {
   const clampedScale = Math.min(1, Math.max(0.2, nextScale));
@@ -1381,3 +1394,4 @@ function detectInitialRenderScale() {
 
   return 1.0;
 }
+
