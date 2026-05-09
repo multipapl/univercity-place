@@ -167,6 +167,29 @@ public/material-settings.json
 
 During `npm run dev`, `vite.config.js` exposes local save-back routes for both override flows.
 
+## Production Asset Caching
+
+Current status: no special production caching pipeline is enabled in code yet.
+
+What was confirmed during the caching review:
+
+- the viewer can safely support production-side cache reuse for heavy `glb` / `mp4` / `mp3` assets
+- local development should keep aggressive cache-busting behavior
+- `assetBust` should remain a manual debug/operator escape hatch, not the normal production path
+- service worker / IndexedDB complexity is not justified unless plain HTTP caching proves insufficient
+
+What blocked rollout right now:
+
+- Cloudflare's supported cache path for R2 requires serving the bucket through a custom domain, not the `r2.dev` development URL
+- this project is intentionally staying on the simpler current delivery path for now rather than introducing domain, R2 metadata, and cache purge operational steps
+
+Deferred future direction:
+
+- keep asset filenames stable on object storage
+- use a tiny asset manifest or equivalent version signal to invalidate heavy asset URLs only when the scene package really changes
+- pair that with long-lived immutable cache headers on the heavy files themselves
+- if assets are overwritten in place behind Cloudflare cache, plan for explicit cache purge as part of deploy operations
+
 ## Internal Notes
 
 Local docs in `docs/` are ignored by git and intentionally kept small. The main ones are:
