@@ -8,7 +8,19 @@ export function createViewerLifecycle({
   renderSceneFrame,
   updatePerformanceDiagnostics,
   disposeRuntimeResources,
+  rendererDomElement,
+  updateStatus,
 }) {
+  function handleContextLost(event) {
+    event.preventDefault();
+    updateStatus?.("WebGL context lost. Attempting to restore...");
+  }
+
+  function handleContextRestored() {
+    updateStatus?.("WebGL context restored.");
+    requestRender();
+  }
+
   function handleWindowFocus() {
     syncRenderMode();
   }
@@ -150,6 +162,8 @@ export function createViewerLifecycle({
     window.addEventListener("blur", handleWindowBlur);
     window.addEventListener("pageshow", handlePageShow);
     document.addEventListener("visibilitychange", handleDocumentVisibilityChange);
+    rendererDomElement?.addEventListener("webglcontextlost", handleContextLost);
+    rendererDomElement?.addEventListener("webglcontextrestored", handleContextRestored);
     state.viewerLifecycle.renderRequested = true;
     syncRenderMode();
     scheduleTick();
@@ -166,6 +180,8 @@ export function createViewerLifecycle({
     window.removeEventListener("blur", handleWindowBlur);
     window.removeEventListener("pageshow", handlePageShow);
     document.removeEventListener("visibilitychange", handleDocumentVisibilityChange);
+    rendererDomElement?.removeEventListener("webglcontextlost", handleContextLost);
+    rendererDomElement?.removeEventListener("webglcontextrestored", handleContextRestored);
     clearScheduledTick();
   }
 

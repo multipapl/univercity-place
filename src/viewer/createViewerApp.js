@@ -1329,6 +1329,8 @@ viewerLifecycleController = createViewerLifecycle({
   getRenderMode,
   renderSceneFrame,
   updatePerformanceDiagnostics,
+  rendererDomElement: renderer.domElement,
+  updateStatus,
   disposeRuntimeResources: () => {
     if (smoothProgressState.rafId) {
       cancelAnimationFrame(smoothProgressState.rafId);
