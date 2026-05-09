@@ -7,6 +7,12 @@ import {
   normalizeOverridesDocument,
   normalizeTargetOverride,
 } from "./objectOverrideStore.js";
+import {
+  AdditiveBlending,
+  DoubleSide,
+  Mesh,
+  MeshBasicMaterial,
+} from "three";
 
 export function createDebugObjectInspector({
   enabled = false,
@@ -24,17 +30,25 @@ export function createDebugObjectInspector({
 }) {
   const raycaster = new Raycaster();
   const pointer = new Vector2();
-  const hoverHelper = new BoxHelper(undefined, 0x93c5fd);
-  hoverHelper.visible = false;
-  hoverHelper.material.depthTest = false;
-  hoverHelper.material.transparent = true;
-  hoverHelper.material.opacity = 0.9;
-  hoverHelper.userData.viewerDebugHelper = true;
+  const hoverHighlightMaterial = new MeshBasicMaterial({
+    color: 0x60a5fa,
+    transparent: true,
+    opacity: 0.14,
+    blending: AdditiveBlending,
+    depthTest: true,
+    depthWrite: false,
+    polygonOffset: true,
+    polygonOffsetFactor: -1,
+    polygonOffsetUnits: -2,
+    side: DoubleSide,
+    toneMapped: false,
+  });
 
   const state = {
     enabled,
     pickerContextActive: false,
     pickerArmed: false,
+    hoverHighlight: null,
     hoveredMesh: null,
     loadedLayers: [],
     materialEntriesCache: null,
@@ -139,20 +153,73 @@ export function createDebugObjectInspector({
     return state.selectedEntry;
   }
 
+  function clearHoverHighlight() {
+    if (!state.hoverHighlight) {
+      return false;
+    }
+
+    state.hoverHighlight.parent?.remove(state.hoverHighlight);
+    state.hoverHighlight = null;
+    return true;
+  }
+
+  function createHoverHighlight(mesh) {
+    if (!mesh?.geometry) {
+      return null;
+    }
+
+    const highlight = mesh.isSkinnedMesh
+      ? new mesh.constructor(mesh.geometry, hoverHighlightMaterial)
+      : new Mesh(mesh.geometry, hoverHighlightMaterial);
+
+    highlight.name = "ViewerDebugHoverHighlight";
+    highlight.renderOrder = 9999;
+    highlight.frustumCulled = false;
+    highlight.userData.viewerDebugHelper = true;
+    highlight.position.set(0, 0, 0);
+    highlight.quaternion.identity();
+    highlight.scale.set(1, 1, 1);
+
+    if (mesh.isSkinnedMesh && mesh.skeleton) {
+      highlight.bindMode = mesh.bindMode;
+      highlight.bind(mesh.skeleton, mesh.bindMatrix);
+      highlight.bindMatrix.copy(mesh.bindMatrix);
+      highlight.bindMatrixInverse.copy(mesh.bindMatrixInverse);
+    }
+
+    if (Array.isArray(mesh.morphTargetInfluences)) {
+      highlight.morphTargetDictionary = mesh.morphTargetDictionary;
+      highlight.morphTargetInfluences = mesh.morphTargetInfluences;
+    }
+
+    return highlight;
+  }
+
+  function attachHoverHighlight(mesh) {
+    clearHoverHighlight();
+    const highlight = createHoverHighlight(mesh);
+    if (!highlight) {
+      return false;
+    }
+
+    mesh.add(highlight);
+    state.hoverHighlight = highlight;
+    return true;
+  }
+
+  function clearHoveredMeshState() {
+    const hadHoveredMesh = Boolean(state.hoveredMesh);
+    const didClearHighlight = clearHoverHighlight();
+    state.hoveredMesh = null;
+    return hadHoveredMesh || didClearHighlight;
+  }
+
   function setPickerArmed(nextValue) {
     if (state.pickerArmed === nextValue) {
       return;
     }
 
     state.pickerArmed = nextValue;
-    if (nextValue) {
-      if (!hoverHelper.parent) {
-        sceneRoots.add(hoverHelper);
-      }
-    } else {
-      hoverHelper.parent?.remove(hoverHelper);
-    }
-
     if (ui.pickButton) {
       ui.pickButton.textContent = nextValue ? "Picking..." : "Pick Object";
       ui.pickButton.setAttribute("aria-pressed", nextValue ? "true" : "false");
@@ -160,8 +227,7 @@ export function createDebugObjectInspector({
     }
 
     if (!nextValue) {
-      state.hoveredMesh = null;
-      hoverHelper.visible = false;
+      clearHoveredMeshState();
     }
 
     onPickerArmedChange?.(nextValue);
@@ -468,9 +534,7 @@ export function createDebugObjectInspector({
 
   function handleCanvasPointerMove(event) {
     if (!state.enabled || !state.pickerContextActive || !state.pickerArmed || !getMenuOpen()) {
-      if (state.hoveredMesh || hoverHelper.visible) {
-        state.hoveredMesh = null;
-        hoverHelper.visible = false;
+      if (clearHoveredMeshState()) {
         requestRender?.();
       }
       return;
@@ -479,21 +543,31 @@ export function createDebugObjectInspector({
     const intersections = getPointerIntersections(event.clientX, event.clientY);
     const hoveredMesh = intersections[0]?.object ?? null;
     if (!hoveredMesh) {
-      state.hoveredMesh = null;
-      hoverHelper.visible = false;
-      requestRender?.();
+      if (clearHoveredMeshState()) {
+        requestRender?.();
+      }
       return;
     }
 
-    if (state.hoveredMesh !== hoveredMesh) {
+    if (state.hoveredMesh !== hoveredMesh || !state.hoverHighlight) {
       state.hoveredMesh = hoveredMesh;
-      hoverHelper.setFromObject(hoveredMesh);
-    } else {
-      hoverHelper.update();
+      attachHoverHighlight(hoveredMesh);
+      requestRender?.();
+    }
+  }
+
+  function handleGlobalPointerMove(event) {
+    if (!state.enabled || !state.pickerContextActive || !state.pickerArmed || !getMenuOpen()) {
+      return;
     }
 
-    hoverHelper.visible = true;
-    requestRender?.();
+    if (event.target === rendererDomElement) {
+      return;
+    }
+
+    if (clearHoveredMeshState()) {
+      requestRender?.();
+    }
   }
 
   async function loadOverrides() {
@@ -541,15 +615,19 @@ export function createDebugObjectInspector({
     };
 
     const handleHueInput = (event) => {
+      clearHoveredMeshState();
       updateSelectedOverride((override) => ({ ...override, hue: Number(event.target.value) }));
     };
     const handleSaturationInput = (event) => {
+      clearHoveredMeshState();
       updateSelectedOverride((override) => ({ ...override, saturation: Number(event.target.value) }));
     };
     const handleValueInput = (event) => {
+      clearHoveredMeshState();
       updateSelectedOverride((override) => ({ ...override, value: Number(event.target.value) }));
     };
     const handleGammaInput = (event) => {
+      clearHoveredMeshState();
       updateSelectedOverride((override) => ({ ...override, gamma: Number(event.target.value) }));
     };
 
@@ -563,6 +641,7 @@ export function createDebugObjectInspector({
     bind(ui.gammaSlider, "input", handleGammaInput);
     bind(rendererDomElement, "pointerdown", handleCanvasPointerDown, true);
     bind(rendererDomElement, "pointermove", handleCanvasPointerMove, true);
+    bind(window, "pointermove", handleGlobalPointerMove, true);
     setSelectionUi(null);
     updateSaveStatus(isDev
       ? "Overrides ready."
@@ -587,10 +666,8 @@ export function createDebugObjectInspector({
         state.saveTimeoutId = null;
       }
       state.uiCleanup?.();
-      hoverHelper.visible = false;
-      hoverHelper.parent?.remove(hoverHelper);
-      hoverHelper.geometry?.dispose?.();
-      hoverHelper.material?.dispose?.();
+      clearHoverHighlight();
+      hoverHighlightMaterial.dispose();
     },
     isPickerArmed: () => state.pickerArmed,
     loadOverrides,
@@ -600,8 +677,7 @@ export function createDebugObjectInspector({
       state.enabled = Boolean(nextEnabled);
       if (!state.enabled) {
         setPickerArmed(false);
-        state.hoveredMesh = null;
-        hoverHelper.visible = false;
+        clearHoveredMeshState();
         requestRender?.();
         return;
       }
