@@ -24,3 +24,5 @@ docs/
 
 # Audio assets live on object storage
 /public/assets/audio/
+
+/public/debug.scene-overrides.json
