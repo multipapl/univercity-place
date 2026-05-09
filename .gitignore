@@ -21,3 +21,6 @@ docs/
 
 # Render gallery assets - local testing only
 /public/assets/renders/
+
+# Local audio scratch assets - next task
+/public/assets/audio/
