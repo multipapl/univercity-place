@@ -549,7 +549,7 @@ export function createSceneLayerLoader({
       setLoadingScreenVisible(false);
     } catch (error) {
       fxState.activeLoadToken = null;
-      console.error(error);
+      console.error("Scene load failed.", error);
       cleanupLoadedRoots(loadedLayers);
       disposeFireVideoResources();
       diagnosticsState.loadedLayers = [];
