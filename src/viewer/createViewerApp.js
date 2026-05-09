@@ -1405,7 +1405,12 @@ function detectInitialRenderScale() {
     return 0.65;
   }
 
-  if (deviceMemory !== null && deviceMemory <= 8) {
+  if (
+    deviceMemory !== null
+    && deviceMemory <= 8
+    && hardwareConcurrency !== null
+    && hardwareConcurrency <= 8
+  ) {
     return 0.75;
   }
 

@@ -16,13 +16,16 @@ test("createSceneLayerLoader does not block scene readiness on deferred fire vid
     loadedLayers: [],
   };
   const callLog = [];
-  let resolveVideoLoad;
+  let resolveVideoReady;
   const originalDocument = globalThis.document;
 
   globalThis.document = {
+    body: {
+      appendChild() {},
+    },
     createElement(tagName) {
       assert.equal(tagName, "video");
-      return {
+      const video = {
         src: "",
         crossOrigin: "",
         loop: false,
@@ -31,7 +34,12 @@ test("createSceneLayerLoader does not block scene readiness on deferred fire vid
         defaultMuted: false,
         playsInline: false,
         preload: "",
+        controls: true,
+        disablePictureInPicture: false,
+        style: {},
         paused: true,
+        readyState: 0,
+        videoWidth: 0,
         setAttribute() {},
         removeAttribute() {},
         remove() {},
@@ -42,12 +50,17 @@ test("createSceneLayerLoader does not block scene readiness on deferred fire vid
           return Promise.resolve();
         },
         addEventListener(eventName, handler) {
-          if (eventName === "loadeddata") {
-            resolveVideoLoad = () => handler();
+          if (["loadedmetadata", "loadeddata", "canplay"].includes(eventName)) {
+            resolveVideoReady = () => {
+              video.readyState = 2;
+              video.videoWidth = 1920;
+              handler();
+            };
           }
         },
         removeEventListener() {},
       };
+      return video;
     },
   };
 
@@ -157,7 +170,7 @@ test("createSceneLayerLoader does not block scene readiness on deferred fire vid
     assert.ok(callLog.includes("loading:false"));
     assert.equal(callLog.includes("apply-patch"), false);
 
-    resolveVideoLoad();
+    resolveVideoReady();
     await flushMicrotasks();
 
     assert.equal(callLog.includes("apply-patch"), true);

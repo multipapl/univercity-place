@@ -29,6 +29,11 @@ export const DOCK_CATEGORIES = [
               <input type="range" name="camera-height" min="0.5" max="2.5" step="0.01" value="${viewerConfig.camera.height}" data-camera-height />
               <output data-camera-height-value>${viewerConfig.camera.height.toFixed(2)}</output>
             </label>
+            <label class="field field-range">
+              <span>Render Scale</span>
+              <input type="range" name="render-scale" min="0.2" max="1.0" step="0.05" value="1" data-render-scale />
+              <output data-render-scale-value>1.00</output>
+            </label>
           </div>
           <div class="layer-controls">
             <label class="layer-toggle">
@@ -278,11 +283,6 @@ export const DOCK_CATEGORIES = [
               <span class="layer-toggle-copy">
                 <strong>Low-memory base textures</strong>
               </span>
-            </label>
-            <label class="field field-range">
-              <span>Render Scale</span>
-              <input type="range" name="render-scale" min="0.2" max="1.0" step="0.05" value="1" data-render-scale />
-              <output data-render-scale-value>1.00</output>
             </label>
             <label class="field">
               <span>Base Texture Cap</span>

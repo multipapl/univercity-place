@@ -100,6 +100,76 @@ export function createSceneLayerLoader({
     activeCount: 0,
     originalCreateImageBitmap: null,
   };
+  const VIDEO_READY_STATE_CURRENT_DATA = 2;
+
+  function mountHiddenVideoElement(video) {
+    const host = document.body ?? document.documentElement;
+    if (!host?.appendChild) {
+      return;
+    }
+
+    video.controls = false;
+    video.disablePictureInPicture = true;
+    video.style.position = "fixed";
+    video.style.left = "-9999px";
+    video.style.top = "-9999px";
+    video.style.width = "1px";
+    video.style.height = "1px";
+    video.style.opacity = "0";
+    video.style.pointerEvents = "none";
+    video.style.zIndex = "-1";
+    host.appendChild(video);
+  }
+
+  function isFireVideoReady(video) {
+    return Number(video.readyState ?? 0) >= VIDEO_READY_STATE_CURRENT_DATA
+      || (video.videoWidth ?? 0) > 0;
+  }
+
+  function attemptFireVideoPlayback(video) {
+    const playPromise = video.play?.();
+    if (!playPromise?.catch) {
+      return Promise.resolve();
+    }
+
+    return playPromise.catch(() => {
+      // Muted autoplay can still be blocked or deferred; runtime retries handle that path.
+    });
+  }
+
+  function waitForFireVideoReady(video, videoUrl) {
+    return new Promise((resolve, reject) => {
+      const cleanup = () => {
+        video.removeEventListener("loadedmetadata", handleReady);
+        video.removeEventListener("loadeddata", handleReady);
+        video.removeEventListener("canplay", handleReady);
+        video.removeEventListener("error", handleError);
+      };
+      const handleReady = () => {
+        if (!isFireVideoReady(video)) {
+          return;
+        }
+
+        cleanup();
+        resolve();
+      };
+      const handleError = () => {
+        cleanup();
+        reject(new Error(`Failed to load fire video from ${videoUrl}.`));
+      };
+
+      if (isFireVideoReady(video)) {
+        resolve();
+        return;
+      }
+
+      video.addEventListener("loadedmetadata", handleReady);
+      video.addEventListener("loadeddata", handleReady);
+      video.addEventListener("canplay", handleReady);
+      video.addEventListener("error", handleError);
+      video.load();
+    });
+  }
 
   function shouldBypassImageBitmapForGltf() {
     if (typeof navigator === "undefined" || typeof globalThis.createImageBitmap !== "function") {
@@ -222,37 +292,25 @@ export function createSceneLayerLoader({
       }
 
       const video = document.createElement("video");
-      video.src = fxState.videoUrl;
       video.crossOrigin = "anonymous";
       video.loop = true;
       video.autoplay = true;
       video.muted = true;
       video.defaultMuted = true;
       video.playsInline = true;
-      video.preload = "metadata";
+      video.preload = "auto";
       video.setAttribute("autoplay", "");
       video.setAttribute("muted", "");
       video.setAttribute("playsinline", "");
       video.setAttribute("webkit-playsinline", "");
+      mountHiddenVideoElement(video);
+      video.src = fxState.videoUrl;
 
-      await new Promise((resolve, reject) => {
-        const cleanup = () => {
-          video.removeEventListener("loadeddata", handleLoaded);
-          video.removeEventListener("error", handleError);
-        };
-        const handleLoaded = () => {
-          cleanup();
-          resolve();
-        };
-        const handleError = () => {
-          cleanup();
-          reject(new Error(`Failed to load fire video from ${fxState.videoUrl}.`));
-        };
-
-        video.addEventListener("loadeddata", handleLoaded);
-        video.addEventListener("error", handleError);
-        video.load();
-      });
+      const readyPromise = waitForFireVideoReady(video, fxState.videoUrl);
+      if (fxState.playbackEnabled) {
+        attemptFireVideoPlayback(video);
+      }
+      await readyPromise;
 
       const texture = new VideoTexture(video);
       texture.colorSpace = SRGBColorSpace;
@@ -266,11 +324,7 @@ export function createSceneLayerLoader({
       fxState.videoTexture = texture;
 
       if (fxState.playbackEnabled) {
-        try {
-          await video.play();
-        } catch {
-          // Autoplay can be blocked until a user gesture; we'll retry on click/lock.
-        }
+        await attemptFireVideoPlayback(video);
       }
 
       return texture;
