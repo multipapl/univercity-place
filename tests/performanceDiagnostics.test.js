@@ -126,7 +126,12 @@ test("createPerformanceDiagnostics does nothing when disabled", () => {
   assert.equal(statsElements.statFps.textContent, "");
 });
 
-test("createPerformanceDiagnostics uses lightweight renderer info outside heavy mode", () => {
+test("createPerformanceDiagnostics keeps scene complexity accurate outside heavy mode", () => {
+  const visibleRoot = new THREE.Group();
+  visibleRoot.add(new THREE.Mesh(
+    createIndexedTriangleGeometry(),
+    new THREE.MeshBasicMaterial(),
+  ));
   const statsElements = {
     statDrawCalls: createTextNode(),
     statTriangles: createTextNode(),
@@ -137,12 +142,7 @@ test("createPerformanceDiagnostics uses lightweight renderer info outside heavy 
     diagnosticsState: {
       loadedLayers: [
         {
-          root: {
-            visible: true,
-            traverse() {
-              throw new Error("heavy scene traversal should stay disabled");
-            },
-          },
+          root: visibleRoot,
         },
       ],
       fps: 0,
@@ -164,8 +164,8 @@ test("createPerformanceDiagnostics uses lightweight renderer info outside heavy 
 
   diagnostics.update();
 
-  assert.equal(statsElements.statDrawCalls.textContent, "42");
-  assert.equal(statsElements.statTriangles.textContent, "2,048");
+  assert.equal(statsElements.statDrawCalls.textContent, "1");
+  assert.equal(statsElements.statTriangles.textContent, "2");
   assert.equal(statsElements.statTextures.textContent, "17");
   assert.equal(statsElements.statTextureMemory.textContent, "n/a");
 });

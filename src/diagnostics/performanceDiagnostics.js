@@ -134,13 +134,12 @@ export function createPerformanceDiagnostics({
     }
 
     const heavyStatsEnabled = getHeavyStatsEnabled();
-    const sceneComplexity = heavyStatsEnabled
-      ? estimateVisibleSceneComplexity()
-      : getLightweightRendererStats();
+    const sceneComplexity = estimateVisibleSceneComplexity();
+    const lightweightStats = getLightweightRendererStats();
     const textureUsage = heavyStatsEnabled
       ? estimateVisibleTextureMemory()
       : {
-          count: sceneComplexity.textureCount,
+          count: lightweightStats.textureCount,
           bytes: null,
         };
 
