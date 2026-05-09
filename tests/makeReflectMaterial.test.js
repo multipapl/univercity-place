@@ -103,7 +103,6 @@ test("makeReflectMaterial keeps GLB roughness and metalness values and binds pac
   assert.equal(material.normalMap, normalTexture);
   assert.equal(material.roughness, 0.32);
   assert.equal(material.metalness, 0.85);
-  assert.equal(material.userData.viewerReflectBaseMetalness, 0.85);
   assert.equal(material.userData.viewerReflectBaseColorBoost, 2.2);
   assert.equal(material.userData.viewerUvChannels.color, 1);
   assert.equal(material.userData.viewerUvChannels.roughness, 0);

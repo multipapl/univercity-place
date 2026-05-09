@@ -88,7 +88,6 @@ export function makeReflectMaterial({
   material.envMapRotation = new Euler(0, reflectionState.envMapRotationY, 0);
 
   stampViewerMaterialData(material, source, tweak);
-  material.userData.viewerReflectBaseMetalness = metalness;
   material.userData.viewerReflectBaseColorBoost = baseColorBoost;
   material.userData.viewerUvChannels = {
     color: map?.channel ?? colorChannel ?? null,

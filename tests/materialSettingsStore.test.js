@@ -27,7 +27,6 @@ function createBaseViewerConfig() {
         envMapIntensity: 1.4,
         ior: 1.45,
         specularIntensity: 0.8,
-        defaultMetalness: 0.6,
         envMapRotationDegrees: 135,
       },
     },
@@ -78,7 +77,6 @@ test("material settings documents round-trip through state", () => {
       envMapIntensity: 1,
       ior: 1.5,
       specularIntensity: 1,
-      metalness: 1,
       envMapRotationY: 0,
     },
   };
@@ -101,7 +99,6 @@ test("material settings documents round-trip through state", () => {
       envMapIntensity: 1.6,
       ior: 1.35,
       specularIntensity: 0.72,
-      metalness: 0.55,
       probeRotationYDegrees: 90,
     },
   }, state);
@@ -112,5 +109,5 @@ test("material settings documents round-trip through state", () => {
 
   const documentValue = createMaterialSettingsDocumentFromState(state);
   assert.equal(documentValue.reflect.probeRotationYDegrees, 90);
-  assert.equal(documentValue.reflect.metalness, 0.55);
+  assert.equal("metalness" in documentValue.reflect, false);
 });

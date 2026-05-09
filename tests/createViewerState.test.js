@@ -45,7 +45,6 @@ function createBaseViewerConfig() {
         envMapIntensity: 1.5,
         ior: 1.3,
         specularIntensity: 0.45,
-        defaultMetalness: 0.2,
         envMapRotationDegrees: 90,
       },
     },
@@ -65,6 +64,7 @@ test("createViewerState initializes derived values and default UI state", () => 
   assert.equal(state.runtimeOptimizationState.lowMemoryBaseMipmaps, true);
   assert.equal(state.runtimeOptimizationState.baseTextureMaxSize, 2048);
   assert.equal(state.runtimeOptimizationState.renderScale, 0.65);
+  assert.equal(state.colorPipelineState.toneMapping, "none");
   assert.equal(state.helpOverlayState.isOpen, false);
   assert.equal(state.helpOverlayState.relockAfterClose, false);
   assert.equal(state.viewerLifecycle.animationFrameId, null);

@@ -23,7 +23,7 @@ export function createViewerState({
     renderScale: initialRuntimeOptimizationState.renderScale ?? 1.0,
   };
   const colorPipelineState = {
-    toneMapping: baseViewerConfig.colorPipeline.toneMapping,
+    toneMapping: "none",
     exposure: baseViewerConfig.colorPipeline.exposure,
   };
   const interfaceState = {
@@ -86,7 +86,6 @@ export function createViewerState({
     envMapIntensity: baseViewerConfig.materialPresets.reflectMaterial.envMapIntensity,
     ior: baseViewerConfig.materialPresets.reflectMaterial.ior,
     specularIntensity: baseViewerConfig.materialPresets.reflectMaterial.specularIntensity,
-    metalness: baseViewerConfig.materialPresets.reflectMaterial.defaultMetalness,
     envMapRotationY: baseViewerConfig.materialPresets.reflectMaterial.envMapRotationDegrees * Math.PI / 180,
     materials: new Set(),
     probeMaterials: new Set(),

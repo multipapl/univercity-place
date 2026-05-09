@@ -1,6 +1,5 @@
 export function bindViewerUiEvents({
   refs,
-  onToneMappingChange,
   onExposureChange,
   onSelectiveBloomStrengthChange,
   onCameraFovChange,
@@ -23,11 +22,9 @@ export function bindViewerUiEvents({
   onReflectEnvIntensityChange,
   onReflectIorChange,
   onReflectSpecularChange,
-  onReflectMetalnessChange,
   onReflectEnvRotationYChange,
   onReflectReset,
   onBaseLowMemoryToggle,
-  onBaseTextureCapChange,
   onRenderScaleChange,
   onMenuToggle,
   onHelpToggle,
@@ -42,10 +39,6 @@ export function bindViewerUiEvents({
       target?.removeEventListener(type, handler, options);
     });
   };
-  const handleToneMappingChange = (event) => {
-    onToneMappingChange(event.target.value);
-  };
-
   const handleExposureInput = (event) => {
     onExposureChange(Number(event.target.value));
   };
@@ -134,10 +127,6 @@ export function bindViewerUiEvents({
     onReflectSpecularChange(Number(event.target.value));
   };
 
-  const handleReflectMetalnessInput = (event) => {
-    onReflectMetalnessChange(Number(event.target.value));
-  };
-
   const handleReflectEnvRotationYInput = (event) => {
     onReflectEnvRotationYChange(Number(event.target.value));
   };
@@ -148,10 +137,6 @@ export function bindViewerUiEvents({
 
   const handleBaseLowMemoryChange = (event) => {
     onBaseLowMemoryToggle(Boolean(event.target.checked));
-  };
-
-  const handleBaseTextureCapChange = (event) => {
-    onBaseTextureCapChange(event.target.value);
   };
 
   const handleRenderScaleInput = (event) => {
@@ -183,7 +168,6 @@ export function bindViewerUiEvents({
     onExitDebug();
   };
 
-  bind(refs.toneMappingSelect, "change", handleToneMappingChange);
   bind(refs.exposureSlider, "input", handleExposureInput);
   bind(refs.selectiveBloomStrengthSlider, "input", handleSelectiveBloomStrengthInput);
   bind(refs.cameraFovSlider, "input", handleCameraFovInput);
@@ -206,11 +190,9 @@ export function bindViewerUiEvents({
   bind(refs.reflectEnvIntensitySlider, "input", handleReflectEnvIntensityInput);
   bind(refs.reflectIorSlider, "input", handleReflectIorInput);
   bind(refs.reflectSpecularSlider, "input", handleReflectSpecularInput);
-  bind(refs.reflectMetalnessSlider, "input", handleReflectMetalnessInput);
   bind(refs.reflectEnvRotationYSlider, "input", handleReflectEnvRotationYInput);
   bind(refs.reflectResetButton, "click", handleReflectResetClick);
   bind(refs.baseLowMemoryToggle, "change", handleBaseLowMemoryChange);
-  bind(refs.baseTextureCapSelect, "change", handleBaseTextureCapChange);
   bind(refs.renderScaleSlider, "input", handleRenderScaleInput);
   bind(refs.menuToggleButton, "click", handleMenuToggleClick);
   bind(refs.helpToggleButton, "click", handleHelpToggleClick);

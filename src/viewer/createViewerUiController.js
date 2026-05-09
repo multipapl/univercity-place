@@ -1,4 +1,4 @@
-import { Euler } from "three";
+import { Euler, NoToneMapping } from "three";
 
 export function createViewerUiController({
   refs,
@@ -7,7 +7,6 @@ export function createViewerUiController({
   viewerConfig,
   materialPipeline,
   renderer,
-  toneMappingModes,
   selectiveBloomConfig,
   selectiveBloomPipeline,
   getEffectivePixelRatio = () => Math.min(window.devicePixelRatio, 2),
@@ -68,15 +67,9 @@ export function createViewerUiController({
   }
 
   function applyViewportColorSettings() {
-    const toneMappingKey = state.colorPipelineState.toneMapping in toneMappingModes
-      ? state.colorPipelineState.toneMapping
-      : "standard";
-    renderer.toneMapping = toneMappingModes[toneMappingKey];
+    state.colorPipelineState.toneMapping = "none";
+    renderer.toneMapping = NoToneMapping;
     renderer.toneMappingExposure = state.colorPipelineState.exposure;
-
-    if (refs.toneMappingSelect) {
-      refs.toneMappingSelect.value = toneMappingKey;
-    }
 
     syncSliderValue(refs.exposureSlider, state.colorPipelineState.exposure.toFixed(2));
     syncTextValue(refs.exposureValue, state.colorPipelineState.exposure.toFixed(2));
@@ -239,19 +232,12 @@ export function createViewerUiController({
     syncTextValue(refs.reflectIorValue, state.reflectionState.ior.toFixed(2));
     syncSliderValue(refs.reflectSpecularSlider, state.reflectionState.specularIntensity.toFixed(2));
     syncTextValue(refs.reflectSpecularValue, state.reflectionState.specularIntensity.toFixed(2));
-    syncSliderValue(refs.reflectMetalnessSlider, state.reflectionState.metalness.toFixed(2));
-    syncTextValue(refs.reflectMetalnessValue, state.reflectionState.metalness.toFixed(2));
     const rotDeg = (state.reflectionState.envMapRotationY * 180 / Math.PI).toFixed(0);
     syncSliderValue(refs.reflectEnvRotationYSlider, rotDeg);
     syncTextValue(refs.reflectEnvRotationYValue, `${rotDeg}°`);
 
     state.reflectionState.materials.forEach((material) => {
-      const baseMetalness = Number.isFinite(material.userData?.viewerReflectBaseMetalness)
-        ? material.userData.viewerReflectBaseMetalness
-        : 1;
-
       material.envMapIntensity = state.reflectionState.envMapIntensity;
-      material.metalness = Math.min(1, Math.max(0, baseMetalness * state.reflectionState.metalness));
 
       if (material.isMeshPhysicalMaterial) {
         material.ior = state.reflectionState.ior;
@@ -295,7 +281,6 @@ export function createViewerUiController({
     state.reflectionState.envMapIntensity = defaults.envMapIntensity;
     state.reflectionState.ior = defaults.ior;
     state.reflectionState.specularIntensity = defaults.specularIntensity;
-    state.reflectionState.metalness = defaults.defaultMetalness;
     state.reflectionState.envMapRotationY = defaults.envMapRotationDegrees * Math.PI / 180;
     applyReflectMaterialSettings();
   }

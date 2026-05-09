@@ -4,12 +4,10 @@
   Color,
   GridHelper,
   Group,
-  LinearToneMapping,
   LoadingManager,
   MathUtils,
   Mesh,
   MeshBasicMaterial,
-  NoToneMapping,
   PMREMGenerator,
   PerspectiveCamera,
   SRGBColorSpace,
@@ -147,7 +145,6 @@ const {
   bottomQuickFpsValue,
   bottomQuickCameraFovValue,
   bottomQuickCameraHeightValue,
-  toneMappingSelect,
   exposureSlider,
   exposureValue,
   selectiveBloomStrengthSlider,
@@ -186,8 +183,6 @@ const {
   reflectIorValue,
   reflectSpecularSlider,
   reflectSpecularValue,
-  reflectMetalnessSlider,
-  reflectMetalnessValue,
   reflectEnvRotationYSlider,
   reflectEnvRotationYValue,
   layerControls,
@@ -198,7 +193,6 @@ const {
   statTextures,
   statTextureMemory,
   baseLowMemoryToggle,
-  baseTextureCapSelect,
   renderScaleSlider,
   renderScaleValue,
   galleryOverlay: galleryOverlayRef,
@@ -297,22 +291,14 @@ function parseNonNegativeInteger(value) {
   return parsed;
 }
 
-function getStoredBaseTextureCap() {
-  try {
-    return parseNonNegativeInteger(window.localStorage.getItem("viewer.baseTextureMaxSize"));
-  } catch {
-    return null;
-  }
-}
+
 const state = createViewerState({
   baseViewerConfig: VIEWER_CONFIG,
   initialRuntimeOptimizationState: {
     lowMemoryBaseMipmaps: parseBooleanFlag(searchParams.get("lowMemoryBase"))
       ?? getStoredLowMemoryBaseMode()
       ?? VIEWER_CONFIG.runtimeOptimization.lowMemoryBaseMipmaps,
-    baseTextureMaxSize: parseNonNegativeInteger(searchParams.get("baseTextureCap"))
-      ?? getStoredBaseTextureCap()
-      ?? VIEWER_CONFIG.runtimeOptimization.baseTextureMaxSize,
+    baseTextureMaxSize: 0,
     renderScale: initialRenderScale,
   },
 });
@@ -390,6 +376,7 @@ const materialSettingsPersistenceState = {
 
 try {
   window.localStorage.removeItem("viewer.debugMode");
+  window.localStorage.removeItem("viewer.baseTextureMaxSize");
 } catch {
   // Ignore storage failures and continue with query-only debug mode.
 }
@@ -687,10 +674,6 @@ const navigationController = createNavigationController({
   updateStatus,
 });
 navigationController.setCollisionRoots([]);
-const toneMappingModes = {
-  standard: LinearToneMapping,
-  none: NoToneMapping,
-};
 const menuController = createMenuController({
   viewport,
   hud,
@@ -746,7 +729,6 @@ const uiController = createViewerUiController({
   viewerConfig,
   materialPipeline,
   renderer,
-  toneMappingModes,
   selectiveBloomConfig,
   selectiveBloomPipeline,
   getEffectivePixelRatio,
@@ -788,10 +770,6 @@ function hideDock() {
 
 if (baseLowMemoryToggle) {
   baseLowMemoryToggle.checked = runtimeOptimizationState.lowMemoryBaseMipmaps;
-}
-
-if (baseTextureCapSelect) {
-  baseTextureCapSelect.value = `${runtimeOptimizationState.baseTextureMaxSize}`;
 }
 
 if (renderScaleSlider) {
@@ -967,24 +945,6 @@ function setBaseLowMemoryMode(enabled) {
   updateStatus(`Low-memory base textures ${enabled ? "enabled" : "disabled"}.`);
 }
 
-function setBaseTextureCap(nextCap) {
-  const cap = Number.isFinite(nextCap) && nextCap > 0 ? Math.round(nextCap) : 0;
-  runtimeOptimizationState.baseTextureMaxSize = cap;
-
-  if (baseTextureCapSelect) {
-    baseTextureCapSelect.value = `${cap}`;
-  }
-
-  try {
-    window.localStorage.setItem("viewer.baseTextureMaxSize", `${cap}`);
-  } catch {
-    // Ignore storage failures and keep the setting in-memory for this session.
-  }
-
-  applyRuntimeTextureOptimizations();
-  requestSceneRender();
-  updateStatus(cap ? `Base texture cap set to ${cap}px.` : "Base texture cap disabled.");
-}
 
 function setRenderScale(nextScale) {
   const clampedScale = Math.min(1, Math.max(0.2, nextScale));
@@ -1155,11 +1115,6 @@ const unbindNavigationEvents = navigationController.bindInputEvents({
 const unbindDebugUi = debugObjectInspector.bindUi();
 const unbindViewerUi = bindViewerUiEvents({
   refs,
-  onToneMappingChange: (value) => {
-    colorPipelineState.toneMapping = value;
-    uiController.applyViewportColorSettings();
-    requestSceneRender();
-  },
   onExposureChange: (value) => {
     colorPipelineState.exposure = value;
     uiController.applyViewportColorSettings();
@@ -1286,12 +1241,6 @@ const unbindViewerUi = bindViewerUiEvents({
     requestSceneRender();
     scheduleMaterialSettingsSave();
   },
-  onReflectMetalnessChange: (value) => {
-    reflectionState.metalness = value;
-    uiController.applyReflectMaterialSettings();
-    requestSceneRender();
-    scheduleMaterialSettingsSave();
-  },
   onReflectEnvRotationYChange: (value) => {
     reflectionState.envMapRotationY = value * Math.PI / 180;
     uiController.applyReflectMaterialSettings();
@@ -1305,9 +1254,6 @@ const unbindViewerUi = bindViewerUiEvents({
   },
   onBaseLowMemoryToggle: (checked) => {
     setBaseLowMemoryMode(checked);
-  },
-  onBaseTextureCapChange: (value) => {
-    setBaseTextureCap(parseNonNegativeInteger(value) ?? 0);
   },
   onRenderScaleChange: (value) => {
     setRenderScale(value);
@@ -1435,4 +1381,3 @@ function detectInitialRenderScale() {
 
   return 1.0;
 }
-

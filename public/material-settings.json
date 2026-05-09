@@ -13,8 +13,8 @@
     "gamma": 3.27
   },
   "reflect": {
-    "envMapIntensity": 1,
-    "ior": 1.5,
+    "envMapIntensity": 0.95,
+    "ior": 1.64,
     "specularIntensity": 1,
     "metalness": 1,
     "probeRotationYDegrees": 90

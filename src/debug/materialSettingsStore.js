@@ -25,7 +25,6 @@ export function createDefaultMaterialSettingsDocument(baseViewerConfig) {
       envMapIntensity: normalizeNumber(reflect.envMapIntensity, 1),
       ior: normalizeNumber(reflect.ior, 1.5),
       specularIntensity: normalizeNumber(reflect.specularIntensity, 1),
-      metalness: normalizeNumber(reflect.defaultMetalness, 1),
       probeRotationYDegrees: normalizeNumber(reflect.envMapRotationDegrees, 0),
     },
   };
@@ -55,7 +54,6 @@ export function normalizeMaterialSettingsDocument(documentValue, baseViewerConfi
       envMapIntensity: normalizeNumber(documentValue.reflect?.envMapIntensity, defaults.reflect.envMapIntensity),
       ior: normalizeNumber(documentValue.reflect?.ior, defaults.reflect.ior),
       specularIntensity: normalizeNumber(documentValue.reflect?.specularIntensity, defaults.reflect.specularIntensity),
-      metalness: normalizeNumber(documentValue.reflect?.metalness, defaults.reflect.metalness),
       probeRotationYDegrees: normalizeNumber(
         documentValue.reflect?.probeRotationYDegrees,
         defaults.reflect.probeRotationYDegrees,
@@ -84,7 +82,6 @@ export function applyMaterialSettingsDocumentToState(documentValue, state) {
   reflectionState.envMapIntensity = documentValue.reflect.envMapIntensity;
   reflectionState.ior = documentValue.reflect.ior;
   reflectionState.specularIntensity = documentValue.reflect.specularIntensity;
-  reflectionState.metalness = documentValue.reflect.metalness;
   reflectionState.envMapRotationY = documentValue.reflect.probeRotationYDegrees * Math.PI / 180;
 }
 
@@ -107,7 +104,6 @@ export function createMaterialSettingsDocumentFromState(state) {
       envMapIntensity: state.reflectionState.envMapIntensity,
       ior: state.reflectionState.ior,
       specularIntensity: state.reflectionState.specularIntensity,
-      metalness: state.reflectionState.metalness,
       probeRotationYDegrees: state.reflectionState.envMapRotationY * 180 / Math.PI,
     },
   };

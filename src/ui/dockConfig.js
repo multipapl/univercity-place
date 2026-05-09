@@ -208,11 +208,6 @@ export const DOCK_CATEGORIES = [
               <output data-reflect-specular-value>${viewerConfig.materialPresets.reflectMaterial.specularIntensity.toFixed(2)}</output>
             </label>
             <label class="field field-range">
-              <span>Metalness</span>
-              <input type="range" name="reflect-metalness" min="0" max="1" step="0.01" value="${viewerConfig.materialPresets.reflectMaterial.defaultMetalness}" data-reflect-metalness />
-              <output data-reflect-metalness-value>${viewerConfig.materialPresets.reflectMaterial.defaultMetalness.toFixed(2)}</output>
-            </label>
-            <label class="field field-range">
               <span>Probe Rotation Y</span>
               <input type="range" name="reflect-env-rotation-y" min="-180" max="180" step="1" value="${viewerConfig.materialPresets.reflectMaterial.envMapRotationDegrees}" data-reflect-env-rotation-y />
               <output data-reflect-env-rotation-y-value>${viewerConfig.materialPresets.reflectMaterial.envMapRotationDegrees.toFixed(0)}&deg;</output>
@@ -283,32 +278,6 @@ export const DOCK_CATEGORIES = [
               <span class="layer-toggle-copy">
                 <strong>Low-memory base textures</strong>
               </span>
-            </label>
-            <label class="field">
-              <span>Base Texture Cap</span>
-              <select name="base-texture-cap" data-base-texture-cap>
-                <option value="0">Off</option>
-                <option value="4096">4096</option>
-                <option value="3072">3072</option>
-                <option value="2048">2048</option>
-                <option value="1024">1024</option>
-              </select>
-            </label>
-          </div>
-        `,
-      },
-      {
-        id: "viewport-advanced",
-        label: "Viewport Adv",
-        modes: ["debug"],
-        render: () => `
-          <div class="color-tools">
-            <label class="field">
-              <span>View Transform</span>
-              <select name="tone-mapping" data-tone-mapping>
-                <option value="standard">Standard</option>
-                <option value="none">None</option>
-              </select>
             </label>
           </div>
         `,
