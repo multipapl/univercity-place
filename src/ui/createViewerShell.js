@@ -81,6 +81,8 @@ function collectViewerShellRefs({ hud, loadingScreen, mobileControls }) {
     statTextureMemory: hud.querySelector("[data-stat-texture-memory]"),
     baseLowMemoryToggle: hud.querySelector("[data-base-low-memory]"),
     baseTextureCapSelect: hud.querySelector("[data-base-texture-cap]"),
+    renderScaleSlider: hud.querySelector("[data-render-scale]"),
+    renderScaleValue: hud.querySelector("[data-render-scale-value]"),
     reloadAssetsButton: hud.querySelector("[data-reload-assets]"),
     exitDebugButton: hud.querySelector("[data-exit-debug]"),
     objectSelectionHint: hud.querySelector("[data-object-selection-hint]"),

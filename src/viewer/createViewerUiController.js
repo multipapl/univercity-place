@@ -10,6 +10,7 @@ export function createViewerUiController({
   toneMappingModes,
   selectiveBloomConfig,
   selectiveBloomPipeline,
+  getEffectivePixelRatio = () => Math.min(window.devicePixelRatio, 2),
   navigationController,
   menuController,
   getDebugMode,
@@ -87,8 +88,14 @@ export function createViewerUiController({
     syncTextValue(refs.selectiveBloomStrengthValue, selectiveBloomConfig.strength.toFixed(2));
   }
 
+  function syncRenderScaleReadouts(nextScale = state.runtimeOptimizationState?.renderScale ?? 1) {
+    const normalizedScale = nextScale.toFixed(2);
+    syncSliderValue(refs.renderScaleSlider, normalizedScale);
+    syncTextValue(refs.renderScaleValue, normalizedScale);
+  }
+
   function syncPostProcessingSize() {
-    const pixelRatio = Math.min(window.devicePixelRatio, 2);
+    const pixelRatio = getEffectivePixelRatio();
     const width = nodes.viewport.clientWidth || window.innerWidth;
     const height = nodes.viewport.clientHeight || window.innerHeight;
     selectiveBloomPipeline.syncSize(width, height, pixelRatio);
@@ -314,5 +321,6 @@ export function createViewerUiController({
     syncQuickReadouts,
     syncCameraFovReadouts,
     syncCameraHeightReadouts,
+    syncRenderScaleReadouts,
   };
 }

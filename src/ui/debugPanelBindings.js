@@ -28,6 +28,7 @@ export function bindViewerUiEvents({
   onReflectReset,
   onBaseLowMemoryToggle,
   onBaseTextureCapChange,
+  onRenderScaleChange,
   onMenuToggle,
   onHelpToggle,
   onHelpClose,
@@ -153,6 +154,10 @@ export function bindViewerUiEvents({
     onBaseTextureCapChange(event.target.value);
   };
 
+  const handleRenderScaleInput = (event) => {
+    onRenderScaleChange(Number(event.target.value));
+  };
+
   const handleMenuToggleClick = (event) => {
     event.currentTarget?.blur?.();
     onMenuToggle();
@@ -206,6 +211,7 @@ export function bindViewerUiEvents({
   bind(refs.reflectResetButton, "click", handleReflectResetClick);
   bind(refs.baseLowMemoryToggle, "change", handleBaseLowMemoryChange);
   bind(refs.baseTextureCapSelect, "change", handleBaseTextureCapChange);
+  bind(refs.renderScaleSlider, "input", handleRenderScaleInput);
   bind(refs.menuToggleButton, "click", handleMenuToggleClick);
   bind(refs.helpToggleButton, "click", handleHelpToggleClick);
   bind(refs.bottomHelpToggleButton, "click", handleHelpToggleClick);

@@ -20,6 +20,7 @@ export function createViewerState({
   const runtimeOptimizationState = {
     lowMemoryBaseMipmaps: initialRuntimeOptimizationState.lowMemoryBaseMipmaps,
     baseTextureMaxSize: initialRuntimeOptimizationState.baseTextureMaxSize,
+    renderScale: initialRuntimeOptimizationState.renderScale ?? 1.0,
   };
   const colorPipelineState = {
     toneMapping: baseViewerConfig.colorPipeline.toneMapping,

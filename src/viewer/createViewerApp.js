@@ -92,6 +92,14 @@ const isTouchDevice = window.matchMedia("(pointer: coarse)").matches || "ontouch
 const isWalkMode = VIEWER_CONFIG.locomotion.mode === "walk";
 const searchParams = new URLSearchParams(window.location.search);
 let debugMode = parseBooleanFlag(searchParams.get("debug")) ?? false;
+const renderScaleQueryValue = Number.parseFloat(searchParams.get("renderScale") ?? "");
+const initialRenderScale = (
+  Number.isFinite(renderScaleQueryValue)
+  && renderScaleQueryValue >= 0.2
+  && renderScaleQueryValue <= 1.0
+)
+  ? renderScaleQueryValue
+  : detectInitialRenderScale();
 
 const {
   nodes: {
@@ -191,6 +199,8 @@ const {
   statTextureMemory,
   baseLowMemoryToggle,
   baseTextureCapSelect,
+  renderScaleSlider,
+  renderScaleValue,
   galleryOverlay: galleryOverlayRef,
   joystickBase,
   joystickThumb,
@@ -200,34 +210,6 @@ const {
   boostButton,
 } = refs;
 
-const renderer = new WebGLRenderer({ antialias: true });
-const initialViewportWidth = viewport.clientWidth || window.innerWidth;
-const initialViewportHeight = viewport.clientHeight || window.innerHeight;
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setSize(initialViewportWidth, initialViewportHeight);
-renderer.outputColorSpace = SRGBColorSpace;
-renderer.shadowMap.enabled = false;
-viewport.prepend(renderer.domElement);
-const maxSupportedAnisotropy = renderer.capabilities.getMaxAnisotropy();
-
-const scene = new Scene();
-scene.background = new Color("#050816");
-const reflectionPmremGenerator = new PMREMGenerator(renderer);
-reflectionPmremGenerator.compileCubemapShader();
-const probeEnvironmentManager = createProbeEnvironmentManager({ pmremGenerator: reflectionPmremGenerator });
-const sceneRoots = new Group();
-scene.add(sceneRoots);
-
-const camera = new PerspectiveCamera(
-  VIEWER_CONFIG.camera.fov,
-  initialViewportWidth / initialViewportHeight,
-  0.05,
-  5000,
-);
-camera.up.set(0, 1, 0);
-camera.position.set(0, 1.7, 4);
-
-const clock = new Clock();
 const BLOOM_SCENE_LAYER = VIEWER_CONFIG.postProcessing.selectiveBloom.layer;
 const selectiveBloomConfig = {
   ...VIEWER_CONFIG.postProcessing.selectiveBloom,
@@ -257,11 +239,27 @@ function isLikelyLowEndBloomDevice() {
   const hardwareConcurrency = typeof navigator.hardwareConcurrency === "number"
     ? navigator.hardwareConcurrency
     : null;
+  const isMac = /Macintosh|MacIntel/i.test(navigator.userAgent);
+  const isMobile = window.matchMedia("(pointer: coarse)").matches
+    || "ontouchstart" in window;
 
-  return (
-    (deviceMemory !== null && deviceMemory <= selectiveBloomConfig.lowEndDeviceMemoryGb)
-    || (hardwareConcurrency !== null && hardwareConcurrency <= selectiveBloomConfig.lowEndHardwareConcurrency)
-  );
+  if (isMobile) {
+    return true;
+  }
+
+  if (deviceMemory !== null && deviceMemory <= selectiveBloomConfig.lowEndDeviceMemoryGb) {
+    return true;
+  }
+
+  if (isMac && hardwareConcurrency !== null && hardwareConcurrency <= 8) {
+    return true;
+  }
+
+  if (hardwareConcurrency !== null && hardwareConcurrency <= selectiveBloomConfig.lowEndHardwareConcurrency) {
+    return true;
+  }
+
+  return false;
 }
 
 const bloomQueryValue = parseBooleanFlag(
@@ -272,15 +270,6 @@ if (bloomQueryValue !== null) {
 } else if (selectiveBloomConfig.autoDisableOnLowEndDevices && isLikelyLowEndBloomDevice()) {
   selectiveBloomConfig.enabled = false;
 }
-
-const selectiveBloomPipeline = createSelectiveBloomPipeline({
-  renderer,
-  scene,
-  camera,
-  bloomLayerId: BLOOM_SCENE_LAYER,
-  width: initialViewportWidth,
-  height: initialViewportHeight,
-});
 
 function getStoredLowMemoryBaseMode() {
   try {
@@ -319,6 +308,7 @@ const state = createViewerState({
     baseTextureMaxSize: parseNonNegativeInteger(searchParams.get("baseTextureCap"))
       ?? getStoredBaseTextureCap()
       ?? VIEWER_CONFIG.runtimeOptimization.baseTextureMaxSize,
+    renderScale: initialRenderScale,
   },
 });
 const {
@@ -336,6 +326,49 @@ const {
   helpOverlayState,
   controlDockState,
 } = state;
+
+function getEffectivePixelRatio() {
+  return Math.min(window.devicePixelRatio, 2) * runtimeOptimizationState.renderScale;
+}
+
+const useAntialias = initialRenderScale >= 1.0 && !selectiveBloomConfig.enabled;
+const renderer = new WebGLRenderer({ antialias: useAntialias });
+const initialViewportWidth = viewport.clientWidth || window.innerWidth;
+const initialViewportHeight = viewport.clientHeight || window.innerHeight;
+renderer.setPixelRatio(getEffectivePixelRatio());
+renderer.setSize(initialViewportWidth, initialViewportHeight);
+renderer.outputColorSpace = SRGBColorSpace;
+renderer.shadowMap.enabled = false;
+renderer.transmissionResolutionScale = initialRenderScale < 0.75 ? 0.25 : 0.5;
+viewport.prepend(renderer.domElement);
+const maxSupportedAnisotropy = renderer.capabilities.getMaxAnisotropy();
+
+const scene = new Scene();
+scene.background = new Color("#050816");
+const reflectionPmremGenerator = new PMREMGenerator(renderer);
+reflectionPmremGenerator.compileCubemapShader();
+const probeEnvironmentManager = createProbeEnvironmentManager({ pmremGenerator: reflectionPmremGenerator });
+const sceneRoots = new Group();
+scene.add(sceneRoots);
+
+const camera = new PerspectiveCamera(
+  VIEWER_CONFIG.camera.fov,
+  initialViewportWidth / initialViewportHeight,
+  0.1,
+  500,
+);
+camera.up.set(0, 1, 0);
+camera.position.set(0, 1.7, 4);
+
+const clock = new Clock();
+const selectiveBloomPipeline = createSelectiveBloomPipeline({
+  renderer,
+  scene,
+  camera,
+  bloomLayerId: BLOOM_SCENE_LAYER,
+  width: initialViewportWidth,
+  height: initialViewportHeight,
+});
 const assetBustValue = searchParams.get("assetBust");
 const isLocalAssetDevelopment = import.meta.env.DEV
   || ["localhost", "127.0.0.1", "0.0.0.0"].includes(window.location.hostname);
@@ -625,6 +658,7 @@ const debugObjectInspector = createDebugObjectInspector({
 const navigationController = createNavigationController({
   camera,
   renderer,
+  getEffectivePixelRatio,
   viewport,
   joystickBase,
   joystickThumb,
@@ -689,6 +723,7 @@ const uiController = createViewerUiController({
     colorPipelineState,
     interfaceState,
     cameraMotionState,
+    runtimeOptimizationState,
     backgroundState,
     skyState,
     fireState,
@@ -700,6 +735,7 @@ const uiController = createViewerUiController({
   toneMappingModes,
   selectiveBloomConfig,
   selectiveBloomPipeline,
+  getEffectivePixelRatio,
   navigationController,
   menuController,
   getDebugMode: () => debugMode,
@@ -742,6 +778,14 @@ if (baseLowMemoryToggle) {
 
 if (baseTextureCapSelect) {
   baseTextureCapSelect.value = `${runtimeOptimizationState.baseTextureMaxSize}`;
+}
+
+if (renderScaleSlider) {
+  renderScaleSlider.value = runtimeOptimizationState.renderScale.toFixed(2);
+}
+
+if (renderScaleValue) {
+  renderScaleValue.textContent = runtimeOptimizationState.renderScale.toFixed(2);
 }
 
 function setHelpOverlayOpen(nextOpen) {
@@ -926,6 +970,17 @@ function setBaseTextureCap(nextCap) {
   applyRuntimeTextureOptimizations();
   requestSceneRender();
   updateStatus(cap ? `Base texture cap set to ${cap}px.` : "Base texture cap disabled.");
+}
+
+function setRenderScale(nextScale) {
+  const clampedScale = Math.min(1, Math.max(0.2, nextScale));
+  runtimeOptimizationState.renderScale = clampedScale;
+  uiController.syncRenderScaleReadouts(clampedScale);
+  renderer.setPixelRatio(getEffectivePixelRatio());
+  navigationController.handleResize();
+  uiController.syncPostProcessingSize();
+  requestSceneRender();
+  updateStatus(`Render scale set to ${clampedScale.toFixed(2)}.`);
 }
 
 function positionCameraAtSpawn(root, loadedLayers = []) {
@@ -1235,6 +1290,9 @@ const unbindViewerUi = bindViewerUiEvents({
   onBaseTextureCapChange: (value) => {
     setBaseTextureCap(parseNonNegativeInteger(value) ?? 0);
   },
+  onRenderScaleChange: (value) => {
+    setRenderScale(value);
+  },
   onMenuToggle: () => {
     if (helpOverlayState.isOpen) {
       setHelpOverlayOpen(false);
@@ -1307,6 +1365,7 @@ viewerLifecycleController = createViewerLifecycle({
     uiController.applyCameraMotionSettings();
     uiController.applyInterfaceSettings();
     uiController.applyDebugModeSettings();
+    uiController.syncRenderScaleReadouts();
     uiController.applyBackgroundColorSettings();
     uiController.applySkyColorSettings();
     uiController.applyFireColorSettings();
@@ -1325,5 +1384,31 @@ viewerLifecycleController = createViewerLifecycle({
     init,
     dispose,
   };
+}
+
+function detectInitialRenderScale() {
+  const hardwareConcurrency = navigator.hardwareConcurrency ?? null;
+  const deviceMemory = navigator.deviceMemory ?? null;
+  const isMac = /Macintosh|MacIntel/i.test(navigator.userAgent);
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const isMobile = window.matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
+
+  if (isIOS || (isMobile && (deviceMemory !== null && deviceMemory <= 4))) {
+    return 0.4;
+  }
+
+  if (deviceMemory !== null && deviceMemory <= 4) {
+    return 0.5;
+  }
+
+  if (isMac && hardwareConcurrency !== null && hardwareConcurrency <= 8) {
+    return 0.65;
+  }
+
+  if (deviceMemory !== null && deviceMemory <= 8) {
+    return 0.75;
+  }
+
+  return 1.0;
 }
 

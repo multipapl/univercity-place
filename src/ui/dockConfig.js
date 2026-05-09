@@ -279,6 +279,11 @@ export const DOCK_CATEGORIES = [
                 <strong>Low-memory base textures</strong>
               </span>
             </label>
+            <label class="field field-range">
+              <span>Render Scale</span>
+              <input type="range" name="render-scale" min="0.2" max="1.0" step="0.05" value="1" data-render-scale />
+              <output data-render-scale-value>1.00</output>
+            </label>
             <label class="field">
               <span>Base Texture Cap</span>
               <select name="base-texture-cap" data-base-texture-cap>

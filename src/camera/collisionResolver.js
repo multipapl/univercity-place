@@ -3,16 +3,11 @@ import { Box3, Raycaster, Vector3 } from "three";
 const AXES = ["x", "y", "z"];
 const HORIZONTAL_AXES = ["x", "z"];
 const SAMPLE_HEIGHT_FACTORS = [
-  0.05,
-  0.15,
-  0.25,
+  0.1,
   0.35,
-  0.45,
   0.55,
-  0.65,
   0.75,
-  0.85,
-  0.95,
+  0.9,
 ];
 const FOOTPRINT_OFFSETS = [
   [0, 0],
@@ -20,10 +15,6 @@ const FOOTPRINT_OFFSETS = [
   [-1, 0],
   [0, 1],
   [0, -1],
-  [0.70710678, 0.70710678],
-  [-0.70710678, 0.70710678],
-  [0.70710678, -0.70710678],
-  [-0.70710678, -0.70710678],
 ];
 const WALK_RAYCASTER = new Raycaster();
 const WALK_DIRECTION = new Vector3();

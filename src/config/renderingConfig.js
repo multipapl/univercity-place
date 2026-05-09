@@ -8,7 +8,7 @@ export const POST_PROCESSING_CONFIG = {
     enabled: true,
     autoDisableOnLowEndDevices: true,
     layer: 1,
-    lowEndDeviceMemoryGb: 4,
+    lowEndDeviceMemoryGb: 8,
     lowEndHardwareConcurrency: 4,
     strength: 0.65,
     radius: 0.38,

@@ -58,11 +58,13 @@ test("createViewerState initializes derived values and default UI state", () => 
     initialRuntimeOptimizationState: {
       lowMemoryBaseMipmaps: true,
       baseTextureMaxSize: 2048,
+      renderScale: 0.65,
     },
   });
 
   assert.equal(state.runtimeOptimizationState.lowMemoryBaseMipmaps, true);
   assert.equal(state.runtimeOptimizationState.baseTextureMaxSize, 2048);
+  assert.equal(state.runtimeOptimizationState.renderScale, 0.65);
   assert.equal(state.helpOverlayState.isOpen, false);
   assert.equal(state.helpOverlayState.relockAfterClose, false);
   assert.equal(state.viewerLifecycle.animationFrameId, null);
@@ -87,6 +89,7 @@ test("createViewerState keeps live mutable state wired into viewerConfig", () =>
     initialRuntimeOptimizationState: {
       lowMemoryBaseMipmaps: false,
       baseTextureMaxSize: 4096,
+      renderScale: 1,
     },
   });
 
@@ -98,8 +101,10 @@ test("createViewerState keeps live mutable state wired into viewerConfig", () =>
   state.colorPipelineState.exposure = 1.6;
   state.interfaceState.showCrosshair = false;
   state.runtimeOptimizationState.baseTextureMaxSize = 1024;
+  state.runtimeOptimizationState.renderScale = 0.5;
 
   assert.equal(state.viewerConfig.colorPipeline.exposure, 1.6);
   assert.equal(state.viewerConfig.interface.showCrosshair, false);
   assert.equal(state.viewerConfig.runtimeOptimization.baseTextureMaxSize, 1024);
+  assert.equal(state.viewerConfig.runtimeOptimization.renderScale, 0.5);
 });

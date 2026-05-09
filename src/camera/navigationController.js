@@ -9,6 +9,7 @@ import {
 export function createNavigationController({
   camera,
   renderer,
+  getEffectivePixelRatio,
   viewport,
   joystickBase,
   joystickThumb,
@@ -398,7 +399,7 @@ export function createNavigationController({
     const { width, height } = getViewportDimensions();
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(getEffectivePixelRatio());
     renderer.setSize(width, height);
   }
 
