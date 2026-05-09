@@ -247,11 +247,16 @@ function isLikelyLowEndBloomDevice() {
     return true;
   }
 
-  if (deviceMemory !== null && deviceMemory <= selectiveBloomConfig.lowEndDeviceMemoryGb) {
+  if (isMac && hardwareConcurrency !== null && hardwareConcurrency <= 8) {
     return true;
   }
 
-  if (isMac && hardwareConcurrency !== null && hardwareConcurrency <= 8) {
+  if (
+    deviceMemory !== null
+    && deviceMemory <= selectiveBloomConfig.lowEndDeviceMemoryGb
+    && hardwareConcurrency !== null
+    && hardwareConcurrency <= 8
+  ) {
     return true;
   }
 
