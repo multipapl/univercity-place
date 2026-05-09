@@ -7,6 +7,7 @@ import {
   SCENE_ASSET_BASE_URL,
   SCENE_LOAD_STATUS_HTML,
 } from "./assetsConfig.js";
+import { AUDIO_CONFIG } from "./audioConfig.js";
 import { CAMERA_CONFIG, LOCOMOTION_CONFIG } from "./cameraConfig.js";
 import { DEBUG_CONFIG, RUNTIME_OPTIMIZATION_CONFIG } from "./diagnosticsConfig.js";
 import { INTERFACE_CONFIG } from "./interfaceConfig.js";
@@ -30,6 +31,7 @@ export const VIEWER_CONFIG = {
   camera: CAMERA_CONFIG,
   runtimeOptimization: RUNTIME_OPTIMIZATION_CONFIG,
   interface: INTERFACE_CONFIG,
+  audio: AUDIO_CONFIG,
   sceneLayers: ASSETS_CONFIG.sceneLayers,
   locomotion: LOCOMOTION_CONFIG,
   materialTweaks: MATERIAL_TWEAKS,

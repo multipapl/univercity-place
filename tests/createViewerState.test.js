@@ -12,6 +12,13 @@ function createBaseViewerConfig() {
     interface: {
       showCrosshair: true,
     },
+    audio: {
+      ambient: {
+        defaultVolume: 0.06,
+        fadeInDurationMs: 10000,
+        loop: true,
+      },
+    },
     camera: {
       ambientMotion: {
         enabled: true,
@@ -81,6 +88,7 @@ test("createViewerState initializes derived values and default UI state", () => 
     state.reflectionState.envMapRotationY,
     Math.PI / 2,
   );
+  assert.equal(state.ambientAudioState.volume, 0.06);
 });
 
 test("createViewerState keeps live mutable state wired into viewerConfig", () => {
@@ -95,6 +103,7 @@ test("createViewerState keeps live mutable state wired into viewerConfig", () =>
 
   assert.equal(state.viewerConfig.colorPipeline, state.colorPipelineState);
   assert.equal(state.viewerConfig.interface, state.interfaceState);
+  assert.equal(state.viewerConfig.audio.ambient.defaultVolume, 0.06);
   assert.equal(state.viewerConfig.runtimeOptimization, state.runtimeOptimizationState);
   assert.notEqual(state.viewerConfig.camera, createBaseViewerConfig().camera);
 

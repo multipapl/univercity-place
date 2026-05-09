@@ -34,6 +34,11 @@ export const DOCK_CATEGORIES = [
               <input type="range" name="render-scale" min="0.2" max="1.0" step="0.05" value="1" data-render-scale />
               <output data-render-scale-value>1.00</output>
             </label>
+            <label class="field field-range">
+              <span>Ambient Volume</span>
+              <input type="range" name="ambient-volume" min="0" max="0.3" step="0.01" value="${(viewerConfig.audio?.ambient?.defaultVolume ?? 0.06).toFixed(2)}" data-ambient-audio-volume />
+              <output data-ambient-audio-volume-value>${(viewerConfig.audio?.ambient?.defaultVolume ?? 0.06).toFixed(2)}</output>
+            </label>
           </div>
           <div class="layer-controls">
             <label class="layer-toggle">

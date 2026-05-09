@@ -32,6 +32,9 @@ export function createViewerState({
   const cameraMotionState = {
     enabled: baseViewerConfig.camera.ambientMotion.enabled,
   };
+  const ambientAudioState = {
+    volume: baseViewerConfig.audio?.ambient?.defaultVolume ?? 0.06,
+  };
   const viewerConfig = {
     ...baseViewerConfig,
     camera: {
@@ -42,6 +45,12 @@ export function createViewerState({
     },
     colorPipeline: colorPipelineState,
     interface: interfaceState,
+    audio: {
+      ...baseViewerConfig.audio,
+      ambient: {
+        ...baseViewerConfig.audio?.ambient,
+      },
+    },
     locomotion: {
       ...baseViewerConfig.locomotion,
     },
@@ -111,6 +120,7 @@ export function createViewerState({
     colorPipelineState,
     interfaceState,
     cameraMotionState,
+    ambientAudioState,
     viewerConfig,
     diagnosticsState,
     backgroundState,

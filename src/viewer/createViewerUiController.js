@@ -14,6 +14,7 @@ export function createViewerUiController({
   menuController,
   getDebugMode,
   isTouchDevice,
+  ambientAudioController = null,
 }) {
   function syncSliderValue(slider, nextValue) {
     if (slider) {
@@ -104,6 +105,13 @@ export function createViewerUiController({
     if (refs.cameraShakeToggle) {
       refs.cameraShakeToggle.checked = state.cameraMotionState.enabled;
     }
+  }
+
+  function applyAmbientAudioSettings() {
+    const nextVolume = state.ambientAudioState?.volume ?? 0;
+    syncSliderValue(refs.ambientAudioVolumeSlider, nextVolume.toFixed(2));
+    syncTextValue(refs.ambientAudioVolumeValue, nextVolume.toFixed(2));
+    ambientAudioController?.setVolume(nextVolume);
   }
 
   function clearCameraAmbientMotion() {
@@ -291,6 +299,7 @@ export function createViewerUiController({
     syncPostProcessingSize,
     applyCameraSettings,
     applyCameraMotionSettings,
+    applyAmbientAudioSettings,
     clearCameraAmbientMotion,
     applyCameraAmbientMotion,
     applyInterfaceSettings,

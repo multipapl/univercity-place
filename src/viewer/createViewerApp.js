@@ -17,6 +17,7 @@
 } from "three";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { createAmbientAudioController } from "../audio/createAmbientAudioController.js";
 import {
   getMissingSceneStatusMessage,
   LOADING_BACKGROUND_URL,
@@ -24,7 +25,7 @@ import {
   SCENE_LOAD_STATUS_HTML,
   VIEWER_CONFIG,
 } from "../config/viewerConfig.js";
-import { appendAssetQuery } from "../loaders/assetResolver.js";
+import { appendAssetQuery, resolveAssetContract } from "../loaders/assetResolver.js";
 import { createNavigationController } from "../camera/navigationController.js";
 import { createDebugObjectInspector } from "../debug/debugObjectInspector.js";
 import {
@@ -305,6 +306,7 @@ const {
   colorPipelineState,
   interfaceState,
   cameraMotionState,
+  ambientAudioState,
   viewerConfig,
   diagnosticsState,
   backgroundState,
@@ -392,6 +394,20 @@ function shouldAppendAssetQuery(url) {
     return false;
   }
 }
+
+const ambientAudioUrl = resolveAssetContract(
+  VIEWER_CONFIG.assets.ambientAudio,
+  searchParams,
+  assetQuery,
+)?.url;
+const ambientAudioController = ambientAudioUrl
+  ? createAmbientAudioController({
+    src: ambientAudioUrl,
+    initialVolume: ambientAudioState.volume,
+    fadeInDurationMs: VIEWER_CONFIG.audio.ambient.fadeInDurationMs,
+    loop: VIEWER_CONFIG.audio.ambient.loop,
+  })
+  : null;
 
 const loadingManager = new LoadingManager();
 const smoothProgressState = {
@@ -734,6 +750,7 @@ const uiController = createViewerUiController({
     colorPipelineState,
     interfaceState,
     cameraMotionState,
+    ambientAudioState,
     runtimeOptimizationState,
     backgroundState,
     skyState,
@@ -750,6 +767,7 @@ const uiController = createViewerUiController({
   menuController,
   getDebugMode: () => debugMode,
   isTouchDevice,
+  ambientAudioController,
 });
 
 // Show control dock and schedule auto-hide
@@ -1151,6 +1169,11 @@ const unbindViewerUi = bindViewerUiEvents({
     requestSceneRender();
     showDock();
   },
+  onAmbientAudioVolumeChange: (value) => {
+    ambientAudioState.volume = value;
+    uiController.applyAmbientAudioSettings();
+    showDock();
+  },
   onShowCrosshairChange: (checked) => {
     interfaceState.showCrosshair = checked;
     uiController.applyInterfaceSettings();
@@ -1323,6 +1346,7 @@ viewerLifecycleController = createViewerLifecycle({
     setHelpOverlayOpen(false);
     debugObjectInspector.dispose?.();
     sceneLayerLoader.dispose();
+    ambientAudioController?.dispose();
     clearFallbackScene();
     reflectionEnvironment.dispose();
     selectiveBloomPipeline.dispose();
@@ -1341,6 +1365,7 @@ viewerLifecycleController = createViewerLifecycle({
     uiController.syncPostProcessingSize();
     uiController.applyCameraSettings();
     uiController.applyCameraMotionSettings();
+    uiController.applyAmbientAudioSettings();
     uiController.applyInterfaceSettings();
     uiController.applyDebugModeSettings();
     uiController.syncRenderScaleReadouts();
@@ -1348,6 +1373,7 @@ viewerLifecycleController = createViewerLifecycle({
     uiController.applySkyColorSettings();
     uiController.applyFireColorSettings();
     uiController.applyReflectMaterialSettings();
+    ambientAudioController?.start();
 
     const loadSceneLayersPromise = sceneLayerLoader.loadSceneLayers();
     viewerLifecycleController.start();

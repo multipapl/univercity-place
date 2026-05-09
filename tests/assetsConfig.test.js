@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import {
   ACTIVE_SCENE_ASSET_SOURCE,
+  AMBIENT_AUDIO_ASSET_CONTRACT,
   FIRE_VIDEO_ASSET_CONTRACT,
   LOCAL_SCENE_ASSET_BASE_URL,
   PROBES_ASSET_CONTRACT,
@@ -43,5 +44,10 @@ test("assetsConfig exposes a single manifest for scene layers and runtime assets
   assert.equal(FIRE_VIDEO_ASSET_CONTRACT.urls.local, `${LOCAL_SCENE_ASSET_BASE_URL}/fire.mp4`);
   assert.equal(PROBES_ASSET_CONTRACT.localPath, "probes.glb");
   assert.equal(PROBES_ASSET_CONTRACT.urls.local, `${LOCAL_SCENE_ASSET_BASE_URL}/probes.glb`);
+  assert.equal(AMBIENT_AUDIO_ASSET_CONTRACT.localPath, "atlasaudio-ambient-soft-511880.mp3");
+  assert.equal(
+    AMBIENT_AUDIO_ASSET_CONTRACT.url,
+    "/assets/audio/atlasaudio-ambient-soft-511880.mp3",
+  );
   assert.match(getMissingSceneStatusMessage(), /\/public\/assets\/scene\/scene\.glb/);
 });

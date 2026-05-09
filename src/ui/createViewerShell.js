@@ -34,6 +34,8 @@ function collectViewerShellRefs({ hud, loadingScreen, mobileControls }) {
     cameraFovValue: hud.querySelector("[data-camera-fov-value]"),
     cameraHeightSlider: hud.querySelector("[data-camera-height]"),
     cameraHeightValue: hud.querySelector("[data-camera-height-value]"),
+    ambientAudioVolumeSlider: hud.querySelector("[data-ambient-audio-volume]"),
+    ambientAudioVolumeValue: hud.querySelector("[data-ambient-audio-volume-value]"),
     showCrosshairToggle: hud.querySelector("[data-show-crosshair]"),
     cameraShakeToggle: hud.querySelector("[data-camera-shake]"),
     backgroundHueSlider: hud.querySelector("[data-background-hue]"),

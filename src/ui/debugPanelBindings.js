@@ -4,6 +4,7 @@ export function bindViewerUiEvents({
   onSelectiveBloomStrengthChange,
   onCameraFovChange,
   onCameraHeightChange,
+  onAmbientAudioVolumeChange,
   onShowCrosshairChange,
   onCameraShakeChange,
   onBackgroundHueChange,
@@ -53,6 +54,10 @@ export function bindViewerUiEvents({
 
   const handleCameraHeightInput = (event) => {
     onCameraHeightChange(Number(event.target.value));
+  };
+
+  const handleAmbientAudioVolumeInput = (event) => {
+    onAmbientAudioVolumeChange(Number(event.target.value));
   };
 
   const handleShowCrosshairChange = (event) => {
@@ -172,6 +177,7 @@ export function bindViewerUiEvents({
   bind(refs.selectiveBloomStrengthSlider, "input", handleSelectiveBloomStrengthInput);
   bind(refs.cameraFovSlider, "input", handleCameraFovInput);
   bind(refs.cameraHeightSlider, "input", handleCameraHeightInput);
+  bind(refs.ambientAudioVolumeSlider, "input", handleAmbientAudioVolumeInput);
   bind(refs.showCrosshairToggle, "change", handleShowCrosshairChange);
   bind(refs.cameraShakeToggle, "change", handleCameraShakeChange);
   bind(refs.backgroundHueSlider, "input", handleBackgroundHueInput);

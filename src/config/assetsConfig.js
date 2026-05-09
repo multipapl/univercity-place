@@ -193,6 +193,14 @@ export const FIRE_VIDEO_ASSET_CONTRACT = createAssetContract({
   localPath: "fire.mp4",
 });
 
+export const AMBIENT_AUDIO_ASSET_CONTRACT = {
+  id: "ambientAudio",
+  label: "Ambient Audio",
+  searchParam: "ambientAudio",
+  localPath: "atlasaudio-ambient-soft-511880.mp3",
+  url: "/assets/audio/atlasaudio-ambient-soft-511880.mp3",
+};
+
 const REQUIRED_SCENE_LAYER = SCENE_LAYER_CONTRACTS.find((layer) => layer.required);
 const OPTIONAL_LAYER_HINTS = SCENE_LAYER_CONTRACTS
   .filter((layer) => !layer.required)
@@ -229,5 +237,6 @@ export const ASSETS_CONFIG = {
   remoteSceneAssetBaseUrl: REMOTE_SCENE_ASSET_BASE_URL,
   sceneLayers: SCENE_LAYER_CONTRACTS,
   fireVideo: FIRE_VIDEO_ASSET_CONTRACT,
+  ambientAudio: AMBIENT_AUDIO_ASSET_CONTRACT,
   probes: PROBES_ASSET_CONTRACT,
 };
