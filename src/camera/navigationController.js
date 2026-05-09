@@ -634,11 +634,18 @@ export function createNavigationController({
 
     if (!isTouchDevice) {
       const handleViewportClick = (event) => {
-        if (getMenuOpen()) {
+        if (event.target.closest(".hud")) {
           return;
         }
 
-        if (event.target.closest(".hud")) {
+        if (getMenuOpen()) {
+          if (getMenuMovementAllowed()) {
+            return;
+          }
+
+          onCloseMenu();
+          onResumeFireVideo();
+          controls.lock({ ignoreCooldown: true });
           return;
         }
 
