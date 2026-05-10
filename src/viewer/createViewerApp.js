@@ -231,6 +231,11 @@ const {
   boostButton,
 } = refs;
 
+const BLOOM_SCENE_LAYER = VIEWER_CONFIG.postProcessing.selectiveBloom.layer;
+const selectiveBloomConfig = {
+  ...VIEWER_CONFIG.postProcessing.selectiveBloom,
+};
+
 const useAntialias = vrRuntimeConfig.enabled
   ? vrRuntimeConfig.renderer.antialias
   : (initialRenderScale >= 1.0 && !selectiveBloomConfig.enabled);
@@ -267,10 +272,6 @@ camera.up.set(0, 1, 0);
 camera.position.set(0, 1.7, 4);
 
 const clock = new Clock();
-const BLOOM_SCENE_LAYER = VIEWER_CONFIG.postProcessing.selectiveBloom.layer;
-const selectiveBloomConfig = {
-  ...VIEWER_CONFIG.postProcessing.selectiveBloom,
-};
 
 function parseBooleanFlag(value) {
   if (value == null) {
