@@ -3,14 +3,14 @@
   "background": {
     "hueDegrees": 1,
     "saturation": 1.03,
-    "value": 1.25,
+    "value": 1.22,
     "gamma": 2.47
   },
   "sky": {
     "hueDegrees": 0,
-    "saturation": 0.88,
-    "value": 1.84,
-    "gamma": 2.67
+    "saturation": 0.77,
+    "value": 2,
+    "gamma": 1.77
   },
   "reflect": {
     "envMapIntensity": 0.95,

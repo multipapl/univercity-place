@@ -1,4 +1,4 @@
-import { DoubleSide, Euler, MeshPhysicalMaterial, Vector3 } from "three";
+import { DoubleSide, MeshPhysicalMaterial } from "three";
 
 export function makeWindowsMaterial({
   viewerConfig,
@@ -16,26 +16,18 @@ export function makeWindowsMaterial({
 
   const material = new MeshPhysicalMaterial({
     name: source.name || "WindowsMaterial",
-    color: source.color?.clone?.() ?? 0xffffff,
+    color: 0xffffff,
     side: DoubleSide,
+    transparent: true,
+    opacity: windowsPreset.opacity ?? 0.08,
+    depthWrite: false,
     roughness: windowsPreset.roughness,
     ior: windowsPreset.ior,
     transmission: windowsPreset.transmission,
-    envMapIntensity: windowsPreset.envMapIntensity,
   });
-
-  const worldCenter = new Vector3();
-  if (mesh.geometry) {
-    mesh.geometry.computeBoundingBox();
-    mesh.geometry.boundingBox.getCenter(worldCenter);
-    mesh.localToWorld(worldCenter);
-  }
-  material.envMap = reflectionEnvironment.getClosestEnvMap(worldCenter);
-  material.envMapRotation = new Euler(0, reflectionState.envMapRotationY, 0);
 
   stampViewerMaterialData(material, source, tweak);
   applyViewerMaterialPatches(material, { tweak });
-  reflectionState.probeMaterials.add(material);
 
   return material;
 }

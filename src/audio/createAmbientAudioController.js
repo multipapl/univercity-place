@@ -33,10 +33,13 @@ export function createAmbientAudioController({
   let targetVolume = clampVolume(initialVolume);
 
   audio.src = src;
+  audio.autoplay = true;
   audio.loop = loop;
   audio.preload = "auto";
   audio.playsInline = true;
   audio.volume = 0;
+  audio.setAttribute?.("autoplay", "");
+  audio.setAttribute?.("playsinline", "");
 
   function syncVolume() {
     audio.volume = clampVolume(currentVolume);
@@ -118,7 +121,7 @@ export function createAmbientAudioController({
       void ensurePlayback();
     };
 
-    ["pointerdown", "keydown", "touchstart", "mousedown"].forEach((eventName) => {
+    ["pointerdown", "pointerup", "click", "keydown", "keyup", "touchstart", "mousedown", "focus"].forEach((eventName) => {
       interactionTarget.addEventListener(eventName, handleInteraction, options);
     });
   }
@@ -176,7 +179,16 @@ export function createAmbientAudioController({
     void ensurePlayback();
   }
 
+  function handleAudioPause() {
+    if (disposed || !started || visibilityTarget?.hidden) {
+      return;
+    }
+
+    void ensurePlayback();
+  }
+
   visibilityTarget?.addEventListener?.("visibilitychange", handleVisibilityChange);
+  audio.addEventListener?.("pause", handleAudioPause);
 
   function start() {
     if (disposed || started) {
@@ -196,6 +208,7 @@ export function createAmbientAudioController({
     stopFade();
     removeInteractionRetry();
     visibilityTarget?.removeEventListener?.("visibilitychange", handleVisibilityChange);
+    audio.removeEventListener?.("pause", handleAudioPause);
     audio.pause?.();
     audio.removeAttribute?.("src");
     audio.load?.();

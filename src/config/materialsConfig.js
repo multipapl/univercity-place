@@ -31,9 +31,9 @@ export const MATERIAL_PRESETS = {
   },
   windowsMaterial: {
     ior: 1.5,
-    transmission: 0.98,
-    roughness: 0.05,
-    envMapIntensity: 0.8,
+    transmission: 0.0,
+    opacity: 0.08,
+    roughness: 0.01,
   },
   translucency: {
     strength: 0.72,

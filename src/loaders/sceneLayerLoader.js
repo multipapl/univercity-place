@@ -95,12 +95,26 @@ export function createSceneLayerLoader({
     videoTexturePromise: null,
     lastResumeAttemptAt: 0,
     resumePlayPromise: null,
+    lastObservedTime: -1,
+    lastProgressAt: 0,
+    lastRecoverAt: 0,
   };
   const imageBitmapBypassState = {
     activeCount: 0,
     originalCreateImageBitmap: null,
   };
   const VIDEO_READY_STATE_CURRENT_DATA = 2;
+  const VIDEO_READY_STATE_FUTURE_DATA = 3;
+  const FIRE_VIDEO_STALL_MS = 1200;
+  const FIRE_VIDEO_RECOVER_COOLDOWN_MS = 1500;
+
+  function getNow() {
+    if (typeof performance?.now === "function") {
+      return performance.now();
+    }
+
+    return Date.now();
+  }
 
   function mountHiddenVideoElement(video) {
     const host = document.body ?? document.documentElement;
@@ -124,6 +138,23 @@ export function createSceneLayerLoader({
   function isFireVideoReady(video) {
     return Number(video.readyState ?? 0) >= VIDEO_READY_STATE_CURRENT_DATA
       || (video.videoWidth ?? 0) > 0;
+  }
+
+  function trackFireVideoProgress(video = fxState.videoElement) {
+    if (!video) {
+      return;
+    }
+
+    const nextTime = Number.isFinite(video.currentTime) ? video.currentTime : 0;
+    const hasLooped = fxState.lastObservedTime >= 0 && nextTime < fxState.lastObservedTime - 0.25;
+    const hasAdvanced = fxState.lastObservedTime < 0 || nextTime > fxState.lastObservedTime + 0.001;
+
+    if (!hasAdvanced && !hasLooped) {
+      return;
+    }
+
+    fxState.lastObservedTime = nextTime;
+    fxState.lastProgressAt = getNow();
   }
 
   function attemptFireVideoPlayback(video) {
@@ -248,6 +279,9 @@ export function createSceneLayerLoader({
     fxState.videoTexturePromise = null;
     fxState.lastResumeAttemptAt = 0;
     fxState.resumePlayPromise = null;
+    fxState.lastObservedTime = -1;
+    fxState.lastProgressAt = 0;
+    fxState.lastRecoverAt = 0;
   }
 
   function beginDeferredFireVideoLoad(root, loadToken) {
@@ -303,6 +337,16 @@ export function createSceneLayerLoader({
       video.setAttribute("muted", "");
       video.setAttribute("playsinline", "");
       video.setAttribute("webkit-playsinline", "");
+      [
+        "loadeddata",
+        "playing",
+        "timeupdate",
+        "seeked",
+      ].forEach((eventName) => {
+        video.addEventListener(eventName, () => {
+          trackFireVideoProgress(video);
+        });
+      });
       mountHiddenVideoElement(video);
       video.src = fxState.videoUrl;
 
@@ -322,6 +366,7 @@ export function createSceneLayerLoader({
 
       fxState.videoElement = video;
       fxState.videoTexture = texture;
+      trackFireVideoProgress(video);
 
       if (fxState.playbackEnabled) {
         await attemptFireVideoPlayback(video);
@@ -432,7 +477,7 @@ export function createSceneLayerLoader({
       return fxState.resumePlayPromise ?? null;
     }
 
-    fxState.lastResumeAttemptAt = performance.now();
+    fxState.lastResumeAttemptAt = getNow();
     fxState.resumePlayPromise = fxState.videoElement.play()
       .catch(() => {
         // Ignore user-gesture playback failures.
@@ -444,13 +489,66 @@ export function createSceneLayerLoader({
     return fxState.resumePlayPromise;
   }
 
+  function recoverFireVideoPlayback() {
+    const video = fxState.videoElement;
+    if (!fxState.playbackEnabled || !video || fxState.resumePlayPromise) {
+      return null;
+    }
+
+    const now = getNow();
+    if (now - fxState.lastRecoverAt < FIRE_VIDEO_RECOVER_COOLDOWN_MS) {
+      return fxState.resumePlayPromise ?? null;
+    }
+
+    fxState.lastRecoverAt = now;
+
+    try {
+      video.pause?.();
+    } catch {
+      // Ignore pause failures and still attempt a resume.
+    }
+
+    try {
+      if (Number(video.readyState ?? 0) < VIDEO_READY_STATE_FUTURE_DATA) {
+        video.load?.();
+      } else if (Number.isFinite(video.currentTime)) {
+        const duration = Number.isFinite(video.duration) ? video.duration : 0;
+        const nudgedTime = duration > 0 && video.currentTime + 0.001 >= duration
+          ? 0
+          : Math.max(0, video.currentTime + 0.001);
+        video.currentTime = nudgedTime;
+      }
+    } catch {
+      // Ignore seek/load issues and still attempt a resume.
+    }
+
+    fxState.lastObservedTime = Number.isFinite(video.currentTime) ? video.currentTime : fxState.lastObservedTime;
+    fxState.lastProgressAt = now;
+    return resumeFireVideoPlayback();
+  }
+
   function syncFireVideoPlayback() {
-    if (
-      fxState.playbackEnabled
-      && fxState.videoElement?.paused
-      && performance.now() - fxState.lastResumeAttemptAt > 1500
-    ) {
+    const video = fxState.videoElement;
+    if (!fxState.playbackEnabled || !video) {
+      return;
+    }
+
+    trackFireVideoProgress(video);
+
+    if (video.paused && getNow() - fxState.lastResumeAttemptAt > FIRE_VIDEO_RECOVER_COOLDOWN_MS) {
       resumeFireVideoPlayback();
+      return;
+    }
+
+    const readyState = Number(video.readyState ?? 0);
+    const hasCurrentFrame = readyState >= VIDEO_READY_STATE_CURRENT_DATA || (video.videoWidth ?? 0) > 0;
+    const shouldRecoverStall = hasCurrentFrame
+      && !video.paused
+      && fxState.lastProgressAt > 0
+      && getNow() - fxState.lastProgressAt > FIRE_VIDEO_STALL_MS;
+
+    if (shouldRecoverStall) {
+      recoverFireVideoPlayback();
     }
   }
 

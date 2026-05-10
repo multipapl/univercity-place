@@ -30,10 +30,12 @@ function createFrameScheduler() {
 }
 
 function createFakeAudio({ playImpl } = {}) {
-  return {
+  const audio = new EventTarget();
+  return Object.assign(audio, {
     src: "",
     loop: false,
     preload: "",
+    autoplay: false,
     playsInline: false,
     volume: 1,
     paused: true,
@@ -55,7 +57,7 @@ function createFakeAudio({ playImpl } = {}) {
     load() {
       this.loaded = true;
     },
-  };
+  });
 }
 
 test("ambient audio fades into the configured target volume", async () => {
@@ -126,6 +128,50 @@ test("ambient audio retries after autoplay is blocked", async () => {
   interactionTarget.dispatchEvent(new Event("pointerdown"));
   await Promise.resolve();
 
+  assert.equal(controller.isWaitingForInteraction(), false);
+  assert.equal(controller.isPlaying(), true);
+  assert.equal(audio.playCalls, 2);
+});
+
+test("ambient audio retries on click when autoplay recovery needs a stronger gesture", async () => {
+  const frames = createFrameScheduler();
+  const interactionTarget = new EventTarget();
+  const visibilityTarget = new EventTarget();
+  let allowPlayback = false;
+  let lastGesture = "";
+  const audio = createFakeAudio({
+    playImpl() {
+      if (!allowPlayback) {
+        throw new Error("Autoplay blocked");
+      }
+
+      this.paused = false;
+    },
+  });
+
+  interactionTarget.addEventListener("click", () => {
+    allowPlayback = true;
+    lastGesture = "click";
+  }, { once: true });
+
+  const controller = createAmbientAudioController({
+    src: "/assets/audio/test.mp3",
+    createAudioElement: () => audio,
+    interactionTarget,
+    visibilityTarget,
+    requestFrame: frames.requestFrame,
+    cancelFrame: frames.cancelFrame,
+  });
+
+  controller.start();
+  await Promise.resolve();
+
+  assert.equal(controller.isWaitingForInteraction(), true);
+
+  interactionTarget.dispatchEvent(new Event("click"));
+  await Promise.resolve();
+
+  assert.equal(lastGesture, "click");
   assert.equal(controller.isWaitingForInteraction(), false);
   assert.equal(controller.isPlaying(), true);
   assert.equal(audio.playCalls, 2);
