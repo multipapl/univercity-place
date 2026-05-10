@@ -2,7 +2,7 @@
 
 Scene-specific architectural viewer built with `three` + `vite`.
 
-This runtime is intentionally narrow: fixed scene contract, specialized material paths, web-first delivery, and a lightweight internal debug workflow.
+This runtime is intentionally narrow: fixed scene contract, specialized material paths, one shared web deployment, optional WebXR / VR support, and a lightweight internal debug workflow.
 
 ## Quick Start
 
@@ -10,6 +10,8 @@ This runtime is intentionally narrow: fixed scene contract, specialized material
 npm install
 npm run dev
 ```
+
+Local dev uses Vite with HTTPS enabled so WebXR-capable devices can open the app without a separate HTTPS proxy.
 
 Other useful commands:
 
@@ -102,6 +104,7 @@ If the required base scene is missing, the app falls back to a placeholder room 
 - `src/loaders/sceneLayerLoader.js` loads required and optional layers, applies runtime assets, and handles fallback transitions.
 - `src/materials/` contains the specialized material pipeline.
 - `src/camera/navigationController.js` owns desktop/mobile movement and collision-aware walk behavior.
+- `src/vr/` contains the optional WebXR runtime, teleport navigation, and session lifecycle.
 - `tests/` contains focused Node tests for state, lifecycle, materials, loaders, diagnostics, and disposal.
 
 ## Query Overrides
@@ -135,16 +138,43 @@ Useful runtime flags:
 - `lowMemoryBase=1`
 - `baseTextureCap=2048`
 - `bloom=0`
+- `vr=1`
+- `novr=1`
+- `safe=1`
+- `baseOnly=1`
+- `xrQuality=stable|avp|sharp`
+- `xrScale=0.5`
+- `xrFoveation=1`
 
 ## Interaction
 
 - Desktop: click to lock pointer, `WASD` move, `Shift` boost, wheel speed, `Shift` + wheel FOV, `Q` / `E` camera height.
 - Mobile: left joystick moves, right pad looks, boost button accelerates.
+- VR: immersive WebXR session with teleport locomotion and headset-tracked look.
 - `M` toggles the drawer.
 - `H` toggles help.
 - `Esc` closes overlays or releases pointer lock.
 
 Default locomotion mode is `walk`. If `collision.glb` is present, walk mode uses collision-aware movement.
+
+## VR / WebXR
+
+The same app URL now serves both the normal desktop viewer and the VR-capable runtime.
+
+- Normal desktop / laptop browsers stay on the standard web pipeline.
+- VR mode is available through WebXR on supported devices.
+- VR-safe runtime settings auto-enable only when immersive VR support is detected, or when forced with `?vr=1`.
+- `?novr=1` forces the normal non-VR path even on XR-capable devices.
+- Current VR locomotion is teleport-first. Small real-world headset motion works, but larger room-scale movement limits are platform-controlled.
+
+Current validated target:
+
+- Apple Vision Pro in Safari
+
+Notes:
+
+- Firefox should not be treated as the primary VR target for this project.
+- Entering immersive mode on headset browsers can still be sensitive to device memory pressure and browser session state.
 
 ## Debug Workflow
 
