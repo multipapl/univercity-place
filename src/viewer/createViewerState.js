@@ -21,6 +21,7 @@ export function createViewerState({
     lowMemoryBaseMipmaps: initialRuntimeOptimizationState.lowMemoryBaseMipmaps,
     baseTextureMaxSize: initialRuntimeOptimizationState.baseTextureMaxSize,
     renderScale: initialRuntimeOptimizationState.renderScale ?? 1.0,
+    freeOriginalTextures: initialRuntimeOptimizationState.freeOriginalTextures ?? false,
   };
   const colorPipelineState = {
     toneMapping: "none",

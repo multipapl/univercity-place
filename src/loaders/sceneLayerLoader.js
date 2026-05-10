@@ -2,6 +2,8 @@ import { LinearFilter, Quaternion, SRGBColorSpace, Vector3, VideoTexture } from 
 import { resolveAssetContract, resolveSceneLayers } from "./assetResolver.js";
 import { disposeObjectTree } from "../utils/threeDisposal.js";
 
+const REFLECTION_LAYER_MATERIAL_MODES = new Set(["glass", "reflect", "windows"]);
+
 function logLayerMaterials(root, layer, enabled) {
   if (!enabled) {
     return;
@@ -79,6 +81,11 @@ export function createSceneLayerLoader({
   positionCameraAtSpawn,
   applyCameraSettings,
   setLoadingScreenVisible,
+  disableFireVideoTextures = false,
+  requiredLayersOnly = false,
+  disableProbeLoad = false,
+  excludeLayerIds = [],
+  includeLayerIds = [],
   onLayersLoaded,
   isTouchDevice,
   isWalkMode,
@@ -202,12 +209,21 @@ export function createSceneLayerLoader({
     });
   }
 
+  const excludedLayerIdSet = new Set(excludeLayerIds);
+  const includedLayerIdSet = includeLayerIds.length > 0
+    ? new Set(includeLayerIds)
+    : null;
+
+  function layerNeedsReflectionEnvironment(layer) {
+    return REFLECTION_LAYER_MATERIAL_MODES.has(layer?.materialMode);
+  }
+
   function shouldBypassImageBitmapForGltf() {
     if (typeof navigator === "undefined" || typeof globalThis.createImageBitmap !== "function") {
       return false;
     }
 
-    return navigator.userAgent.includes("Firefox");
+    return true;
   }
 
   async function loadGltfScene(url) {
@@ -413,7 +429,7 @@ export function createSceneLayerLoader({
         }
       });
 
-      if (layer.runtime?.applyFireVideoTexture) {
+      if (layer.runtime?.applyFireVideoTexture && !disableFireVideoTextures) {
         if (fxState.videoTexture) {
           applyFxRuntimeAssets(root, fxState.videoTexture);
         } else {
@@ -577,21 +593,31 @@ export function createSceneLayerLoader({
       disposeFireVideoResources();
       fxState.activeLoadToken = loadToken;
       clearFallbackScene();
-      await loadProbesGlb({
-        viewerConfig,
-        searchParams,
-        assetQuery,
-        gltfLoader: loadGltfScene,
-        probeEnvironmentManager,
-        updateStatus,
-      });
-      if (!probeEnvironmentManager?.hasProbes()) {
-        await ensureReflectionEnvironment();
-      }
-      const layers = resolveSceneLayers(viewerConfig.sceneLayers, searchParams, assetQuery);
+      const resolvedLayers = resolveSceneLayers(viewerConfig.sceneLayers, searchParams, assetQuery);
+      const filteredLayers = requiredLayersOnly
+        ? resolvedLayers.filter((layer) => layer.required)
+        : resolvedLayers.filter((layer) => !excludedLayerIdSet.has(layer.id));
+      const layers = includedLayerIdSet
+        ? filteredLayers.filter((layer) => includedLayerIdSet.has(layer.id))
+        : filteredLayers;
       if (!layers?.length) {
         addFallbackScene();
         return;
+      }
+
+      const needsReflectionEnvironment = layers.some(layerNeedsReflectionEnvironment);
+      if (!disableProbeLoad && needsReflectionEnvironment) {
+        await loadProbesGlb({
+          viewerConfig,
+          searchParams,
+          assetQuery,
+          gltfLoader: loadGltfScene,
+          probeEnvironmentManager,
+          updateStatus,
+        });
+      }
+      if (needsReflectionEnvironment && !probeEnvironmentManager?.hasProbes()) {
+        await ensureReflectionEnvironment();
       }
 
       const requiredLayers = layers.filter((layer) => layer.required);

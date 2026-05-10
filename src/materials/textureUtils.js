@@ -81,7 +81,7 @@ export function createTextureUtils({
     };
   }
 
-  function applyTextureSizeCap(texture, maxSize = 0) {
+  function applyTextureSizeCap(texture, maxSize = 0, { freeOriginal = false } = {}) {
     if (!texture) {
       return texture;
     }
@@ -92,7 +92,7 @@ export function createTextureUtils({
       return texture;
     }
 
-    if (!textureUserData.viewerOriginalImage) {
+    if (!freeOriginal && !textureUserData.viewerOriginalImage) {
       textureUserData.viewerOriginalImage = sourceImage;
     }
 
@@ -136,6 +136,11 @@ export function createTextureUtils({
     cappedContext.drawImage(sourceImage, 0, 0, nextWidth, nextHeight);
     texture.image = cappedCanvas;
     texture.needsUpdate = true;
+    if (freeOriginal) {
+      delete textureUserData.viewerOriginalImage;
+      delete textureUserData.viewerCappedCanvas;
+      delete textureUserData.viewerCappedContext;
+    }
     return texture;
   }
 
@@ -161,7 +166,9 @@ export function createTextureUtils({
 
     texture.userData.viewerBakedTextureTuning = mergedTuning;
 
-    applyTextureSizeCap(texture, viewerConfig.runtimeOptimization.baseTextureMaxSize);
+    applyTextureSizeCap(texture, viewerConfig.runtimeOptimization.baseTextureMaxSize, {
+      freeOriginal: Boolean(viewerConfig.runtimeOptimization.freeOriginalTextures),
+    });
 
     if (viewerConfig.runtimeOptimization.lowMemoryBaseMipmaps) {
       texture.generateMipmaps = false;

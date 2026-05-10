@@ -179,3 +179,288 @@ test("createSceneLayerLoader does not block scene readiness on deferred fire vid
     globalThis.document = originalDocument;
   }
 });
+
+test("createSceneLayerLoader skips excluded optional layers", async () => {
+  const diagnosticsState = {
+    loadedLayers: [],
+  };
+  const loadedUrls = [];
+
+  const loader = createSceneLayerLoader({
+    viewerConfig: {
+      assets: {
+        probes: { url: "" },
+        fireVideo: { url: "/assets/scene/fire.mp4" },
+      },
+      sceneLayers: [
+        {
+          id: "base",
+          label: "Base",
+          url: "/assets/scene/scene.glb",
+          required: true,
+          materialMode: "baked",
+          runtime: {
+            preferAsSpawnRoot: true,
+          },
+        },
+        {
+          id: "glass",
+          label: "Glass",
+          url: "/assets/scene/glass.glb",
+          required: false,
+          materialMode: "glass",
+        },
+        {
+          id: "emissive",
+          label: "Emissive",
+          url: "/assets/scene/emissive.glb",
+          required: false,
+          materialMode: "emissive",
+        },
+      ],
+      debug: {
+        logMaterialTargets: false,
+      },
+      materialPresets: {
+        fxUvChannels: {
+          color: 0,
+        },
+      },
+    },
+    searchParams: new URLSearchParams(),
+    gltfLoader: {
+      loadAsync: async (url) => {
+        loadedUrls.push(url);
+        return { scene: new Group() };
+      },
+    },
+    sceneRoots: new Group(),
+    backgroundRoots: new Set(),
+    diagnosticsState,
+    ensureReflectionEnvironment: async () => {},
+    convertMeshForLayer() {},
+    matchesFireVideoTarget() {
+      return false;
+    },
+    getFallbackTextureChannel() {
+      return 0;
+    },
+    applyTextureChannelOverride() {},
+    applyFireVideoMaterialPatch() {},
+    updateStatus() {},
+    addFallbackScene() {},
+    renderLayerControls() {},
+    clearFallbackScene() {},
+    applyBackgroundColorSettings() {},
+    applyFireColorSettings() {},
+    applyReflectMaterialSettings() {},
+    applyRuntimeTextureOptimizations() {},
+    updatePerformanceDiagnostics() {},
+    positionCameraAtSpawn() {},
+    applyCameraSettings() {},
+    setLoadingScreenVisible() {},
+    excludeLayerIds: ["glass"],
+    onLayersLoaded() {},
+    isTouchDevice: false,
+    isWalkMode: true,
+  });
+
+  await loader.loadSceneLayers();
+
+  assert.deepEqual(loadedUrls, [
+    "/assets/scene/scene.glb",
+    "/assets/scene/emissive.glb",
+  ]);
+  assert.equal(diagnosticsState.loadedLayers.length, 2);
+});
+
+test("createSceneLayerLoader skips reflection environment setup for baked-only loads", async () => {
+  const diagnosticsState = {
+    loadedLayers: [],
+  };
+  let ensureReflectionCalls = 0;
+  let probeLoadAttempts = 0;
+
+  const loader = createSceneLayerLoader({
+    viewerConfig: {
+      assets: {
+        probes: { url: "/assets/scene/probes.glb" },
+        fireVideo: { url: "/assets/scene/fire.mp4" },
+      },
+      sceneLayers: [
+        {
+          id: "base",
+          label: "Base",
+          url: "/assets/scene/scene.glb",
+          required: true,
+          materialMode: "baked",
+          runtime: {
+            preferAsSpawnRoot: true,
+          },
+        },
+        {
+          id: "glass",
+          label: "Glass",
+          url: "/assets/scene/glass.glb",
+          required: false,
+          materialMode: "glass",
+        },
+      ],
+      debug: {
+        logMaterialTargets: false,
+      },
+      materialPresets: {
+        fxUvChannels: {
+          color: 0,
+        },
+      },
+    },
+    searchParams: new URLSearchParams(),
+    gltfLoader: {
+      loadAsync: async (url) => {
+        if (url.includes("probes")) {
+          probeLoadAttempts += 1;
+        }
+        return { scene: new Group() };
+      },
+    },
+    sceneRoots: new Group(),
+    backgroundRoots: new Set(),
+    diagnosticsState,
+    ensureReflectionEnvironment: async () => {
+      ensureReflectionCalls += 1;
+    },
+    convertMeshForLayer() {},
+    matchesFireVideoTarget() {
+      return false;
+    },
+    getFallbackTextureChannel() {
+      return 0;
+    },
+    applyTextureChannelOverride() {},
+    applyFireVideoMaterialPatch() {},
+    updateStatus() {},
+    addFallbackScene() {},
+    renderLayerControls() {},
+    clearFallbackScene() {},
+    applyBackgroundColorSettings() {},
+    applyFireColorSettings() {},
+    applyReflectMaterialSettings() {},
+    applyRuntimeTextureOptimizations() {},
+    updatePerformanceDiagnostics() {},
+    positionCameraAtSpawn() {},
+    applyCameraSettings() {},
+    setLoadingScreenVisible() {},
+    requiredLayersOnly: true,
+    disableProbeLoad: false,
+    probeEnvironmentManager: {
+      hasProbes() {
+        return false;
+      },
+      loadProbesFromGltf() {},
+    },
+    onLayersLoaded() {},
+    isTouchDevice: false,
+    isWalkMode: true,
+  });
+
+  await loader.loadSceneLayers();
+
+  assert.equal(ensureReflectionCalls, 0);
+  assert.equal(probeLoadAttempts, 0);
+  assert.equal(diagnosticsState.loadedLayers.length, 1);
+});
+
+test("createSceneLayerLoader can eagerly load an explicit included optional layer", async () => {
+  const diagnosticsState = {
+    loadedLayers: [],
+  };
+  const loadedUrls = [];
+
+  const loader = createSceneLayerLoader({
+    viewerConfig: {
+      assets: {
+        probes: { url: "/assets/scene/probes.glb" },
+        fireVideo: { url: "/assets/scene/fire.mp4" },
+      },
+      sceneLayers: [
+        {
+          id: "base",
+          label: "Base",
+          url: "/assets/scene/scene.glb",
+          required: true,
+          materialMode: "baked",
+          runtime: {
+            preferAsSpawnRoot: true,
+          },
+        },
+        {
+          id: "reflect",
+          label: "Reflect",
+          url: "/assets/scene/reflect.glb",
+          required: false,
+          materialMode: "reflect",
+        },
+        {
+          id: "glass",
+          label: "Glass",
+          url: "/assets/scene/glass.glb",
+          required: false,
+          materialMode: "glass",
+        },
+      ],
+      debug: {
+        logMaterialTargets: false,
+      },
+      materialPresets: {
+        fxUvChannels: {
+          color: 0,
+        },
+      },
+    },
+    searchParams: new URLSearchParams(),
+    gltfLoader: {
+      loadAsync: async (url) => {
+        loadedUrls.push(url);
+        return { scene: new Group() };
+      },
+    },
+    sceneRoots: new Group(),
+    backgroundRoots: new Set(),
+    diagnosticsState,
+    ensureReflectionEnvironment: async () => {},
+    convertMeshForLayer() {},
+    matchesFireVideoTarget() {
+      return false;
+    },
+    getFallbackTextureChannel() {
+      return 0;
+    },
+    applyTextureChannelOverride() {},
+    applyFireVideoMaterialPatch() {},
+    updateStatus() {},
+    addFallbackScene() {},
+    renderLayerControls() {},
+    clearFallbackScene() {},
+    applyBackgroundColorSettings() {},
+    applyFireColorSettings() {},
+    applyReflectMaterialSettings() {},
+    applyRuntimeTextureOptimizations() {},
+    updatePerformanceDiagnostics() {},
+    positionCameraAtSpawn() {},
+    applyCameraSettings() {},
+    setLoadingScreenVisible() {},
+    includeLayerIds: ["base", "reflect"],
+    onLayersLoaded() {},
+    isTouchDevice: false,
+    isWalkMode: true,
+  });
+
+  await loader.loadSceneLayers();
+
+  assert.deepEqual(loadedUrls, [
+    "/assets/scene/scene.glb",
+    "/assets/scene/reflect.glb",
+  ]);
+  assert.equal(diagnosticsState.loadedLayers.length, 2);
+});

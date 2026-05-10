@@ -1,4 +1,14 @@
-import { CanvasTexture, DoubleSide, Euler, MeshPhysicalMaterial, RepeatWrapping, Vector2, Vector3 } from "three";
+import {
+  CanvasTexture,
+  Color,
+  DoubleSide,
+  Euler,
+  MeshPhysicalMaterial,
+  RepeatWrapping,
+  Vector2,
+  Vector3,
+} from "three";
+import { makeSafeGlassLikeMaterial } from "./makeSafeGlassLikeMaterial.js";
 
 // Procedural bump for glass test — remove when real textures are ready
 let _sharedBumpTexture = null;
@@ -41,6 +51,7 @@ export function makeGlassMaterial({
   applyTextureChannelOverride,
   stampViewerMaterialData,
   applyViewerMaterialPatches,
+  materialSafetyProfile = {},
 }) {
   const source = sourceMaterial ?? {};
   const map = getMaterialTexture(source);
@@ -58,6 +69,26 @@ export function makeGlassMaterial({
   applyTextureChannelOverride(map, colorChannel);
   applyTextureChannelOverride(normalMap, normalChannel);
   applyTextureChannelOverride(roughnessMap, roughnessChannel);
+
+  if (materialSafetyProfile.useCheapGlassMaterial) {
+    return makeSafeGlassLikeMaterial({
+      name: "SafeGlassMaterial",
+      sourceMaterial,
+      mesh,
+      reflectionEnvironment,
+      tint: getMaterialTint(source, hasTexture).multiply(new Color(0.92, 0.96, 1)),
+      map,
+      opacity: 0.18,
+      stampViewerMaterialData,
+      applyViewerMaterialPatches,
+      tweak,
+      viewerUvChannels: {
+        color: map?.channel ?? colorChannel ?? null,
+        roughness: null,
+        normal: null,
+      },
+    });
+  }
 
   const material = new MeshPhysicalMaterial({
     name: source.name || "GlassMaterial",

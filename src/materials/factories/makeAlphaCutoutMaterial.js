@@ -13,6 +13,7 @@ export function makeAlphaCutoutMaterial({
   tuneFoliageTexture,
   stampViewerMaterialData,
   applyViewerMaterialPatches,
+  setMaterialCompileHook = null,
   applyTranslucencyPatch = null,
   translucencyConfig = null,
   translucencySunDirection = null,
@@ -76,6 +77,19 @@ export function makeAlphaCutoutMaterial({
       hueDegrees: translucencyConfig.hueDegrees,
       saturationBoost: translucencyConfig.saturationBoost,
       brightnessBoost: translucencyConfig.brightnessBoost,
+    });
+  }
+
+  if (setMaterialCompileHook && material.alphaTest > 0) {
+    setMaterialCompileHook(material, "alphaAntialiasing", (shader) => {
+      shader.fragmentShader = shader.fragmentShader.replace(
+        "#include <alphatest_fragment>",
+        `#ifdef USE_ALPHATEST
+  float viewerAlphaGrad = fwidth(diffuseColor.a);
+  diffuseColor.a = clamp((diffuseColor.a - alphaTest) / max(viewerAlphaGrad, 1e-4) + 0.5, 0.0, 1.0);
+  if (diffuseColor.a < 0.001) discard;
+#endif`,
+      );
     });
   }
 

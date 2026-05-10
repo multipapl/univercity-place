@@ -23,6 +23,7 @@ export function createMaterialPipeline({
   fireState,
   reflectionState,
   reflectionEnvironment,
+  materialSafetyProfile = {},
 }) {
   const disposedSourceMaterials = new WeakSet();
 
@@ -155,6 +156,19 @@ export function createMaterialPipeline({
       : (source.color ? source.color.clone() : new Color(0xffffff));
   }
 
+  function isTransparentLikeSourceMaterial(source) {
+    if (!source?.isMaterial) {
+      return false;
+    }
+
+    return Boolean(
+      source.transparent
+      || (typeof source.opacity === "number" && source.opacity < 0.999)
+      || source.alphaMap
+      || (typeof source.alphaTest === "number" && source.alphaTest > 0)
+    );
+  }
+
   function looksLikeAdditiveFx(mesh, source) {
     const label = `${mesh?.name ?? ""} ${source?.name ?? ""}`.toLowerCase();
     return ["fire", "flame", "glow", "ember"].some((token) => label.includes(token));
@@ -231,6 +245,7 @@ export function createMaterialPipeline({
           tuneFoliageTexture,
           stampViewerMaterialData,
           applyViewerMaterialPatches,
+          setMaterialCompileHook,
           applyTranslucencyPatch,
           translucencyConfig: viewerConfig.materialPresets.translucency,
           translucencySunDirection: translucencyState.sunDirection,
@@ -251,6 +266,7 @@ export function createMaterialPipeline({
           applyTextureChannelOverride,
           stampViewerMaterialData,
           applyViewerMaterialPatches,
+          materialSafetyProfile,
         });
       case "reflect":
         return makeReflectMaterial({
@@ -280,8 +296,11 @@ export function createMaterialPipeline({
           sourceMaterial,
           mesh,
           findMaterialTweak,
+          getMaterialTexture,
+          getMaterialTint,
           stampViewerMaterialData,
           applyViewerMaterialPatches,
+          materialSafetyProfile,
         });
       case "emissive":
         return makeEmissiveMaterial({
@@ -332,6 +351,19 @@ export function createMaterialPipeline({
   }
 
   function convertMeshForLayer(mesh, materialMode) {
+    const sourceMaterials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+
+    if (
+      materialMode === "baked"
+      && materialSafetyProfile.hideTransparentBakedMeshes
+      && sourceMaterials.some(isTransparentLikeSourceMaterial)
+    ) {
+      mesh.visible = false;
+      mesh.castShadow = false;
+      mesh.receiveShadow = false;
+      return;
+    }
+
     if (materialMode === "collision") {
       mesh.visible = false;
       mesh.castShadow = false;
@@ -341,10 +373,10 @@ export function createMaterialPipeline({
       return;
     }
 
-    const sourceMaterials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
     const nextMaterials = sourceMaterials.map((material) => makeViewerMaterial(material, mesh, materialMode));
 
     mesh.material = Array.isArray(mesh.material) ? nextMaterials : nextMaterials[0];
+    mesh.visible = true;
     sourceMaterials.forEach(disposeSourceMaterial);
 
     mesh.castShadow = false;
