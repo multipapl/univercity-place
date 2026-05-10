@@ -1,4 +1,5 @@
 import { DoubleSide, Euler, MeshPhysicalMaterial, Vector3 } from "three";
+import { makeSafeGlassLikeMaterial } from "./makeSafeGlassLikeMaterial.js";
 
 export function makeWindowsMaterial({
   viewerConfig,
@@ -7,12 +8,30 @@ export function makeWindowsMaterial({
   sourceMaterial,
   mesh,
   findMaterialTweak,
+  getMaterialTexture,
+  getMaterialTint,
   stampViewerMaterialData,
   applyViewerMaterialPatches,
+  materialSafetyProfile = {},
 }) {
   const source = sourceMaterial ?? {};
   const tweak = findMaterialTweak(mesh, source);
   const windowsPreset = viewerConfig.materialPresets.windowsMaterial;
+
+  if (materialSafetyProfile.useCheapGlassMaterial) {
+    return makeSafeGlassLikeMaterial({
+      name: "SafeWindowsMaterial",
+      sourceMaterial,
+      mesh,
+      reflectionEnvironment,
+      tint: getMaterialTint(source, Boolean(source.map)),
+      map: getMaterialTexture(source),
+      opacity: 0.22,
+      stampViewerMaterialData,
+      applyViewerMaterialPatches,
+      tweak,
+    });
+  }
 
   const material = new MeshPhysicalMaterial({
     name: source.name || "WindowsMaterial",

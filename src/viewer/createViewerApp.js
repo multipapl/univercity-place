@@ -46,6 +46,7 @@ import { createMenuController } from "../ui/menuController.js";
 import { createViewerShell } from "../ui/createViewerShell.js";
 import { createDebugInspectorUi } from "../ui/viewerDomRefs.js";
 import { disposeObjectTree } from "../utils/threeDisposal.js";
+import { resolveVrRuntimeConfig } from "../vr/resolveVrRuntimeConfig.js";
 import { createLayerControls } from "./createLayerControls.js";
 import { createViewerLifecycle } from "./createViewerLifecycle.js";
 import { createViewerState } from "./createViewerState.js";
@@ -91,6 +92,10 @@ function createComposedViewerRuntime({ app }) {
 const isTouchDevice = window.matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
 const isWalkMode = VIEWER_CONFIG.locomotion.mode === "walk";
 const searchParams = new URLSearchParams(window.location.search);
+const vrRuntimeConfig = resolveVrRuntimeConfig({
+  viewerConfig: VIEWER_CONFIG,
+  searchParams,
+});
 let debugMode = parseBooleanFlag(searchParams.get("debug")) ?? false;
 
 const {
@@ -200,10 +205,13 @@ const {
   boostButton,
 } = refs;
 
-const renderer = new WebGLRenderer({ antialias: true });
+const renderer = new WebGLRenderer({
+  antialias: vrRuntimeConfig.renderer.antialias,
+  powerPreference: "high-performance",
+});
 const initialViewportWidth = viewport.clientWidth || window.innerWidth;
 const initialViewportHeight = viewport.clientHeight || window.innerHeight;
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, vrRuntimeConfig.renderer.pixelRatioCap));
 renderer.setSize(initialViewportWidth, initialViewportHeight);
 renderer.outputColorSpace = SRGBColorSpace;
 renderer.shadowMap.enabled = false;
@@ -269,6 +277,8 @@ const bloomQueryValue = parseBooleanFlag(
 );
 if (bloomQueryValue !== null) {
   selectiveBloomConfig.enabled = bloomQueryValue;
+} else if (vrRuntimeConfig.postProcessing.disableSelectiveBloom) {
+  selectiveBloomConfig.enabled = false;
 } else if (selectiveBloomConfig.autoDisableOnLowEndDevices && isLikelyLowEndBloomDevice()) {
   selectiveBloomConfig.enabled = false;
 }
@@ -314,11 +324,14 @@ const state = createViewerState({
   baseViewerConfig: VIEWER_CONFIG,
   initialRuntimeOptimizationState: {
     lowMemoryBaseMipmaps: parseBooleanFlag(searchParams.get("lowMemoryBase"))
+      ?? vrRuntimeConfig.runtimeOptimization.lowMemoryBaseMipmaps
       ?? getStoredLowMemoryBaseMode()
       ?? VIEWER_CONFIG.runtimeOptimization.lowMemoryBaseMipmaps,
     baseTextureMaxSize: parseNonNegativeInteger(searchParams.get("baseTextureCap"))
+      ?? vrRuntimeConfig.runtimeOptimization.baseTextureMaxSize
       ?? getStoredBaseTextureCap()
       ?? VIEWER_CONFIG.runtimeOptimization.baseTextureMaxSize,
+    freeOriginalTextures: vrRuntimeConfig.runtimeOptimization.freeOriginalTextures ?? false,
   },
 });
 const {
@@ -332,7 +345,6 @@ const {
   skyState,
   fireState,
   reflectionState,
-  viewerLifecycle,
   helpOverlayState,
   controlDockState,
 } = state;
@@ -565,6 +577,7 @@ const materialPipeline = createMaterialPipeline({
   fireState,
   reflectionState,
   reflectionEnvironment,
+  materialSafetyProfile: vrRuntimeConfig.materialSafetyProfile,
 });
 const performanceDiagnostics = createPerformanceDiagnostics({
   enabled: true,
@@ -587,6 +600,7 @@ const updatePerformanceDiagnostics = () => {
   performanceDiagnostics.update();
 };
 let viewerLifecycleController = null;
+let vrIntegration = null;
 const requestSceneRender = () => {
   viewerLifecycleController?.requestRender();
 };
@@ -596,6 +610,10 @@ const getDocumentHasFocus = () => (
     : true
 );
 const getRenderMode = () => {
+  if (vrIntegration?.isPresenting()) {
+    return "background";
+  }
+
   if (document.hidden || !getDocumentHasFocus()) {
     return "background";
   }
@@ -634,6 +652,7 @@ const navigationController = createNavigationController({
   boostButton,
   isTouchDevice,
   isWalkMode,
+  pixelRatioCap: vrRuntimeConfig.renderer.pixelRatioCap,
   viewerConfig,
   cameraMotionState,
   updateStatus,
@@ -1003,6 +1022,7 @@ const sceneLayerLoader = createSceneLayerLoader({
   positionCameraAtSpawn,
   applyCameraSettings: uiController.applyCameraSettings,
   setLoadingScreenVisible,
+  ...vrRuntimeConfig.sceneLoader,
   onLayersLoaded: (loadedLayers) => {
     selectiveBloomPipeline.syncTargets(loadedLayers, selectiveBloomConfig);
     debugObjectInspector.setLoadedLayers(loadedLayers);
@@ -1291,6 +1311,7 @@ viewerLifecycleController = createViewerLifecycle({
     reflectionEnvironment.dispose();
     selectiveBloomPipeline.dispose();
     reflectionPmremGenerator.dispose();
+    vrIntegration?.dispose();
     renderer.renderLists.dispose();
     renderer.dispose();
   },
@@ -1315,6 +1336,27 @@ viewerLifecycleController = createViewerLifecycle({
     const loadSceneLayersPromise = sceneLayerLoader.loadSceneLayers();
     viewerLifecycleController.start();
     await loadSceneLayersPromise;
+
+    if (vrRuntimeConfig.enabled) {
+      const { createVrRuntimeModule } = await import("../vr/createVrRuntimeModule.js");
+      vrIntegration = createVrRuntimeModule({
+        runtimeConfig: vrRuntimeConfig,
+        renderer,
+        viewport,
+        scene,
+        sceneRoots,
+        camera,
+        clock,
+        viewerLifecycleController,
+        navigationController,
+        sceneLayerLoader,
+        uiController,
+        cameraMotionState,
+      });
+      await vrIntegration.init().catch(() => {
+        // WebXR detection is optional; desktop mode continues to work.
+      });
+    }
   }
 
   function dispose() {

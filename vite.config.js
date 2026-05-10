@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import basicSsl from "@vitejs/plugin-basic-ssl";
 import { defineConfig } from "vite";
 
 const rootDirectory = path.dirname(fileURLToPath(import.meta.url));
@@ -111,6 +112,7 @@ function writableJsonPlugin({ route, filePath, publicPath }) {
 
 export default defineConfig({
   plugins: [
+    basicSsl(),
     debugSceneOverridesPlugin(),
     writableJsonPlugin({
       route: "/__debug/material-settings",
