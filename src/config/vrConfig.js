@@ -5,13 +5,13 @@ export const VR_CONFIG = {
   disableQueryParam: "novr",
   startupMode: "safe",
   baseOnly: false,
-  qualityPreset: "stable",
-  framebufferScaleFactor: 0.5,
+  qualityPreset: "avp",
+  framebufferScaleFactor: 1,
   foveation: 1,
   safeLayerProfile: {
     includeLayerIds: [],
     excludeLayerIds: [],
-    disableFireVideoTextures: true,
+    disableFireVideoTextures: false,
     disableProbeLoadWhenBaseOnly: true,
   },
   materialSafetyProfile: {

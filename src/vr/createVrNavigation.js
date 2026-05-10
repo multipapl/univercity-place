@@ -223,9 +223,8 @@ export function createVrNavigation({
   function onSessionSelectStart(event) {
     const ray = getPoseRayFromEvent(event);
     isSelecting = true;
-    if (rayLine) {
-      rayLine.visible = true;
-    }
+    // rayLine is attached to controller — not useful on AVP (no physical controllers).
+    // Only show the floor marker via updateTeleportTargetFromPose.
     if (!ray) {
       return;
     }
@@ -321,6 +320,23 @@ export function createVrNavigation({
   renderer.xr.addEventListener("sessionstart", handleSessionStart);
   renderer.xr.addEventListener("sessionend", handleSessionEnd);
 
+  function updateMarkerPulse(now) {
+    if (!markerPulseActive) {
+      return;
+    }
+
+    if (now < markerVisibleUntil) {
+      const progress = 1 - ((markerVisibleUntil - now) / TELEPORT_MARKER_HOLD_MS);
+      marker.scale.setScalar(1 + ((TELEPORT_MARKER_PULSE_SCALE - 1) * progress));
+      markerMaterial.opacity = Math.max(0.22, TELEPORT_MARKER_BASE_OPACITY * (1 - progress * 0.65));
+    } else {
+      marker.visible = false;
+      marker.scale.setScalar(1);
+      markerMaterial.opacity = TELEPORT_MARKER_BASE_OPACITY;
+      markerPulseActive = false;
+    }
+  }
+
   function update() {
     if (!initialized) {
       return;
@@ -328,14 +344,22 @@ export function createVrNavigation({
 
     const now = performance.now();
 
+    // When session events drive input (AVP), they handle intersection/marker
+    // directly. Only run post-teleport marker pulse animation here.
+    if (session) {
+      if (!isSelecting) {
+        updateMarkerPulse(now);
+      }
+      return;
+    }
+
+    // Controller-based path (non-AVP platforms with physical controllers)
     intersection = null;
 
     if (!isSelecting) {
       rayLine.visible = false;
-      if (marker.visible && markerPulseActive && now < markerVisibleUntil) {
-        const progress = 1 - ((markerVisibleUntil - now) / TELEPORT_MARKER_HOLD_MS);
-        marker.scale.setScalar(1 + ((TELEPORT_MARKER_PULSE_SCALE - 1) * progress));
-        markerMaterial.opacity = Math.max(0.22, TELEPORT_MARKER_BASE_OPACITY * (1 - progress * 0.65));
+      if (marker.visible && markerPulseActive) {
+        updateMarkerPulse(now);
       } else {
         marker.visible = false;
         marker.scale.setScalar(1);
