@@ -15,7 +15,7 @@ export const VR_CONFIG = {
     disableProbeLoadWhenBaseOnly: true,
   },
   materialSafetyProfile: {
-    hideTransparentBakedMeshes: false,
+    hideTransparentBakedMeshes: true,
     useCheapGlassMaterial: true,
   },
   session: {
