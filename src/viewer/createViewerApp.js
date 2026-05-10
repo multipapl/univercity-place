@@ -1360,6 +1360,7 @@ viewerLifecycleController = createViewerLifecycle({
 
   async function init() {
     await loadMaterialSettings();
+    await debugObjectInspector.loadOverrides();
     debugObjectInspector.setEnabled(debugMode);
     navigationController.syncLookStateFromCamera();
     uiController.applyViewportColorSettings();

@@ -571,10 +571,6 @@ export function createDebugObjectInspector({
   }
 
   async function loadOverrides() {
-    if (!state.enabled) {
-      return;
-    }
-
     try {
       const response = await fetch(getOverridesUrl(), { cache: "no-store" });
       if (!response.ok) {

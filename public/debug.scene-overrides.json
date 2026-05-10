@@ -1,4 +1,126 @@
 {
   "version": 1,
-  "targets": []
+  "targets": [
+    {
+      "layerId": "reflect",
+      "meshName": "LampLivingRoom_2KBaked",
+      "meshPath": "",
+      "materialName": "LampLivingRoom_2KBaked",
+      "materialSlot": 0,
+      "hue": 0,
+      "saturation": 0.74,
+      "value": 1.58,
+      "gamma": 1
+    },
+    {
+      "layerId": "reflect",
+      "meshName": "LampKitchen_2KBaked",
+      "meshPath": "",
+      "materialName": "LampKitchen_2KBaked",
+      "materialSlot": 0,
+      "hue": 0,
+      "saturation": 0.72,
+      "value": 1.8,
+      "gamma": 0.89
+    },
+    {
+      "layerId": "reflect",
+      "meshName": "FaucetMetal_1KBaked",
+      "meshPath": "",
+      "materialName": "FaucetMetal_1KBaked",
+      "materialSlot": 0,
+      "hue": 0,
+      "saturation": 0.66,
+      "value": 1.66,
+      "gamma": 1
+    },
+    {
+      "layerId": "reflect",
+      "meshName": "SinkMetal_Baked_2KBaked",
+      "meshPath": "",
+      "materialName": "SinkMetal_Baked_2KBaked",
+      "materialSlot": 0,
+      "hue": 0,
+      "saturation": 0.44,
+      "value": 1.74,
+      "gamma": 1
+    },
+    {
+      "layerId": "reflect",
+      "meshName": "FruitBowl_1KBaked",
+      "meshPath": "",
+      "materialName": "FruitBowl_1KBaked",
+      "materialSlot": 0,
+      "hue": 0,
+      "saturation": 1,
+      "value": 2.52,
+      "gamma": 1
+    },
+    {
+      "layerId": "base",
+      "meshName": "WoodenSeat_Baked",
+      "meshPath": "",
+      "materialName": "WoodenSeat_Baked",
+      "materialSlot": 0,
+      "hue": 0,
+      "saturation": 1,
+      "value": 1.84,
+      "gamma": 1
+    },
+    {
+      "layerId": "base",
+      "meshName": "ArmchairBase_Baked",
+      "meshPath": "",
+      "materialName": "ArmchairBase_Baked",
+      "materialSlot": 0,
+      "hue": 0,
+      "saturation": 1,
+      "value": 1.64,
+      "gamma": 1
+    },
+    {
+      "layerId": "reflect",
+      "meshName": "BTableDark_4KBaked",
+      "meshPath": "",
+      "materialName": "BTableDark_4KBaked",
+      "materialSlot": 0,
+      "hue": 0,
+      "saturation": 1,
+      "value": 1.42,
+      "gamma": 1
+    },
+    {
+      "layerId": "base",
+      "meshName": "SofaWood_Baked",
+      "meshPath": "",
+      "materialName": "SofaWood_Baked",
+      "materialSlot": 0,
+      "hue": 1,
+      "saturation": 0.88,
+      "value": 1,
+      "gamma": 1
+    },
+    {
+      "layerId": "base",
+      "meshName": "RugKitchen_Baked",
+      "meshPath": "",
+      "materialName": "RugKitchen_Baked",
+      "materialSlot": 0,
+      "hue": 0,
+      "saturation": 1,
+      "value": 1.28,
+      "gamma": 1
+    },
+    {
+      "layerId": "alpha",
+      "meshName": "LeafBouquetBaked",
+      "meshPath": "",
+      "materialName": "LeafBouquetBaked",
+      "materialSlot": 0,
+      "hue": 0,
+      "saturation": 0.98,
+      "value": 1.26,
+      "gamma": 1.17
+    }
+  ]
 }

@@ -3,20 +3,19 @@
   "background": {
     "hueDegrees": 1,
     "saturation": 1.03,
-    "value": 0.92,
-    "gamma": 2.25
+    "value": 1.25,
+    "gamma": 2.47
   },
   "sky": {
     "hueDegrees": 0,
-    "saturation": 0.77,
-    "value": 1.15,
-    "gamma": 3.27
+    "saturation": 0.88,
+    "value": 1.84,
+    "gamma": 2.67
   },
   "reflect": {
     "envMapIntensity": 0.95,
     "ior": 1.64,
     "specularIntensity": 1,
-    "metalness": 1,
     "probeRotationYDegrees": 90
   }
 }
