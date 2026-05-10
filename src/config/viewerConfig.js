@@ -13,6 +13,7 @@ import { DEBUG_CONFIG, RUNTIME_OPTIMIZATION_CONFIG } from "./diagnosticsConfig.j
 import { INTERFACE_CONFIG } from "./interfaceConfig.js";
 import { MATERIAL_PRESETS, MATERIAL_TWEAKS } from "./materialsConfig.js";
 import { COLOR_PIPELINE_CONFIG, POST_PROCESSING_CONFIG } from "./renderingConfig.js";
+import { VR_CONFIG } from "./vrConfig.js";
 
 export {
   DEFAULT_SCENE_FILE_URL,
@@ -36,4 +37,5 @@ export const VIEWER_CONFIG = {
   locomotion: LOCOMOTION_CONFIG,
   materialTweaks: MATERIAL_TWEAKS,
   materialPresets: MATERIAL_PRESETS,
+  vr: VR_CONFIG,
 };

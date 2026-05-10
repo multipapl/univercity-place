@@ -45,6 +45,7 @@ import { createMenuController } from "../ui/menuController.js";
 import { createViewerShell } from "../ui/createViewerShell.js";
 import { createDebugInspectorUi } from "../ui/viewerDomRefs.js";
 import { disposeObjectTree } from "../utils/threeDisposal.js";
+import { resolveVrRuntimeConfig } from "../vr/resolveVrRuntimeConfig.js";
 import { createLayerControls } from "./createLayerControls.js";
 import { createViewerLifecycle } from "./createViewerLifecycle.js";
 import { createViewerState } from "./createViewerState.js";
@@ -58,8 +59,17 @@ export function createViewerApp({ app: providedApp } = {}) {
       return;
     }
 
+    const searchParams = new URLSearchParams(window.location.search);
+    const xrSupported = await detectVrSessionSupport();
+    const vrRuntimeConfig = resolveVrRuntimeConfig({
+      viewerConfig: VIEWER_CONFIG,
+      searchParams,
+      xrSupported,
+    });
+
     runtime = createComposedViewerRuntime({
       app: providedApp ?? document.querySelector("#app"),
+      vrRuntimeConfig,
     });
 
     try {
@@ -82,7 +92,19 @@ export function createViewerApp({ app: providedApp } = {}) {
   };
 }
 
-function createComposedViewerRuntime({ app }) {
+async function detectVrSessionSupport() {
+  if (typeof navigator === "undefined" || !navigator.xr?.isSessionSupported) {
+    return false;
+  }
+
+  try {
+    return await navigator.xr.isSessionSupported("immersive-vr");
+  } catch {
+    return false;
+  }
+}
+
+function createComposedViewerRuntime({ app, vrRuntimeConfig: providedVrRuntimeConfig = null }) {
   if (!app) {
     throw new Error('Viewer root "#app" was not found.');
   }
@@ -90,6 +112,10 @@ function createComposedViewerRuntime({ app }) {
 const isTouchDevice = window.matchMedia("(pointer: coarse)").matches || "ontouchstart" in window;
 const isWalkMode = VIEWER_CONFIG.locomotion.mode === "walk";
 const searchParams = new URLSearchParams(window.location.search);
+const vrRuntimeConfig = providedVrRuntimeConfig ?? resolveVrRuntimeConfig({
+  viewerConfig: VIEWER_CONFIG,
+  searchParams,
+});
 let debugMode = parseBooleanFlag(searchParams.get("debug")) ?? false;
 const renderScaleQueryValue = Number.parseFloat(searchParams.get("renderScale") ?? "");
 const initialRenderScale = (
@@ -205,6 +231,42 @@ const {
   boostButton,
 } = refs;
 
+const useAntialias = vrRuntimeConfig.enabled
+  ? vrRuntimeConfig.renderer.antialias
+  : (initialRenderScale >= 1.0 && !selectiveBloomConfig.enabled);
+const pixelRatioCap = vrRuntimeConfig.renderer.pixelRatioCap ?? 2;
+const renderer = new WebGLRenderer({
+  antialias: useAntialias,
+  powerPreference: "high-performance",
+});
+const initialViewportWidth = viewport.clientWidth || window.innerWidth;
+const initialViewportHeight = viewport.clientHeight || window.innerHeight;
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, pixelRatioCap) * initialRenderScale);
+renderer.setSize(initialViewportWidth, initialViewportHeight);
+renderer.outputColorSpace = SRGBColorSpace;
+renderer.shadowMap.enabled = false;
+renderer.transmissionResolutionScale = initialRenderScale < 0.75 ? 0.25 : 0.5;
+viewport.prepend(renderer.domElement);
+const maxSupportedAnisotropy = renderer.capabilities.getMaxAnisotropy();
+
+const scene = new Scene();
+scene.background = new Color("#050816");
+const reflectionPmremGenerator = new PMREMGenerator(renderer);
+reflectionPmremGenerator.compileCubemapShader();
+const probeEnvironmentManager = createProbeEnvironmentManager({ pmremGenerator: reflectionPmremGenerator });
+const sceneRoots = new Group();
+scene.add(sceneRoots);
+
+const camera = new PerspectiveCamera(
+  VIEWER_CONFIG.camera.fov,
+  initialViewportWidth / initialViewportHeight,
+  0.1,
+  500,
+);
+camera.up.set(0, 1, 0);
+camera.position.set(0, 1.7, 4);
+
+const clock = new Clock();
 const BLOOM_SCENE_LAYER = VIEWER_CONFIG.postProcessing.selectiveBloom.layer;
 const selectiveBloomConfig = {
   ...VIEWER_CONFIG.postProcessing.selectiveBloom,
@@ -267,6 +329,8 @@ const bloomQueryValue = parseBooleanFlag(
 );
 if (bloomQueryValue !== null) {
   selectiveBloomConfig.enabled = bloomQueryValue;
+} else if (vrRuntimeConfig.postProcessing.disableSelectiveBloom) {
+  selectiveBloomConfig.enabled = false;
 } else if (selectiveBloomConfig.autoDisableOnLowEndDevices && isLikelyLowEndBloomDevice()) {
   selectiveBloomConfig.enabled = false;
 }
@@ -295,10 +359,14 @@ const state = createViewerState({
   baseViewerConfig: VIEWER_CONFIG,
   initialRuntimeOptimizationState: {
     lowMemoryBaseMipmaps: parseBooleanFlag(searchParams.get("lowMemoryBase"))
+      ?? vrRuntimeConfig.runtimeOptimization.lowMemoryBaseMipmaps
       ?? getStoredLowMemoryBaseMode()
       ?? VIEWER_CONFIG.runtimeOptimization.lowMemoryBaseMipmaps,
-    baseTextureMaxSize: 0,
     renderScale: initialRenderScale,
+    baseTextureMaxSize: parseNonNegativeInteger(searchParams.get("baseTextureCap"))
+      ?? vrRuntimeConfig.runtimeOptimization.baseTextureMaxSize
+      ?? VIEWER_CONFIG.runtimeOptimization.baseTextureMaxSize,
+    freeOriginalTextures: vrRuntimeConfig.runtimeOptimization.freeOriginalTextures ?? false,
   },
 });
 const {
@@ -313,45 +381,14 @@ const {
   skyState,
   fireState,
   reflectionState,
-  viewerLifecycle,
   helpOverlayState,
   controlDockState,
 } = state;
 
 function getEffectivePixelRatio() {
-  return Math.min(window.devicePixelRatio, 2) * runtimeOptimizationState.renderScale;
+  return Math.min(window.devicePixelRatio, pixelRatioCap) * runtimeOptimizationState.renderScale;
 }
 
-const useAntialias = initialRenderScale >= 1.0 && !selectiveBloomConfig.enabled;
-const renderer = new WebGLRenderer({ antialias: useAntialias });
-const initialViewportWidth = viewport.clientWidth || window.innerWidth;
-const initialViewportHeight = viewport.clientHeight || window.innerHeight;
-renderer.setPixelRatio(getEffectivePixelRatio());
-renderer.setSize(initialViewportWidth, initialViewportHeight);
-renderer.outputColorSpace = SRGBColorSpace;
-renderer.shadowMap.enabled = false;
-renderer.transmissionResolutionScale = initialRenderScale < 0.75 ? 0.25 : 0.5;
-viewport.prepend(renderer.domElement);
-const maxSupportedAnisotropy = renderer.capabilities.getMaxAnisotropy();
-
-const scene = new Scene();
-scene.background = new Color("#050816");
-const reflectionPmremGenerator = new PMREMGenerator(renderer);
-reflectionPmremGenerator.compileCubemapShader();
-const probeEnvironmentManager = createProbeEnvironmentManager({ pmremGenerator: reflectionPmremGenerator });
-const sceneRoots = new Group();
-scene.add(sceneRoots);
-
-const camera = new PerspectiveCamera(
-  VIEWER_CONFIG.camera.fov,
-  initialViewportWidth / initialViewportHeight,
-  0.1,
-  500,
-);
-camera.up.set(0, 1, 0);
-camera.position.set(0, 1.7, 4);
-
-const clock = new Clock();
 const selectiveBloomPipeline = createSelectiveBloomPipeline({
   renderer,
   scene,
@@ -604,6 +641,7 @@ const materialPipeline = createMaterialPipeline({
   fireState,
   reflectionState,
   reflectionEnvironment,
+  materialSafetyProfile: vrRuntimeConfig.materialSafetyProfile,
 });
 const performanceDiagnostics = createPerformanceDiagnostics({
   enabled: true,
@@ -627,6 +665,7 @@ const updatePerformanceDiagnostics = () => {
 };
 let viewerLifecycleController = null;
 let debugObjectInspector = null;
+let vrIntegration = null;
 const requestSceneRender = () => {
   viewerLifecycleController?.requestRender();
 };
@@ -636,6 +675,10 @@ const getDocumentHasFocus = () => (
     : true
 );
 const getRenderMode = () => {
+  if (vrIntegration?.isPresenting()) {
+    return "background";
+  }
+
   if (document.hidden || !getDocumentHasFocus()) {
     return "background";
   }
@@ -698,6 +741,7 @@ const navigationController = createNavigationController({
   boostButton,
   isTouchDevice,
   isWalkMode,
+  pixelRatioCap: vrRuntimeConfig.renderer.pixelRatioCap,
   viewerConfig,
   cameraMotionState,
   updateStatus,
@@ -1063,6 +1107,7 @@ const sceneLayerLoader = createSceneLayerLoader({
   positionCameraAtSpawn,
   applyCameraSettings: uiController.applyCameraSettings,
   setLoadingScreenVisible,
+  ...vrRuntimeConfig.sceneLoader,
   onLayersLoaded: (loadedLayers) => {
     selectiveBloomPipeline.syncTargets(loadedLayers, selectiveBloomConfig);
     debugObjectInspector.setLoadedLayers(loadedLayers);
@@ -1353,6 +1398,7 @@ viewerLifecycleController = createViewerLifecycle({
     reflectionEnvironment.dispose();
     selectiveBloomPipeline.dispose();
     reflectionPmremGenerator.dispose();
+    vrIntegration?.dispose();
     renderer.renderLists.dispose();
     renderer.dispose();
   },
@@ -1381,6 +1427,27 @@ viewerLifecycleController = createViewerLifecycle({
     const loadSceneLayersPromise = sceneLayerLoader.loadSceneLayers();
     viewerLifecycleController.start();
     await loadSceneLayersPromise;
+
+    if (vrRuntimeConfig.enabled) {
+      const { createVrRuntimeModule } = await import("../vr/createVrRuntimeModule.js");
+      vrIntegration = createVrRuntimeModule({
+        runtimeConfig: vrRuntimeConfig,
+        renderer,
+        viewport,
+        scene,
+        sceneRoots,
+        camera,
+        clock,
+        viewerLifecycleController,
+        navigationController,
+        sceneLayerLoader,
+        uiController,
+        cameraMotionState,
+      });
+      await vrIntegration.init().catch(() => {
+        // WebXR detection is optional; desktop mode continues to work.
+      });
+    }
   }
 
   function dispose() {
