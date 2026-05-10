@@ -19,6 +19,7 @@ export function createNavigationController({
   boostButton,
   isTouchDevice,
   isWalkMode,
+  pixelRatioCap = 2,
   viewerConfig,
   cameraMotionState,
   updateStatus,
@@ -405,7 +406,10 @@ export function createNavigationController({
     const { width, height } = getViewportDimensions();
     camera.aspect = width / height;
     camera.updateProjectionMatrix();
-    renderer.setPixelRatio(getEffectivePixelRatio());
+    const nextPixelRatio = typeof getEffectivePixelRatio === "function"
+      ? Math.min(getEffectivePixelRatio(), pixelRatioCap)
+      : Math.min(window.devicePixelRatio, pixelRatioCap);
+    renderer.setPixelRatio(nextPixelRatio);
     renderer.setSize(width, height);
   }
 

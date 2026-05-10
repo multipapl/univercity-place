@@ -1,7 +1,7 @@
 {
   "version": 1,
   "background": {
-    "hueDegrees": 1,
+    "hueDegrees": 0,
     "saturation": 1.03,
     "value": 1.22,
     "gamma": 2.47
